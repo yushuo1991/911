@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, TrendingDown, BarChart3, Download, RefreshCw } from 'lucide-react';
 import { TrackingData, StockPerformance } from '@/types/stock';
 import { 
+  formatDate,
   formatTradingDate, 
   getBoardClass, 
   getCategoryEmoji, 
