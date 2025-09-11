@@ -2,40 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-  }
-
-  * {
-    @apply border-gray-200;
-  }
-  
-  body {
-    @apply bg-gray-50 text-gray-900;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
-}
-
 @layer components {
   .card {
     @apply bg-white rounded-lg shadow-sm border border-gray-200;
   }
   
   .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors;
   }
   
   .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700 h-10 py-2 px-4;
+    @apply btn bg-blue-600 text-white hover:bg-blue-700 h-10 py-2 px-4;
   }
   
   .btn-secondary {
@@ -43,11 +20,11 @@
   }
   
   .performance-positive {
-    @apply bg-success-50 text-success-700 border border-success-200;
+    @apply bg-green-50 text-green-700 border border-green-200;
   }
   
   .performance-negative {
-    @apply bg-danger-50 text-danger-700 border border-danger-200;
+    @apply bg-red-50 text-red-700 border border-red-200;
   }
   
   .board-badge {
