@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200;
+  }
+  
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 h-10 py-2 px-4;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-gray-100 text-gray-900 hover:bg-gray-200 h-10 py-2 px-4;
+  }
+  
+  .performance-positive {
+    @apply bg-success-50 text-success-700 border border-success-200;
+  }
+  
+  .performance-negative {
+    @apply bg-danger-50 text-danger-700 border border-danger-200;
+  }
+  
+  .board-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .board-first {
+    @apply board-badge bg-blue-100 text-blue-800;
+  }
+  
+  .board-second {
+    @apply board-badge bg-orange-100 text-orange-800;
+  }
+  
+  .board-third {
+    @apply board-badge bg-green-100 text-green-800;
+  }
+  
+  .board-fourth {
+    @apply board-badge bg-red-100 text-red-800;
+  }
+  
+  .board-high {
+    @apply board-badge bg-purple-100 text-purple-800;
+  }
+}
