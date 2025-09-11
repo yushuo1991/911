@@ -35,6 +35,24 @@ export interface ApiResponse<T> {
 }
 
 export interface LimitUpApiResponse {
+  // 历史涨停复盘API的数据结构
+  PlateInfo?: Array<{
+    PlateID: string;
+    PlateName: string; // 板块名称（涨停原因）
+    PlateStockList?: Array<{
+      StockID: string;
+      StockName: string;
+      StockCode: string;
+      LimitType: string; // 板位类型
+      ChangeRatio: string; // 涨跌幅
+      Price: string; // 价格
+      Volume: string; // 成交量
+      Amount: string; // 成交额
+      [key: string]: any;
+    }>;
+    [key: string]: any;
+  }>;
+  // 原格式兼容
   List?: Array<{
     Count: string;
     TD: Array<{
@@ -42,18 +60,19 @@ export interface LimitUpApiResponse {
         StockID: string;
         StockName: string;
         Tips?: string;
-        ZSName?: string; // 可能的涨停原因字段
-        TDType?: string; // 可能的板位字段
-        [key: string]: any; // 允许其他未知字段
+        ZSName?: string;
+        TDType?: string;
+        [key: string]: any;
       }>;
-      ZSName?: string; // TD层级的涨停原因
-      TDType?: string; // TD层级的板位信息
+      ZSName?: string;
+      TDType?: string;
       [key: string]: any;
     }>;
-    ZSName?: string; // List层级的涨停原因
+    ZSName?: string;
     [key: string]: any;
   }>;
   data?: Stock[];
+  [key: string]: any;
 }
 
 export interface TushareResponse {

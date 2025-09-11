@@ -10,28 +10,35 @@ async function getLimitUpStocks(date: string): Promise<Stock[]> {
   try {
     console.log(`[API] 获取${date}的涨停个股数据`);
     
-    const url = 'https://apphq.longhuvip.com/w1/api/index.php';
-    const params = new URLSearchParams({
-      a: 'GetYTFP_BKHX',
-      apiv: 'w33',
-      c: 'FuPanLa',
-      PhoneOSNew: '1',
-      DeviceID: 'ffffffff-e91e-5efd-ffff-ffffa460846b',
-      VerSion: '5.11.0.6',
-      date: date.replace(/-/g, '')
+    const url = 'https://apphis.longhuvip.com/w1/api/index.php';
+    
+    // 构建POST请求数据
+    const formData = new URLSearchParams({
+      Date: date, // 使用YYYY-MM-DD格式
+      Index: '0',
+      PhoneOSNew: '2', 
+      VerSion: '5.21.0.1',
+      a: 'GetPlateInfo_w38',
+      apiv: 'w42',
+      c: 'HisLimitResumption',
+      st: '20'
     });
 
-    // 设置10秒超时
+    // 设置15秒超时
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const response = await fetch(`${url}?${params}`, {
-      method: 'GET',
+    const response = await fetch(url, {
+      method: 'POST',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Referer': 'https://www.longhuvip.com/',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+        'Accept': '*/*',
+        'User-Agent': 'lhb/5.21.1 (com.kaipanla.www; build:1; iOS 18.6.2) Alamofire/4.9.1',
+        'Accept-Language': 'zh-Hans-CN;q=1.0, en-CN;q=0.9',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive'
       },
+      body: formData,
       signal: controller.signal,
     });
 
@@ -42,20 +49,46 @@ async function getLimitUpStocks(date: string): Promise<Stock[]> {
     }
 
     const data: LimitUpApiResponse = await response.json();
+    console.log(`[API] 接收到数据:`, JSON.stringify(data, null, 2));
     
-    // 处理不同的API响应格式
+    // 处理历史涨停复盘API的数据格式
+    if (data.PlateInfo && Array.isArray(data.PlateInfo)) {
+      const stocks: Stock[] = [];
+      
+      data.PlateInfo.forEach(plate => {
+        if (plate.PlateStockList && Array.isArray(plate.PlateStockList)) {
+          plate.PlateStockList.forEach(stock => {
+            // 从板块信息中获取涨停原因，从股票信息中获取板位
+            const zsName = plate.PlateName || '未分类';
+            const tdType = stock.LimitType || '首板';
+            
+            stocks.push({
+              StockName: stock.StockName,
+              StockCode: stock.StockCode || stock.StockID,
+              ZSName: zsName,
+              TDType: tdType
+            });
+          });
+        }
+      });
+      
+      if (stocks.length > 0) {
+        console.log(`[API] 成功解析涨停复盘数据，${stocks.length}只股票`);
+        return stocks;
+      }
+    }
+    
+    // 兼容处理原有的数据格式
     if (data.data && Array.isArray(data.data)) {
-      console.log(`[API] 成功获取真实数据，${data.data.length}只股票`);
+      console.log(`[API] 成功获取直接数据，${data.data.length}只股票`);
       return data.data;
     } else if (data.List && Array.isArray(data.List)) {
-      // 处理龙虎榜API的另一种格式
       const stocks: Stock[] = [];
       data.List.forEach(list => {
         if (list.TD && Array.isArray(list.TD)) {
           list.TD.forEach(td => {
             if (td.Stock && Array.isArray(td.Stock)) {
               td.Stock.forEach(stock => {
-                // 尝试从各个层级获取涨停原因和板位信息
                 const zsName = stock.ZSName || td.ZSName || list.ZSName || '未分类';
                 const tdType = stock.TDType || td.TDType || '首板';
                 
@@ -72,7 +105,7 @@ async function getLimitUpStocks(date: string): Promise<Stock[]> {
       });
       
       if (stocks.length > 0) {
-        console.log(`[API] 成功解析真实数据，${stocks.length}只股票`);
+        console.log(`[API] 成功解析列表数据，${stocks.length}只股票`);
         return stocks;
       }
     }

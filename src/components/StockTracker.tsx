@@ -153,39 +153,70 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
 
         {/* 日期选择器 */}
         <div className="card p-6 mb-8">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-gray-500" />
-              <label className="text-sm font-medium text-gray-700">选择查询日期:</label>
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <label className="text-sm font-medium text-gray-700">选择查询日期:</label>
+              </div>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  max={getTodayString()}
+                />
+                {loading && (
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                  </div>
+                )}
+              </div>
             </div>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => handleDateChange(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              max={getTodayString()}
-            />
-            <button
-              onClick={handleQuery}
-              disabled={loading}
-              className="btn-primary flex items-center gap-2"
-            >
-              {loading ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <BarChart3 className="w-4 h-4" />
-              )}
-              {loading ? '查询中...' : '查询'}
-            </button>
-            {data && (
+            
+            <div className="flex items-center gap-3">
               <button
-                onClick={handleDownload}
-                className="btn-secondary flex items-center gap-2"
+                onClick={handleQuery}
+                disabled={loading}
+                className="btn-primary flex items-center gap-2 min-w-[100px]"
               >
-                <Download className="w-4 h-4" />
-                下载数据
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    查询中...
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 className="w-4 h-4" />
+                    手动刷新
+                  </>
+                )}
               </button>
-            )}
+              
+              {data && data.stats.total_stocks > 0 && (
+                <button
+                  onClick={handleDownload}
+                  className="btn-secondary flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  下载数据
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {/* 实时状态显示 */}
+          <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${loading ? 'bg-blue-500 animate-pulse' : error ? 'bg-red-500' : 'bg-green-500'}`}></div>
+              <span>
+                {loading ? '正在获取数据...' : error ? '数据获取失败' : '数据已更新'}
+              </span>
+            </div>
+            <div>
+              自动获取: 选择日期后自动查询
+            </div>
           </div>
         </div>
 
@@ -248,12 +279,27 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
             </div>
 
             {/* 表头说明 */}
-            <div className="card p-4 mb-6 bg-blue-50">
+            <div className="card p-4 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-400">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 text-sm font-medium text-gray-700">
-                <div>股票信息</div>
-                <div className="text-center lg:text-left">板位</div>
-                <div className="text-center">后续5日表现</div>
-                <div className="text-center lg:text-right">总收益</div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                  股票信息 (名称/代码)
+                </div>
+                <div className="text-center lg:text-left flex items-center justify-center lg:justify-start gap-2">
+                  <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                  板位 (按高到低排序)
+                </div>
+                <div className="text-center flex items-center justify-center gap-2">
+                  <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                  后续5日表现 (涨跌幅)
+                </div>
+                <div className="text-center lg:text-right flex items-center justify-center lg:justify-end gap-2">
+                  <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                  累计收益
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-gray-500 text-center">
+                💡 数据来源真实API，板位越高代表连续涨停天数越多
               </div>
             </div>
 
