@@ -43,13 +43,42 @@ export function getCategoryEmoji(category: string): string {
 }
 
 export function getPerformanceClass(value: number): string {
-  if (value > 0) {
-    return 'bg-red-500 text-white'; // 上涨用红色底色
-  } else if (value < 0) {
-    return 'bg-green-500 text-white'; // 下跌用绿色底色
-  } else {
-    return 'bg-gray-200 text-gray-700'; // 平盘用灰色底色
+  // 平盘
+  if (value === 0) {
+    return 'bg-gray-100 text-gray-600 border border-gray-200';
   }
+  
+  // 上涨区间 - 红色渐变
+  if (value > 0) {
+    if (value >= 9.5) {
+      return 'bg-red-600 text-white font-bold shadow-lg'; // 接近涨停，深红色
+    } else if (value >= 7) {
+      return 'bg-red-500 text-white font-semibold shadow-md'; // 大涨，红色
+    } else if (value >= 4) {
+      return 'bg-red-400 text-white font-medium shadow-sm'; // 中等上涨，中红色
+    } else if (value >= 2) {
+      return 'bg-red-300 text-red-900 font-medium'; // 小涨，浅红色
+    } else if (value > 0) {
+      return 'bg-red-100 text-red-700'; // 微涨，很浅的红色
+    }
+  }
+  
+  // 下跌区间 - 绿色渐变
+  if (value < 0) {
+    if (value <= -9.5) {
+      return 'bg-green-600 text-white font-bold shadow-lg'; // 接近跌停，深绿色
+    } else if (value <= -7) {
+      return 'bg-green-500 text-white font-semibold shadow-md'; // 大跌，绿色
+    } else if (value <= -4) {
+      return 'bg-green-400 text-white font-medium shadow-sm'; // 中等下跌，中绿色
+    } else if (value <= -2) {
+      return 'bg-green-300 text-green-900 font-medium'; // 小跌，浅绿色
+    } else if (value < 0) {
+      return 'bg-green-100 text-green-700'; // 微跌，很浅的绿色
+    }
+  }
+  
+  return 'bg-gray-100 text-gray-600'; // 默认
 }
 
 export function formatPercentage(value: number): string {
