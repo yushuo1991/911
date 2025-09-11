@@ -63,6 +63,10 @@ async function getLimitUpStocks(date: string): Promise<Stock[]> {
       date: date.replace(/-/g, '')
     });
 
+    // 设置10秒超时
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     const response = await fetch(`${url}?${params}`, {
       method: 'GET',
       headers: {
@@ -70,8 +74,10 @@ async function getLimitUpStocks(date: string): Promise<Stock[]> {
         'Accept': 'application/json',
         'Referer': 'https://www.longhuvip.com/',
       },
-      timeout: 10000,
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
