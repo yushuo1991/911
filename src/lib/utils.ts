@@ -43,7 +43,13 @@ export function getCategoryEmoji(category: string): string {
 }
 
 export function getPerformanceClass(value: number): string {
-  return value > 0 ? 'performance-positive' : 'performance-negative';
+  if (value > 0) {
+    return 'bg-red-500 text-white'; // 上涨用红色底色
+  } else if (value < 0) {
+    return 'bg-green-500 text-white'; // 下跌用绿色底色
+  } else {
+    return 'bg-gray-200 text-gray-700'; // 平盘用灰色底色
+  }
 }
 
 export function formatPercentage(value: number): string {

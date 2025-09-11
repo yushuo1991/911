@@ -91,7 +91,9 @@ async function tryGetLimitUpStocks(date: string): Promise<Stock[]> {
         const zsName = category.ZSName || '未分类';
         
         if (category.StockList && Array.isArray(category.StockList)) {
-          category.StockList.forEach((stockData: any[]) => {
+          // 逆序处理股票列表，让首板股票显示在最下面
+          const reversedStockList = [...category.StockList].reverse();
+          reversedStockList.forEach((stockData: any[]) => {
             // stockData是一个数组，索引说明：
             // [0]: 股票代码, [1]: 股票名称, [9]: 板位类型
             const stockCode = stockData[0];
@@ -155,15 +157,83 @@ async function tryGetLimitUpStocks(date: string): Promise<Stock[]> {
   }
 }
 
-async function getStockPerformance(stockCode: string, tradingDays: string[]): Promise<Record<string, number>> {
+// 转换股票代码格式为Tushare格式
+function convertStockCodeForTushare(stockCode: string): string {
+  // 股票代码格式转换：000001 -> 000001.SZ, 600000 -> 600000.SH
+  if (stockCode.startsWith('60') || stockCode.startsWith('68') || stockCode.startsWith('51')) {
+    return `${stockCode}.SH`; // 上交所
+  } else if (stockCode.startsWith('00') || stockCode.startsWith('30') || stockCode.startsWith('12')) {
+    return `${stockCode}.SZ`; // 深交所
+  } else if (stockCode.startsWith('43') || stockCode.startsWith('83') || stockCode.startsWith('87')) {
+    return `${stockCode}.BJ`; // 北交所
+  }
+  return `${stockCode}.SZ`; // 默认深交所
+}
+
+// 获取单只股票在指定日期的涨跌幅
+async function getTushareStockDaily(stockCode: string, tradeDate: string): Promise<number> {
   try {
-    // 这里应该调用Tushare API，但由于限制，我们使用模拟数据
-    console.log(`[API] 获取${stockCode}的表现数据 (使用模拟数据)`);
-    return generateMockPerformance(stockCode, tradingDays);
+    const tsCode = convertStockCodeForTushare(stockCode);
+    
+    const response = await fetch('https://api.tushare.pro', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        api_name: 'daily',
+        token: TUSHARE_TOKEN,
+        params: {
+          ts_code: tsCode,
+          trade_date: tradeDate
+        },
+        fields: 'ts_code,trade_date,pct_chg'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Tushare API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.code === 0 && data.data && data.data.items && data.data.items.length > 0) {
+      const pctChg = data.data.items[0][2]; // pct_chg字段
+      return parseFloat(pctChg) || 0;
+    }
+    
+    return 0; // 无数据时返回0
   } catch (error) {
-    console.log(`[API] 获取${stockCode}表现数据失败: ${error}`);
+    console.log(`[API] 获取${stockCode}在${tradeDate}的Tushare数据失败: ${error}`);
+    return 0;
+  }
+}
+
+async function getStockPerformance(stockCode: string, tradingDays: string[]): Promise<Record<string, number>> {
+  const performance: Record<string, number> = {};
+  
+  console.log(`[API] 获取${stockCode}的真实表现数据`);
+  
+  // 并行获取所有交易日的数据
+  const promises = tradingDays.map(async (day) => {
+    const pctChg = await getTushareStockDaily(stockCode, day);
+    return { day, pctChg };
+  });
+  
+  try {
+    const results = await Promise.all(promises);
+    results.forEach(({ day, pctChg }) => {
+      performance[day] = pctChg;
+    });
+    
+    console.log(`[API] 成功获取${stockCode}的真实数据:`, performance);
+  } catch (error) {
+    console.log(`[API] 获取${stockCode}真实数据失败，使用模拟数据: ${error}`);
+    // 如果获取真实数据失败，使用模拟数据作为后备
     return generateMockPerformance(stockCode, tradingDays);
   }
+  
+  return performance;
 }
 
 export async function GET(request: NextRequest) {
