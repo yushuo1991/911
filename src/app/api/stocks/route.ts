@@ -4,49 +4,7 @@ import { generateTradingDays, generateMockPerformance, sortStocksByBoard, calcul
 
 const TUSHARE_TOKEN = '2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211';
 
-// 模拟涨停数据生成函数
-function generateMockLimitUpData(date: string): Stock[] {
-  const dateHash = hashString(date) % 100;
-  
-  const baseStocks: Stock[] = [
-    { StockName: '科大讯飞', StockCode: '002230.SZ', ZSName: '人工智能', TDType: '首板' },
-    { StockName: '海康威视', StockCode: '002415.SZ', ZSName: '人工智能', TDType: '二板' },
-    { StockName: '汉王科技', StockCode: '002362.SZ', ZSName: '人工智能', TDType: '四板' },
-    { StockName: '比亚迪', StockCode: '002594.SZ', ZSName: '新能源汽车', TDType: '首板' },
-    { StockName: '宁德时代', StockCode: '300750.SZ', ZSName: '新能源汽车', TDType: '二板' },
-    { StockName: '小鹏汽车', StockCode: '09868.HK', ZSName: '新能源汽车', TDType: '三板' },
-    { StockName: '恒瑞医药', StockCode: '600276.SH', ZSName: '医药生物', TDType: '首板' },
-    { StockName: '迈瑞医疗', StockCode: '300760.SZ', ZSName: '医药生物', TDType: '二板' },
-    { StockName: '隆基绿能', StockCode: '601012.SH', ZSName: '光伏能源', TDType: '首板' },
-    { StockName: '通威股份', StockCode: '600438.SH', ZSName: '光伏能源', TDType: '三板' },
-    { StockName: '中芯国际', StockCode: '688981.SH', ZSName: '半导体', TDType: '首板' },
-    { StockName: '韦尔股份', StockCode: '603501.SH', ZSName: '半导体', TDType: '二板' },
-  ];
-  
-  // 根据日期选择不同的股票组合和板位
-  const selectedCount = 8 + (dateHash % 5); // 8-12只股票
-  const selectedStocks = baseStocks.slice(0, selectedCount);
-  
-  // 随机调整一些股票的板位
-  return selectedStocks.map((stock, index) => {
-    if ((dateHash + index) % 4 === 0) {
-      const boardTypes = ['首板', '二板', '三板', '四板', '五板'];
-      const randomBoard = boardTypes[Math.abs(dateHash + index) % boardTypes.length];
-      return { ...stock, TDType: randomBoard };
-    }
-    return stock;
-  });
-}
-
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash);
-}
+// 已删除模拟数据生成函数，系统仅使用真实数据
 
 async function getLimitUpStocks(date: string): Promise<Stock[]> {
   try {
@@ -100,8 +58,8 @@ async function getLimitUpStocks(date: string): Promise<Stock[]> {
                 stocks.push({
                   StockName: stock.StockName,
                   StockCode: stock.StockID,
-                  ZSName: '涨停原因', // 需要从其他地方获取
-                  TDType: '首板' // 需要从其他地方获取
+                  ZSName: stock.ZSName || '未分类', // 使用真实的涨停原因
+                  TDType: stock.TDType || '首板' // 使用真实的板位信息
                 });
               });
             }
@@ -118,8 +76,9 @@ async function getLimitUpStocks(date: string): Promise<Stock[]> {
     throw new Error('API返回数据格式异常');
     
   } catch (error) {
-    console.log(`[API] 获取真实数据失败: ${error}, 使用模拟数据`);
-    return generateMockLimitUpData(date);
+    console.log(`[API] 获取真实数据失败: ${error}`);
+    // 返回空数组而不是模拟数据，避免误导
+    return [];
   }
 }
 
@@ -152,10 +111,19 @@ export async function GET(request: NextRequest) {
     const limitUpStocks = await getLimitUpStocks(date);
     
     if (!limitUpStocks || limitUpStocks.length === 0) {
-      return NextResponse.json(
-        { success: false, error: '未找到涨停数据' },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        data: {
+          date,
+          trading_days: [],
+          categories: {},
+          stats: {
+            total_stocks: 0,
+            category_count: 0,
+            profit_ratio: 0
+          }
+        }
+      });
     }
 
     // 获取交易日

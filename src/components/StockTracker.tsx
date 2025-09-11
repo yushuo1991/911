@@ -55,6 +55,8 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
+    // 日期改变时自动获取数据
+    fetchData(date);
   };
 
   const handleQuery = () => {
@@ -204,8 +206,24 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
           </div>
         )}
 
+        {/* 空数据提示 */}
+        {data && !loading && data.stats.total_stocks === 0 && (
+          <div className="card p-8 text-center">
+            <div className="text-gray-400 mb-4">
+              <BarChart3 className="w-16 h-16 mx-auto mb-4" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">暂无涨停数据</h3>
+            <p className="text-gray-500">
+              {selectedDate} 当日暂无涨停个股数据，请选择其他交易日期查询
+            </p>
+            <p className="text-sm text-gray-400 mt-2">
+              * 系统仅显示真实数据，不展示模拟或虚假信息
+            </p>
+          </div>
+        )}
+
         {/* 数据展示 */}
-        {data && !loading && (
+        {data && !loading && data.stats.total_stocks > 0 && (
           <div className="animate-fade-in">
             {/* 统计汇总 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
