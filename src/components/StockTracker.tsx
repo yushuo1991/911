@@ -23,6 +23,33 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 生成近5天日期按钮
+  const getRecentDates = () => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 0; i < 5; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      // 跳过周末
+      if (date.getDay() !== 0 && date.getDay() !== 6) {
+        dates.push(date.toISOString().split('T')[0]);
+      }
+      // 如果是周末，多往前推几天
+      if (dates.length < 5 && i === 4) {
+        let j = 5;
+        while (dates.length < 5 && j < 10) {
+          const extraDate = new Date(today);
+          extraDate.setDate(today.getDate() - j);
+          if (extraDate.getDay() !== 0 && extraDate.getDay() !== 6) {
+            dates.push(extraDate.toISOString().split('T')[0]);
+          }
+          j++;
+        }
+      }
+    }
+    return dates.slice(0, 5);
+  };
+
   const fetchData = async (date: string) => {
     if (!isValidDate(date)) {
       setError('请选择有效的日期');
@@ -80,9 +107,19 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
   const renderCompactStockItem = (stock: StockPerformance, tradingDays: string[]) => (
     <div key={stock.code} className="grid grid-cols-12 gap-2 py-2 px-3 hover:bg-blue-50/30 transition-colors border-b border-gray-100/50 last:border-b-0">
       {/* 股票信息 - 2列 */}
-      <div className="col-span-2 flex flex-col justify-center">
-        <div className="font-semibold text-xs text-gray-900 truncate" title={stock.name}>{stock.name}</div>
-        <div className="text-xs text-gray-500 font-mono">{stock.code}</div>
+      <div className="col-span-2 flex items-center justify-start">
+        <div 
+          className={`font-semibold text-xs truncate ${
+            stock.code.startsWith('30') 
+              ? 'text-orange-600' 
+              : stock.code.startsWith('68') 
+                ? 'text-purple-600' 
+                : 'text-gray-900'
+          }`} 
+          title={`${stock.name} (${stock.code})`}
+        >
+          {stock.name}
+        </div>
       </div>
 
       {/* 板位 - 1列 */}
@@ -95,14 +132,33 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
       {/* 5日表现 - 7列 */}
       <div className="col-span-7 grid grid-cols-5 gap-1">
         {tradingDays.map((day, index) => {
-          const pctChange = stock.performance[day] || 0;
+          const hasData = stock.performance.hasOwnProperty(day);
+          const pctChange = stock.performance[day];
+          
+          // 无数据的情况
+          if (!hasData || pctChange === undefined || pctChange === null) {
+            return (
+              <div 
+                key={day}
+                className="flex items-center justify-center"
+                title={`${formatTradingDate(day)}: 无数据`}
+              >
+                <span className="px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 min-w-[45px] inline-block text-center">
+                  --
+                </span>
+              </div>
+            );
+          }
+          
           return (
             <div 
               key={day}
-              className={`px-1 py-1 rounded text-center text-xs font-medium ${getPerformanceClass(pctChange)}`}
+              className="flex items-center justify-center"
               title={`${formatTradingDate(day)}: ${formatPercentage(pctChange)}`}
             >
-              {formatPercentage(pctChange)}
+              <span className={`text-xs ${getPerformanceClass(pctChange)}`}>
+                {formatPercentage(pctChange)}
+              </span>
             </div>
           );
         })}
@@ -110,9 +166,15 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
 
       {/* 总收益 - 2列 */}
       <div className="col-span-2 flex items-center justify-end">
-        <div className={`px-2 py-1 rounded text-xs font-bold ${getPerformanceClass(stock.total_return)}`}>
-          {formatPercentage(stock.total_return)}
-        </div>
+        {stock.total_return !== undefined && stock.total_return !== null ? (
+          <span className={`text-xs font-bold ${getPerformanceClass(stock.total_return)}`}>
+            {formatPercentage(stock.total_return)}
+          </span>
+        ) : (
+          <span className="px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 min-w-[45px] inline-block text-center">
+            --
+          </span>
+        )}
       </div>
     </div>
   );
@@ -145,8 +207,7 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
           <div className="col-span-7 grid grid-cols-5 gap-1">
             {(data?.trading_days || []).map((day, index) => (
               <div key={day} className="text-center">
-                <div>T+{index + 1}</div>
-                <div className="text-xs text-gray-500">{formatTradingDate(day).slice(-5)}</div>
+                <div className="text-xs text-gray-500">{formatTradingDate(day)}</div>
               </div>
             ))}
           </div>
@@ -357,17 +418,29 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
               </div>
             </div>
 
-            {/* 紧凑说明条 */}
+            {/* 简化说明条和快速日期选择 */}
             <div className="bg-blue-50 rounded-lg border border-blue-200/50 p-3 mb-6">
-              <div className="flex items-center justify-between text-xs text-gray-600">
-                <div className="flex items-center gap-4">
-                  <span>📊 真实API数据</span>
-                  <span>🎯 板位高→低排序</span>
-                  <span>🌈 颜色=涨跌强度</span>
+              <div className="flex flex-col lg:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-3 text-xs text-gray-600">
+                  <span>📊 真实数据</span>
+                  <span>🟠 创业板</span>
+                  <span>🟣 科创板</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-1 bg-red-100 text-red-600 rounded">↗上涨红色</span>
-                  <span className="px-2 py-1 bg-green-100 text-green-600 rounded">↘下跌绿色</span>
+                  <span className="text-xs text-gray-500 mr-2">快速选择:</span>
+                  {getRecentDates().map((date) => (
+                    <button
+                      key={date}
+                      onClick={() => handleDateChange(date)}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                        selectedDate === date
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-gray-600 hover:bg-blue-100'
+                      }`}
+                    >
+                      {formatDate(date).slice(5)}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
