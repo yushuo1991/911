@@ -42,8 +42,16 @@ export interface LimitUpApiResponse {
         StockID: string;
         StockName: string;
         Tips?: string;
+        ZSName?: string; // 可能的涨停原因字段
+        TDType?: string; // 可能的板位字段
+        [key: string]: any; // 允许其他未知字段
       }>;
+      ZSName?: string; // TD层级的涨停原因
+      TDType?: string; // TD层级的板位信息
+      [key: string]: any;
     }>;
+    ZSName?: string; // List层级的涨停原因
+    [key: string]: any;
   }>;
   data?: Stock[];
 }

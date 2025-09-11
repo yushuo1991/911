@@ -55,11 +55,15 @@ async function getLimitUpStocks(date: string): Promise<Stock[]> {
           list.TD.forEach(td => {
             if (td.Stock && Array.isArray(td.Stock)) {
               td.Stock.forEach(stock => {
+                // 尝试从各个层级获取涨停原因和板位信息
+                const zsName = stock.ZSName || td.ZSName || list.ZSName || '未分类';
+                const tdType = stock.TDType || td.TDType || '首板';
+                
                 stocks.push({
                   StockName: stock.StockName,
                   StockCode: stock.StockID,
-                  ZSName: stock.ZSName || '未分类', // 使用真实的涨停原因
-                  TDType: stock.TDType || '首板' // 使用真实的板位信息
+                  ZSName: zsName,
+                  TDType: tdType
                 });
               });
             }
