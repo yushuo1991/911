@@ -53,49 +53,49 @@ export function getPerformanceClass(value: number): string {
     return 'bg-slate-100 text-slate-600 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
   }
   
-  // 上涨区间 - 温暖的红橙色系，柔和渐变
+  // 上涨区间 - 基于 #da4453 的红色渐变
   if (numValue > 0) {
     if (numValue >= 9.5) {
-      // 涨停 - 深红橙色
-      return 'bg-orange-600 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';  
+      // 涨停 - #da4453
+      return 'bg-stock-red-600 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';  
     } else if (numValue >= 7) {
-      // 大涨 - 中深红色
-      return 'bg-red-500 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 大涨 - 深红色
+      return 'bg-stock-red-500 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     } else if (numValue >= 5) {
-      // 中大涨 - 温暖红色
-      return 'bg-red-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+      // 中大涨 - 中红色
+      return 'bg-stock-red-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
     } else if (numValue >= 3) {
-      // 中涨 - 柔和红色
-      return 'bg-rose-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+      // 中涨 - 浅红色
+      return 'bg-stock-red-300 text-red-900 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
     } else if (numValue >= 1) {
-      // 小涨 - 淡粉红色
-      return 'bg-rose-200 text-rose-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 小涨 - 淡红色
+      return 'bg-stock-red-200 text-red-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     } else if (numValue > 0) {
-      // 微涨 - 很淡的粉红色
-      return 'bg-rose-100 text-rose-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 微涨 - 最淡红色
+      return 'bg-stock-red-100 text-red-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     }
   }
   
-  // 下跌区间 - 自然的绿蓝色系，柔和渐变
+  // 下跌区间 - 基于 #37bc9b 和 #434a54 的绿色渐变
   if (numValue < 0) {
     if (numValue <= -9.5) {
-      // 跌停 - 深青绿色
-      return 'bg-teal-600 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';  
+      // 跌停 - #434a54 深灰蓝色
+      return 'bg-stock-dark text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';  
     } else if (numValue <= -7) {
-      // 大跌 - 深绿色
-      return 'bg-emerald-500 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 大跌 - #37bc9b 绿色
+      return 'bg-stock-green-500 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     } else if (numValue <= -5) {
       // 中大跌 - 中绿色
-      return 'bg-emerald-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+      return 'bg-stock-green-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
     } else if (numValue <= -3) {
-      // 中跌 - 柔和绿色
-      return 'bg-green-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+      // 中跌 - 浅绿色
+      return 'bg-stock-green-300 text-green-900 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
     } else if (numValue <= -1) {
       // 小跌 - 淡绿色
-      return 'bg-green-200 text-green-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      return 'bg-stock-green-200 text-green-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     } else if (numValue < 0) {
-      // 微跌 - 很淡的绿色
-      return 'bg-green-100 text-green-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 微跌 - 最淡绿色
+      return 'bg-stock-green-100 text-green-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     }
   }
   
