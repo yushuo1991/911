@@ -157,8 +157,8 @@ function hashString(str: string): number {
 
 export function sortStocksByBoard<T extends { td_type: string; name?: string }>(stocks: T[]): T[] {
   return stocks.sort((a, b) => {
-    // 按td_type字符串排序
-    return a.td_type.localeCompare(b.td_type);
+    // 按td_type字符串倒序排序
+    return b.td_type.localeCompare(a.td_type);
   });
 }
 
