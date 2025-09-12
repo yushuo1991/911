@@ -5,6 +5,15 @@ module.exports = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  safelist: [
+    // 确保涨跌幅色彩类被包含在编译中
+    'bg-red-100', 'bg-red-300', 'bg-red-400', 'bg-red-500', 'bg-red-600', 'bg-red-700',
+    'bg-green-100', 'bg-green-300', 'bg-green-400', 'bg-green-500', 'bg-green-600', 'bg-green-700',
+    'bg-gray-200', 'bg-gray-600',
+    'text-white', 'text-red-700', 'text-red-900', 'text-green-700', 'text-green-900', 'text-gray-600',
+    'font-bold', 'font-semibold', 'font-medium',
+    'text-xs', 'rounded-md', 'px-2', 'py-1', 'text-center', 'min-w-[45px]', 'inline-block'
+  ],
   theme: {
     extend: {
       colors: {
