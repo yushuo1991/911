@@ -1,4 +1,4 @@
-import { BoardType, BOARD_WEIGHTS, CATEGORY_EMOJIS } from '@/types/stock';
+import { BoardType, BOARD_WEIGHTS, CATEGORY_EMOJIS, StockPerformance } from '@/types/stock';
 import { format } from 'date-fns';
 
 export function cn(...classes: string[]): string {
@@ -191,4 +191,15 @@ export function isValidDate(dateString: string): boolean {
 
 export function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
+}
+
+export function calculateDailyAverage(stocks: StockPerformance[], day: string): number {
+  const validPerformances = stocks
+    .filter(stock => stock.performance[day] !== undefined && stock.performance[day] !== null)
+    .map(stock => stock.performance[day]);
+  
+  if (validPerformances.length === 0) return 0;
+  
+  const sum = validPerformances.reduce((acc, val) => acc + val, 0);
+  return Math.round((sum / validPerformances.length) * 100) / 100;
 }

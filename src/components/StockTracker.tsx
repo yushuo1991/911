@@ -11,7 +11,8 @@ import {
   getPerformanceClass, 
   formatPercentage,
   getTodayString,
-  isValidDate 
+  isValidDate,
+  calculateDailyAverage
 } from '@/lib/utils';
 
 interface StockTrackerProps {
@@ -23,6 +24,7 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
   const [data, setData] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLargeSectorsOnly, setShowLargeSectorsOnly] = useState(true);
 
   // 生成近5天日期按钮
   const getRecentDates = () => {
@@ -184,13 +186,13 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
   const renderCompactCategory = (category: string, stocks: StockPerformance[]) => (
     <div key={category} className="bg-white rounded-lg shadow-md border border-gray-200/50 overflow-hidden">
       {/* 简化分类头部 */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-3">
+      <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-2">
         <div className="flex justify-between items-center">
           <span className="text-sm font-bold">
             {getCategoryEmoji(category)} {category}
           </span>
           <div className="flex items-center gap-2">
-            <span className="bg-white/20 px-2 py-1 rounded text-xs font-semibold">
+            <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-semibold">
               {stocks.length}只
             </span>
             <div className="text-xs">
@@ -208,7 +210,10 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
           <div className="col-span-7 grid grid-cols-5 gap-1">
             {(data?.trading_days || []).map((day, index) => (
               <div key={day} className="text-center">
-                <div className="text-xs text-gray-500">{formatTradingDate(day)}</div>
+                <div className="text-xs text-gray-500 mb-1">{formatTradingDate(day)}</div>
+                <div className={`text-xs px-1 py-0.5 rounded ${getPerformanceClass(calculateDailyAverage(stocks, day))}`}>
+                  {formatPercentage(calculateDailyAverage(stocks, day))}
+                </div>
               </div>
             ))}
           </div>
@@ -227,7 +232,12 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
   const renderMultiCategoryComparison = () => {
     if (!data || data.stats.total_stocks === 0) return null;
 
-    const categories = Object.entries(data.categories);
+    // 应用过滤逻辑
+    let categories = Object.entries(data.categories);
+    if (showLargeSectorsOnly) {
+      categories = categories.filter(([category, stocks]) => stocks.length >= 5);
+    }
+    
     const halfIndex = Math.ceil(categories.length / 2);
     const leftCategories = categories.slice(0, halfIndex);
     const rightCategories = categories.slice(halfIndex);
@@ -261,7 +271,7 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
               <TrendingUp className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-              涨停板跟踪系统
+              宇硕板块溢价
             </h1>
           </div>
           <p className="text-sm text-gray-600 max-w-xl mx-auto">
@@ -270,11 +280,11 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
         </div>
 
         {/* 紧凑日期选择器 */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200/50 p-4 mb-8">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-            <div className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="bg-white rounded-lg shadow-md border border-gray-200/50 p-3 mb-6">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-center gap-3">
               <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-600" />
+                <Calendar className="w-4 h-4 text-blue-600" />
                 <label className="text-sm font-medium text-gray-700">选择查询日期:</label>
               </div>
               <div className="relative">
@@ -282,7 +292,7 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => handleDateChange(e.target.value)}
-                  className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className="px-3 py-1.5 text-sm border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   max={getTodayString()}
                 />
                 {loading && (
@@ -290,6 +300,19 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
                     <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
                   </div>
                 )}
+              </div>
+              {/* 过滤选项框 */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="largeSectorsFilter"
+                  checked={showLargeSectorsOnly}
+                  onChange={(e) => setShowLargeSectorsOnly(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="largeSectorsFilter" className="text-sm text-gray-700">
+                  仅显示涨停数≥5的板块
+                </label>
               </div>
             </div>
             
