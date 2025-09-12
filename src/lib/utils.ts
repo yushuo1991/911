@@ -20,21 +20,40 @@ export function formatTradingDate(tradingDate: string): string {
 }
 
 export function getBoardWeight(boardType: string): number {
-  return BOARD_WEIGHTS[boardType as BoardType] || 0;
+  // 处理各种板位类型，提取板位数字
+  if (boardType === '首板' || boardType === '首') return 1;
+  
+  // 处理连板类型：2连板、3连板等
+  const lianbanMatch = boardType.match(/(\d+)连板/);
+  if (lianbanMatch) return parseInt(lianbanMatch[1]);
+  
+  // 处理X天Y板类型：5天4板、3天2板等
+  const tianbanMatch = boardType.match(/\d+天(\d+)板/);
+  if (tianbanMatch) return parseInt(tianbanMatch[1]);
+  
+  // 处理纯板数：二板、三板等
+  return BOARD_WEIGHTS[boardType as BoardType] || 1;
 }
 
 export function getBoardClass(boardType: string): string {
-  switch (boardType) {
-    case '首板':
-      return 'board-first';
-    case '二板':
-      return 'board-second';
-    case '三板':
-      return 'board-third';
-    case '四板':
-      return 'board-fourth';
-    default:
-      return 'board-high';
+  // 获取板位数量来决定颜色
+  const boardNum = getBoardWeight(boardType);
+  
+  if (boardNum >= 5) {
+    // 5板及以上 - 深红色
+    return 'bg-red-600 text-white';
+  } else if (boardNum >= 4) {
+    // 4板 - 中深红色
+    return 'bg-red-500 text-white';
+  } else if (boardNum >= 3) {
+    // 3板 - 中红色
+    return 'bg-red-400 text-white';
+  } else if (boardNum >= 2) {
+    // 2板 - 浅红色
+    return 'bg-orange-500 text-white';
+  } else {
+    // 1板(首板) - 蓝色
+    return 'bg-blue-500 text-white';
   }
 }
 
@@ -144,8 +163,8 @@ function hashString(str: string): number {
 }
 
 export function sortStocksByBoard<T extends { td_type: string }>(stocks: T[]): T[] {
-  // 按板位权重从小到大排序，首板（权重1）在最下面，高板位在最上面
-  return stocks.sort((a, b) => getBoardWeight(a.td_type) - getBoardWeight(b.td_type));
+  // 按板位权重从高到低排序，高板位在最上面，首板在最下面
+  return stocks.sort((a, b) => getBoardWeight(b.td_type) - getBoardWeight(a.td_type));
 }
 
 export function calculateStats(categories: Record<string, any[]>) {

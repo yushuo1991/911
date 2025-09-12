@@ -126,7 +126,7 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
       {/* 板位 - 1列 */}
       <div className="col-span-1 flex items-center justify-center">
         <span className={`${getBoardClass(stock.td_type)} px-2 py-1 rounded text-xs font-bold`}>
-          {stock.td_type.replace('连板', '').replace('板', '')}
+          {stock.td_type.replace('首板', '1').replace('首', '1').replace('连板', '').replace('板', '')}
         </span>
       </div>
 

@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
       const stockPerformance: StockPerformance = {
         name: stock.StockName,
         code: stock.StockCode,
-        td_type: stock.TDType,
+        td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
         performance,
         total_return: Math.round(totalReturn * 100) / 100
       };
