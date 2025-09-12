@@ -144,7 +144,8 @@ function hashString(str: string): number {
 }
 
 export function sortStocksByBoard<T extends { td_type: string }>(stocks: T[]): T[] {
-  return stocks.sort((a, b) => getBoardWeight(b.td_type) - getBoardWeight(a.td_type));
+  // 按板位权重从小到大排序，首板（权重1）在最下面，高板位在最上面
+  return stocks.sort((a, b) => getBoardWeight(a.td_type) - getBoardWeight(b.td_type));
 }
 
 export function calculateStats(categories: Record<string, any[]>) {

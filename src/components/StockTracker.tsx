@@ -106,7 +106,7 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
 
   // 紧凑型股票项渲染 - 适合多板块对比
   const renderCompactStockItem = (stock: StockPerformance, tradingDays: string[]) => (
-    <div key={stock.code} className="grid grid-cols-12 gap-2 py-2 px-3 hover:bg-blue-50/30 transition-colors border-b border-gray-100/50 last:border-b-0">
+    <div key={stock.code} className="grid grid-cols-12 gap-2 py-2 px-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-colors border-b border-gray-100/50 last:border-b-0">
       {/* 股票信息 - 2列 */}
       <div className="col-span-2 flex items-center justify-start">
         <div 
@@ -216,8 +216,8 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
         </div>
       </div>
 
-      {/* 紧凑股票列表 */}
-      <div className="bg-white">
+      {/* 紧凑股票列表 - 添加渐变背景 */}
+      <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {stocks.map((stock) => renderCompactStockItem(stock, data?.trading_days || []))}
       </div>
     </div>
