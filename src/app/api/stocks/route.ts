@@ -295,7 +295,10 @@ export async function GET(request: NextRequest) {
       categories[category].push(stockPerformance);
     }
 
-    // 保持原始API数据顺序，不进行任何排序
+    // 按板位优先排序，同板位内按涨停时间排序
+    Object.keys(categories).forEach(category => {
+      categories[category] = sortStocksByBoard(categories[category]);
+    });
 
     // 计算统计数据
     const stats = calculateStats(categories);

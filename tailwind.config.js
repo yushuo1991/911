@@ -7,12 +7,20 @@ module.exports = {
   ],
   safelist: [
     // 确保涨跌幅色彩类被包含在编译中 - 扩展覆盖
-    'bg-red-50', 'bg-red-100', 'bg-red-200', 'bg-red-300', 'bg-red-400', 'bg-red-500', 'bg-red-600', 'bg-red-700', 'bg-red-800', 'bg-red-900',
-    'bg-green-50', 'bg-green-100', 'bg-green-200', 'bg-green-300', 'bg-green-400', 'bg-green-500', 'bg-green-600', 'bg-green-700', 'bg-green-800', 'bg-green-900',
+    // 新的柔和配色方案
+    'bg-orange-600', 'bg-red-400', 'bg-red-500', 'bg-rose-400', 'bg-rose-200', 'bg-rose-100',
+    'bg-teal-600', 'bg-emerald-400', 'bg-emerald-500', 'bg-green-400', 'bg-green-200', 'bg-green-100',
+    'bg-slate-100', 'bg-slate-200',
+    // 保留原有颜色以防需要
+    'bg-red-50', 'bg-red-100', 'bg-red-200', 'bg-red-300', 'bg-red-600', 'bg-red-700', 'bg-red-800', 'bg-red-900',
+    'bg-green-50', 'bg-green-300', 'bg-green-500', 'bg-green-600', 'bg-green-700', 'bg-green-800', 'bg-green-900',
     'bg-purple-100', 'bg-purple-200', 'bg-purple-300', 'bg-purple-400', 'bg-purple-500', 'bg-purple-600', 'bg-purple-700',
-    'bg-gray-100', 'bg-gray-200', 'bg-gray-300', 'bg-gray-600', 'bg-gray-700',
-    'text-white', 'text-red-50', 'text-red-100', 'text-red-200', 'text-red-700', 'text-red-800', 'text-red-900', 
-    'text-green-50', 'text-green-100', 'text-green-200', 'text-green-700', 'text-green-800', 'text-green-900', 'text-gray-600', 'text-gray-700',
+    'bg-gray-100', 'bg-gray-200', 'bg-gray-300', 'bg-gray-600', 'bg-gray-700', 'bg-gray-900',
+    // 文字颜色
+    'text-white', 'text-rose-700', 'text-rose-800', 'text-green-700', 'text-green-800', 
+    'text-slate-600', 'text-slate-700', 'text-gray-600', 'text-gray-700', 'text-gray-900',
+    'text-red-50', 'text-red-100', 'text-red-200', 'text-red-700', 'text-red-800', 'text-red-900', 
+    'text-green-50', 'text-green-100', 'text-green-200', 'text-green-900',
     'font-bold', 'font-semibold', 'font-medium', 'font-normal',
     'text-xs', 'text-sm', 'rounded', 'rounded-md', 'rounded-lg', 'px-1', 'px-2', 'px-3', 'py-1', 'py-2', 'text-center', 'text-left', 'text-right',
     'min-w-[45px]', 'inline-block', 'block', 'inline'

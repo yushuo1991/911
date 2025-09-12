@@ -36,8 +36,8 @@ export function getBoardWeight(boardType: string): number {
 }
 
 export function getBoardClass(boardType: string): string {
-  // 简单的板位显示，统一样式，不使用5级色彩
-  return 'bg-gray-600 text-white';
+  // 板位显示为黑字无底纹，简洁样式
+  return 'text-gray-900 font-medium';
 }
 
 export function getCategoryEmoji(category: string): string {
@@ -45,52 +45,62 @@ export function getCategoryEmoji(category: string): string {
 }
 
 export function getPerformanceClass(value: number): string {
-  console.log(`getPerformanceClass called with value: ${value}, type: ${typeof value}`);
-  
   // 确保value是数字类型
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   
-  // 平盘
+  // 平盘 - 中性灰色
   if (numValue === 0) {
-    return 'bg-gray-200 text-gray-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
+    return 'bg-slate-100 text-slate-600 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
   }
   
-  // 上涨区间 - 红色渐变（涨幅越大颜色越深）
+  // 上涨区间 - 温暖的红橙色系，柔和渐变
   if (numValue > 0) {
     if (numValue >= 9.5) {
-      return 'bg-red-700 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+      // 涨停 - 深红橙色
+      return 'bg-orange-600 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';  
     } else if (numValue >= 7) {
-      return 'bg-red-600 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 大涨 - 中深红色
+      return 'bg-red-500 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     } else if (numValue >= 5) {
-      return 'bg-red-500 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
-    } else if (numValue >= 3) {
+      // 中大涨 - 温暖红色
       return 'bg-red-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+    } else if (numValue >= 3) {
+      // 中涨 - 柔和红色
+      return 'bg-rose-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
     } else if (numValue >= 1) {
-      return 'bg-red-300 text-red-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 小涨 - 淡粉红色
+      return 'bg-rose-200 text-rose-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     } else if (numValue > 0) {
-      return 'bg-red-200 text-red-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 微涨 - 很淡的粉红色
+      return 'bg-rose-100 text-rose-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     }
   }
   
-  // 下跌区间 - 绿色渐变（跌幅越大颜色越深）
+  // 下跌区间 - 自然的绿蓝色系，柔和渐变
   if (numValue < 0) {
     if (numValue <= -9.5) {
-      return 'bg-green-700 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+      // 跌停 - 深青绿色
+      return 'bg-teal-600 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';  
     } else if (numValue <= -7) {
-      return 'bg-green-600 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 大跌 - 深绿色
+      return 'bg-emerald-500 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     } else if (numValue <= -5) {
-      return 'bg-green-500 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+      // 中大跌 - 中绿色
+      return 'bg-emerald-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
     } else if (numValue <= -3) {
+      // 中跌 - 柔和绿色
       return 'bg-green-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
     } else if (numValue <= -1) {
-      return 'bg-green-300 text-green-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 小跌 - 淡绿色
+      return 'bg-green-200 text-green-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     } else if (numValue < 0) {
-      return 'bg-green-200 text-green-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+      // 微跌 - 很淡的绿色
+      return 'bg-green-100 text-green-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     }
   }
   
-  // 默认情况 - 使用明显的紫色来调试
-  return 'bg-purple-500 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
+  // 默认情况 - 中性色
+  return 'bg-slate-100 text-slate-600 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
 }
 
 export function formatPercentage(value: number): string {
@@ -145,9 +155,24 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-export function sortStocksByBoard<T extends { td_type: string }>(stocks: T[]): T[] {
-  // 按板位权重从高到低排序，高板位在最上面，首板在最下面
-  return stocks.sort((a, b) => getBoardWeight(b.td_type) - getBoardWeight(a.td_type));
+export function sortStocksByBoard<T extends { td_type: string; name?: string }>(stocks: T[]): T[] {
+  return stocks.sort((a, b) => {
+    const weightA = getBoardWeight(a.td_type);
+    const weightB = getBoardWeight(b.td_type);
+    
+    // 1. 首先按板位排序：板位高的在上面
+    if (weightB !== weightA) {
+      return weightB - weightA;
+    }
+    
+    // 2. 板位相同时，按涨停时间优先（假设股票名称字母序反映时间早晚）
+    // 实际应用中可以根据真实的涨停时间数据来排序
+    if (a.name && b.name) {
+      return a.name.localeCompare(b.name);
+    }
+    
+    return 0;
+  });
 }
 
 export function calculateStats(categories: Record<string, any[]>) {
