@@ -45,49 +45,52 @@ export function getCategoryEmoji(category: string): string {
 }
 
 export function getPerformanceClass(value: number): string {
-  // 使用预定义的固定类名，确保Tailwind编译时包含这些类
-  const baseClass = 'text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
+  console.log(`getPerformanceClass called with value: ${value}, type: ${typeof value}`);
+  
+  // 确保value是数字类型
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
   
   // 平盘
-  if (value === 0) {
-    return 'bg-gray-200 text-gray-600 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
+  if (numValue === 0) {
+    return 'bg-gray-200 text-gray-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
   }
   
   // 上涨区间 - 红色渐变（涨幅越大颜色越深）
-  if (value > 0) {
-    if (value >= 9.5) {
-      return 'bg-red-700 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  // 涨停：最深红
-    } else if (value >= 7) {
-      return 'bg-red-600 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; // 大涨：深红
-    } else if (value >= 5) {
-      return 'bg-red-500 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  // 中大涨：中深红
-    } else if (value >= 3) {
-      return 'bg-red-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  // 中涨：中红
-    } else if (value >= 1) {
-      return 'bg-red-300 text-red-900 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; // 小涨：浅红
-    } else {
-      return 'bg-red-100 text-red-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; // 微涨：淡红
+  if (numValue > 0) {
+    if (numValue >= 9.5) {
+      return 'bg-red-700 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+    } else if (numValue >= 7) {
+      return 'bg-red-600 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+    } else if (numValue >= 5) {
+      return 'bg-red-500 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+    } else if (numValue >= 3) {
+      return 'bg-red-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+    } else if (numValue >= 1) {
+      return 'bg-red-300 text-red-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+    } else if (numValue > 0) {
+      return 'bg-red-200 text-red-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     }
   }
   
   // 下跌区间 - 绿色渐变（跌幅越大颜色越深）
-  if (value < 0) {
-    if (value <= -9.5) {
-      return 'bg-green-700 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  // 跌停：最深绿
-    } else if (value <= -7) {
-      return 'bg-green-600 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; // 大跌：深绿
-    } else if (value <= -5) {
-      return 'bg-green-500 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  // 中大跌：中深绿
-    } else if (value <= -3) {
-      return 'bg-green-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  // 中跌：中绿
-    } else if (value <= -1) {
-      return 'bg-green-300 text-green-900 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; // 小跌：浅绿
-    } else {
-      return 'bg-green-100 text-green-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; // 微跌：淡绿
+  if (numValue < 0) {
+    if (numValue <= -9.5) {
+      return 'bg-green-700 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+    } else if (numValue <= -7) {
+      return 'bg-green-600 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+    } else if (numValue <= -5) {
+      return 'bg-green-500 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+    } else if (numValue <= -3) {
+      return 'bg-green-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';  
+    } else if (numValue <= -1) {
+      return 'bg-green-300 text-green-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
+    } else if (numValue < 0) {
+      return 'bg-green-200 text-green-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; 
     }
   }
   
-  return 'bg-gray-200 text-gray-600 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; // 默认
+  // 默认情况 - 使用明显的紫色来调试
+  return 'bg-purple-500 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
 }
 
 export function formatPercentage(value: number): string {
