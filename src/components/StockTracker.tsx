@@ -157,7 +157,7 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
               className="flex items-center justify-center"
               title={`${formatTradingDate(day)}: ${formatPercentage(pctChange)}`}
             >
-              <span className={`text-xs ${getPerformanceClass(pctChange)}`}>
+              <span className={getPerformanceClass(pctChange)}>
                 {formatPercentage(pctChange)}
               </span>
             </div>
@@ -168,7 +168,7 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
       {/* 总收益 - 2列 */}
       <div className="col-span-2 flex items-center justify-end">
         {stock.total_return !== undefined && stock.total_return !== null ? (
-          <span className={`text-xs font-bold ${getPerformanceClass(stock.total_return)}`}>
+          <span className={getPerformanceClass(stock.total_return)}>
             {formatPercentage(stock.total_return)}
           </span>
         ) : (

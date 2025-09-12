@@ -36,25 +36,8 @@ export function getBoardWeight(boardType: string): number {
 }
 
 export function getBoardClass(boardType: string): string {
-  // 获取板位数量来决定颜色
-  const boardNum = getBoardWeight(boardType);
-  
-  if (boardNum >= 5) {
-    // 5板及以上 - 深红色
-    return 'bg-red-600 text-white';
-  } else if (boardNum >= 4) {
-    // 4板 - 中深红色
-    return 'bg-red-500 text-white';
-  } else if (boardNum >= 3) {
-    // 3板 - 中红色
-    return 'bg-red-400 text-white';
-  } else if (boardNum >= 2) {
-    // 2板 - 浅红色
-    return 'bg-orange-500 text-white';
-  } else {
-    // 1板(首板) - 蓝色
-    return 'bg-blue-500 text-white';
-  }
+  // 简单的板位显示，统一样式，不使用5级色彩
+  return 'bg-gray-600 text-white';
 }
 
 export function getCategoryEmoji(category: string): string {
@@ -62,52 +45,48 @@ export function getCategoryEmoji(category: string): string {
 }
 
 export function getPerformanceClass(value: number): string {
-  // 平盘 - 精致的小色块样式
+  const baseClass = 'text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
+  
+  // 平盘
   if (value === 0) {
-    return 'bg-gray-300 text-gray-700 font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
+    return `bg-gray-200 text-gray-600 ${baseClass}`;
   }
   
-  // 上涨区间 - 精致红色小色块
+  // 上涨区间 - 红色渐变（涨幅越大颜色越深）
   if (value > 0) {
     if (value >= 9.5) {
-      // 涨停级别 - 深红小色块
-      return 'bg-red-600 text-white font-bold rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';
+      return `bg-red-700 text-white font-bold ${baseClass}`;  // 涨停：最深红
     } else if (value >= 7) {
-      // 大涨 - 中深红小色块
-      return 'bg-red-500 text-white font-semibold rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (value >= 4) {
-      // 中涨 - 中红小色块
-      return 'bg-red-400 text-white font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (value >= 2) {
-      // 小涨 - 浅红小色块
-      return 'bg-red-300 text-red-800 font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (value > 0) {
-      // 微涨 - 淡红小色块
-      return 'bg-red-100 text-red-700 font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
+      return `bg-red-600 text-white font-semibold ${baseClass}`; // 大涨：深红
+    } else if (value >= 5) {
+      return `bg-red-500 text-white ${baseClass}`;  // 中大涨：中深红
+    } else if (value >= 3) {
+      return `bg-red-400 text-white ${baseClass}`;  // 中涨：中红
+    } else if (value >= 1) {
+      return `bg-red-300 text-red-900 ${baseClass}`; // 小涨：浅红
+    } else {
+      return `bg-red-100 text-red-700 ${baseClass}`; // 微涨：淡红
     }
   }
   
-  // 下跌区间 - 精致绿色小色块
+  // 下跌区间 - 绿色渐变（跌幅越大颜色越深）
   if (value < 0) {
     if (value <= -9.5) {
-      // 跌停级别 - 深绿小色块
-      return 'bg-green-600 text-white font-bold rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';
+      return `bg-green-700 text-white font-bold ${baseClass}`;  // 跌停：最深绿
     } else if (value <= -7) {
-      // 大跌 - 中深绿小色块
-      return 'bg-green-500 text-white font-semibold rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (value <= -4) {
-      // 中跌 - 中绿小色块
-      return 'bg-green-400 text-white font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (value <= -2) {
-      // 小跌 - 浅绿小色块
-      return 'bg-green-300 text-green-800 font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (value < 0) {
-      // 微跌 - 淡绿小色块
-      return 'bg-green-100 text-green-700 font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
+      return `bg-green-600 text-white font-semibold ${baseClass}`; // 大跌：深绿
+    } else if (value <= -5) {
+      return `bg-green-500 text-white ${baseClass}`;  // 中大跌：中深绿
+    } else if (value <= -3) {
+      return `bg-green-400 text-white ${baseClass}`;  // 中跌：中绿
+    } else if (value <= -1) {
+      return `bg-green-300 text-green-900 ${baseClass}`; // 小跌：浅绿
+    } else {
+      return `bg-green-100 text-green-700 ${baseClass}`; // 微跌：淡绿
     }
   }
   
-  return 'bg-gray-300 text-gray-700 rounded-md px-2 py-1 text-center min-w-[45px] inline-block'; // 默认
+  return `bg-gray-200 text-gray-600 ${baseClass}`; // 默认
 }
 
 export function formatPercentage(value: number): string {
