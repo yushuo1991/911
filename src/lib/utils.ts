@@ -157,21 +157,8 @@ function hashString(str: string): number {
 
 export function sortStocksByBoard<T extends { td_type: string; name?: string }>(stocks: T[]): T[] {
   return stocks.sort((a, b) => {
-    const weightA = getBoardWeight(a.td_type);
-    const weightB = getBoardWeight(b.td_type);
-    
-    // 1. 首先按板位排序：板位高的在上面
-    if (weightB !== weightA) {
-      return weightB - weightA;
-    }
-    
-    // 2. 板位相同时，按涨停时间优先（假设股票名称字母序反映时间早晚）
-    // 实际应用中可以根据真实的涨停时间数据来排序
-    if (a.name && b.name) {
-      return a.name.localeCompare(b.name);
-    }
-    
-    return 0;
+    // 按td_type字符串排序
+    return a.td_type.localeCompare(b.td_type);
   });
 }
 
