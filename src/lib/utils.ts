@@ -141,8 +141,13 @@ export function generateMockPerformance(stockCode: string, tradingDays: string[]
   for (let i = 0; i < tradingDays.length; i++) {
     const day = tradingDays[i];
 
-    // 结合股票代码、日期和索引生成更复杂的种子
-    const seed = hashString(stockCode + day + i.toString());
+    // 改进种子生成：使用更复杂的组合确保每个股票每个日期都有独特的种子
+    const seed = hashString(`${stockCode}_${day}_${i}_${tradingDays.length}_${tradingDays[0]}`);
+
+    // 添加额外的随机性：基于日期数字的各位数字
+    const dayNum = parseInt(day);
+    const extraSeed = hashString(`${stockCode}_${dayNum % 1000}_${Math.floor(dayNum / 10000)}`);
+    const combinedSeed = (seed + extraSeed * 7) % 2147483647;
 
     // 根据不同板块生成不同范围的涨跌幅
     let maxChange = 8; // 默认最大涨跌幅8%
@@ -157,13 +162,13 @@ export function generateMockPerformance(stockCode: string, tradingDays: string[]
     }
 
     // 生成基础涨跌幅
-    let pctChange = ((seed % (maxChange * 200)) - (maxChange * 100)) / 100;
+    let pctChange = ((combinedSeed % (maxChange * 200)) - (maxChange * 100)) / 100;
 
     // 添加连续性（前一日有影响）
     if (i > 0) {
       const prevChange = performance[tradingDays[i-1]];
       // 30%概率继续前一日趋势，70%概率独立
-      if ((seed % 10) < 3) {
+      if ((combinedSeed % 10) < 3) {
         pctChange = pctChange * 0.7 + prevChange * 0.3;
       }
     }
@@ -173,11 +178,11 @@ export function generateMockPerformance(stockCode: string, tradingDays: string[]
 
     // 强势股：更多上涨概率
     if (codeHash < 20) {
-      pctChange = Math.abs(pctChange) * (seed % 2 === 0 ? 1 : -0.3);
+      pctChange = Math.abs(pctChange) * (combinedSeed % 2 === 0 ? 1 : -0.3);
     }
     // 弱势股：更多下跌概率
     else if (codeHash > 80) {
-      pctChange = Math.abs(pctChange) * (seed % 2 === 0 ? -1 : 0.3);
+      pctChange = Math.abs(pctChange) * (combinedSeed % 2 === 0 ? -1 : 0.3);
     }
 
     performance[day] = Math.round(pctChange * 100) / 100;
