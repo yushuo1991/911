@@ -115,8 +115,8 @@ export function formatPercentage(value: number): string {
 export function generateTradingDays(startDate: string, days: number = 5): string[] {
   const tradingDays: string[] = [];
   let currentDate = new Date(startDate);
-  currentDate.setDate(currentDate.getDate() + 1); // 从下一天开始
 
+  // 从当前日期往前推，生成历史交易日
   while (tradingDays.length < days) {
     // 跳过周末
     if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
@@ -125,10 +125,11 @@ export function generateTradingDays(startDate: string, days: number = 5): string
         currentDate.getDate().toString().padStart(2, '0');
       tradingDays.push(dateStr);
     }
-    currentDate.setDate(currentDate.getDate() + 1);
+    currentDate.setDate(currentDate.getDate() - 1); // 往前推一天
   }
 
-  return tradingDays;
+  // 反转数组，让最早的日期在前面，最近的日期在后面
+  return tradingDays.reverse();
 }
 
 export function generateMockPerformance(stockCode: string, tradingDays: string[]): Record<string, number> {
