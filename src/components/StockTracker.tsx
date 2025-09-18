@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, TrendingDown, BarChart3, Download, RefreshCw } from 'lucide-react';
 import { TrackingData, StockPerformance } from '@/types/stock';
-import { 
+import {
   formatDate,
-  formatTradingDate, 
-  getBoardClass, 
-  getCategoryEmoji, 
-  getPerformanceClass, 
+  formatTradingDate,
+  getBoardClass,
+  getCategoryEmoji,
+  getPerformanceClass,
   formatPercentage,
   getTodayString,
   isValidDate,
@@ -20,7 +20,10 @@ interface StockTrackerProps {
 }
 
 const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
-  const [selectedDate, setSelectedDate] = useState(initialDate || getTodayString());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // 确保总是使用当前日期作为初始值
+    return initialDate && isValidDate(initialDate) ? initialDate : getTodayString();
+  });
   const [data, setData] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,27 +33,21 @@ const StockTracker: React.FC<StockTrackerProps> = ({ initialDate }) => {
   const getRecentDates = () => {
     const dates = [];
     const today = new Date();
-    for (let i = 0; i < 5; i++) {
+    let daysChecked = 0;
+
+    // 从今天开始，往前推直到找到5个工作日
+    while (dates.length < 5 && daysChecked < 10) {
       const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      // 跳过周末
+      date.setDate(today.getDate() - daysChecked);
+
+      // 跳过周末 (0=周日, 6=周六)
       if (date.getDay() !== 0 && date.getDay() !== 6) {
         dates.push(date.toISOString().split('T')[0]);
       }
-      // 如果是周末，多往前推几天
-      if (dates.length < 5 && i === 4) {
-        let j = 5;
-        while (dates.length < 5 && j < 10) {
-          const extraDate = new Date(today);
-          extraDate.setDate(today.getDate() - j);
-          if (extraDate.getDay() !== 0 && extraDate.getDay() !== 6) {
-            dates.push(extraDate.toISOString().split('T')[0]);
-          }
-          j++;
-        }
-      }
+      daysChecked++;
     }
-    return dates.slice(0, 5);
+
+    return dates;
   };
 
   const fetchData = async (date: string) => {
