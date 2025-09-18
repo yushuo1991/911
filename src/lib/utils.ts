@@ -133,15 +133,55 @@ export function generateTradingDays(startDate: string, days: number = 5): string
 
 export function generateMockPerformance(stockCode: string, tradingDays: string[]): Record<string, number> {
   const performance: Record<string, number> = {};
-  
-  for (const day of tradingDays) {
-    // 使用股票代码和日期生成伪随机的涨跌幅
-    const seed = hashString(stockCode + day);
-    // 生成-8%到+8%的涨跌幅
-    const pctChange = (seed % 1600 - 800) / 100;
+
+  // 为不同股票代码生成不同的基础种子
+  const baseSeed = hashString(stockCode);
+
+  for (let i = 0; i < tradingDays.length; i++) {
+    const day = tradingDays[i];
+
+    // 结合股票代码、日期和索引生成更复杂的种子
+    const seed = hashString(stockCode + day + i.toString());
+
+    // 根据不同板块生成不同范围的涨跌幅
+    let maxChange = 8; // 默认最大涨跌幅8%
+
+    // ST股票更大波动
+    if (stockCode.startsWith('ST') || stockCode.includes('ST')) {
+      maxChange = 5; // ST股票限制5%
+    }
+    // 科创板和创业板更大波动
+    else if (stockCode.startsWith('68') || stockCode.startsWith('30')) {
+      maxChange = 12; // 科创板/创业板更大波动
+    }
+
+    // 生成基础涨跌幅
+    let pctChange = ((seed % (maxChange * 200)) - (maxChange * 100)) / 100;
+
+    // 添加连续性（前一日有影响）
+    if (i > 0) {
+      const prevChange = performance[tradingDays[i-1]];
+      // 30%概率继续前一日趋势，70%概率独立
+      if ((seed % 10) < 3) {
+        pctChange = pctChange * 0.7 + prevChange * 0.3;
+      }
+    }
+
+    // 根据股票类型调整概率分布
+    const codeHash = baseSeed % 100;
+
+    // 强势股：更多上涨概率
+    if (codeHash < 20) {
+      pctChange = Math.abs(pctChange) * (seed % 2 === 0 ? 1 : -0.3);
+    }
+    // 弱势股：更多下跌概率
+    else if (codeHash > 80) {
+      pctChange = Math.abs(pctChange) * (seed % 2 === 0 ? -1 : 0.3);
+    }
+
     performance[day] = Math.round(pctChange * 100) / 100;
   }
-  
+
   return performance;
 }
 

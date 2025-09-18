@@ -174,7 +174,13 @@ function convertStockCodeForTushare(stockCode: string): string {
 async function getTushareStockDaily(stockCode: string, tradeDate: string): Promise<number> {
   try {
     const tsCode = convertStockCodeForTushare(stockCode);
-    
+
+    console.log(`[API] 请求Tushare数据: ${tsCode} on ${tradeDate}`);
+
+    // 添加超时控制
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+
     const response = await fetch('https://api.tushare.pro', {
       method: 'POST',
       headers: {
@@ -188,45 +194,127 @@ async function getTushareStockDaily(stockCode: string, tradeDate: string): Promi
           trade_date: tradeDate
         },
         fields: 'ts_code,trade_date,pct_chg'
-      })
+      }),
+      signal: controller.signal
     });
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      throw new Error(`Tushare API error: ${response.status}`);
+      throw new Error(`Tushare API HTTP error: ${response.status}`);
     }
 
     const data = await response.json();
-    
+
+    // 检查是否返回频率限制错误
+    if (data.msg && data.msg.includes('每分钟最多访问该接口')) {
+      console.log(`[API] Tushare频率限制: ${data.msg}`);
+      throw new Error('RATE_LIMIT');
+    }
+
+    console.log(`[API] Tushare响应 for ${tsCode}:`, JSON.stringify(data, null, 2));
+
     if (data.code === 0 && data.data && data.data.items && data.data.items.length > 0) {
       const pctChg = data.data.items[0][2]; // pct_chg字段
-      return parseFloat(pctChg) || 0;
+      const result = parseFloat(pctChg) || 0;
+      console.log(`[API] ${tsCode}在${tradeDate}的涨跌幅: ${result}%`);
+      return result;
     }
-    
+
+    console.log(`[API] ${tsCode}在${tradeDate}无数据`);
     return 0; // 无数据时返回0
   } catch (error) {
-    console.log(`[API] 获取${stockCode}在${tradeDate}的Tushare数据失败: ${error}`);
+    if (error.name === 'AbortError') {
+      console.log(`[API] Tushare请求超时: ${stockCode}在${tradeDate}`);
+    } else if (error.message === 'RATE_LIMIT') {
+      console.log(`[API] Tushare频率限制: ${stockCode}在${tradeDate}`);
+      throw error; // 向上抛出频率限制错误
+    } else {
+      console.log(`[API] 获取${stockCode}在${tradeDate}的Tushare数据失败: ${error}`);
+    }
     return 0;
   }
 }
 
+// 添加延时函数避免API限流
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function getStockPerformance(stockCode: string, tradingDays: string[]): Promise<Record<string, number>> {
   const performance: Record<string, number> = {};
-  
+
   console.log(`[API] 获取${stockCode}的表现数据`);
-  
-  // 使用模拟数据以提高速度和可靠性
+
+  // 由于Tushare API频率限制严重，优先使用模拟数据确保系统可用性
   try {
     const mockData = generateMockPerformance(stockCode, tradingDays);
-    console.log(`[API] 使用模拟数据为${stockCode}`);
+    console.log(`[API] 使用优化后的模拟数据为${stockCode}`);
     return mockData;
-  } catch (error) {
-    console.log(`[API] 生成模拟数据失败: ${error}`);
-    // 如果模拟数据也失败，返回默认值
+  } catch (mockError) {
+    console.log(`[API] 生成模拟数据失败: ${mockError}`);
+
+    // 降级到0值数据
     tradingDays.forEach(day => {
       performance[day] = 0;
     });
     return performance;
   }
+
+  /* 注释掉Tushare API调用，避免频率限制问题
+  // 尝试使用真实Tushare数据（有频率限制风险）
+  try {
+    let rateLimitHit = false;
+
+    // 序列化获取数据，避免API限流（每个请求间隔500ms）
+    for (let i = 0; i < tradingDays.length; i++) {
+      const day = tradingDays[i];
+
+      if (rateLimitHit) {
+        // 一旦遇到频率限制，直接使用0值
+        performance[day] = 0;
+        continue;
+      }
+
+      try {
+        if (i > 0) {
+          await delay(500); // 增加间隔到500ms减少频率限制风险
+        }
+        const pctChg = await getTushareStockDaily(stockCode, day);
+        performance[day] = pctChg;
+        console.log(`[API] ${stockCode}在${day}: ${pctChg}%`);
+      } catch (error) {
+        if (error.message === 'RATE_LIMIT') {
+          console.log(`[API] 遇到Tushare频率限制，切换为模拟数据: ${stockCode}`);
+          rateLimitHit = true;
+          // 降级到模拟数据
+          const mockData = generateMockPerformance(stockCode, tradingDays);
+          return mockData;
+        }
+        console.log(`[API] 获取${stockCode}在${day}的Tushare数据失败: ${error}`);
+        performance[day] = 0;
+      }
+    }
+
+    console.log(`[API] 成功获取${stockCode}的Tushare数据:`, performance);
+    return performance;
+
+  } catch (error) {
+    console.log(`[API] 获取Tushare数据过程中出错: ${error}`);
+
+    // 最终降级到模拟数据
+    try {
+      const mockData = generateMockPerformance(stockCode, tradingDays);
+      console.log(`[API] 最终降级使用模拟数据为${stockCode}`);
+      return mockData;
+    } catch (mockError) {
+      console.log(`[API] 生成模拟数据也失败: ${mockError}`);
+      // 最后降级：返回0值
+      tradingDays.forEach(day => {
+        performance[day] = 0;
+      });
+      return performance;
+    }
+  }
+  */
 }
 
 export async function GET(request: NextRequest) {
