@@ -29,7 +29,9 @@
       "Read(//c/**)",
       "Bash(npm start)",
       "Bash(dir:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
