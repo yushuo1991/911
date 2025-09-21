@@ -28,7 +28,8 @@
       "Bash(pm2 list:*)",
       "Read(//c/**)",
       "Bash(npm start)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(git tag:*)"
     ],
     "deny": [],
     "ask": []
