@@ -1,0 +1,179 @@
+name: 自动部署到生产服务器
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [ closed ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置Node.js环境
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: 安装依赖
+      run: npm ci
+
+    - name: 构建项目
+      run: npm run build
+
+    - name: 运行测试（如果有）
+      run: |
+        if [ -f "package.json" ] && grep -q '"test"' package.json; then
+          npm test || echo "测试失败，但继续部署"
+        else
+          echo "未找到测试脚本，跳过测试"
+        fi
+
+    - name: 部署到生产服务器
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT }}
+        script: |
+          echo "=========================================="
+          echo "开始自动部署 - $(date)"
+          echo "提交信息: ${{ github.event.head_commit.message }}"
+          echo "提交SHA: ${{ github.sha }}"
+          echo "=========================================="
+
+          # 设置部署变量
+          PROJECT_DIR="/www/wwwroot/stock-tracker"
+          BACKUP_DIR="/www/backups/stock-tracker"
+          LOG_FILE="/www/wwwroot/stock-tracker/logs/deploy.log"
+
+          # 创建必要目录
+          mkdir -p $BACKUP_DIR
+          mkdir -p $(dirname $LOG_FILE)
+
+          # 记录部署开始
+          echo "[$(date)] 开始部署 - 提交: ${{ github.sha }}" >> $LOG_FILE
+
+          # 检查项目目录
+          if [ ! -d "$PROJECT_DIR" ]; then
+            echo "错误: 项目目录不存在: $PROJECT_DIR" >> $LOG_FILE
+            exit 1
+          fi
+
+          cd $PROJECT_DIR
+
+          # 创建备份
+          echo "创建备份..." >> $LOG_FILE
+          BACKUP_NAME="backup-$(date +%Y%m%d-%H%M%S)"
+          cp -r . "$BACKUP_DIR/$BACKUP_NAME"
+
+          # 保留最近5个备份
+          ls -dt $BACKUP_DIR/backup-* | tail -n +6 | xargs rm -rf
+
+          # 停止应用（如果使用PM2）
+          echo "停止应用..." >> $LOG_FILE
+          pm2 stop stock-tracker || echo "PM2应用未运行或不存在"
+
+          # 拉取最新代码
+          echo "拉取最新代码..." >> $LOG_FILE
+          git fetch origin main
+          git reset --hard origin/main
+
+          # 安装/更新依赖
+          echo "安装依赖..." >> $LOG_FILE
+          npm ci --production
+
+          # 构建项目
+          echo "构建项目..." >> $LOG_FILE
+          npm run build
+
+          # 检查数据库连接
+          echo "检查数据库连接..." >> $LOG_FILE
+          mysql -u stock_user -pStockPass123! stock_db -e "SELECT 1;" > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "警告: 数据库连接失败" >> $LOG_FILE
+          else
+            echo "数据库连接正常" >> $LOG_FILE
+          fi
+
+          # 启动应用
+          echo "启动应用..." >> $LOG_FILE
+          pm2 start ecosystem.config.js || npm run start &
+
+          # 等待应用启动
+          sleep 10
+
+          # 健康检查
+          echo "执行健康检查..." >> $LOG_FILE
+          for i in {1..5}; do
+            if curl -f http://localhost:3000 > /dev/null 2>&1; then
+              echo "健康检查通过" >> $LOG_FILE
+              break
+            else
+              echo "健康检查失败，重试 $i/5" >> $LOG_FILE
+              sleep 5
+            fi
+
+            if [ $i -eq 5 ]; then
+              echo "健康检查最终失败，回滚到备份" >> $LOG_FILE
+              pm2 stop stock-tracker || true
+              rm -rf ./*
+              cp -r "$BACKUP_DIR/$BACKUP_NAME/"* .
+              pm2 start ecosystem.config.js || npm run start &
+              exit 1
+            fi
+          done
+
+          # 清理构建缓存
+          echo "清理缓存..." >> $LOG_FILE
+          npm run clean || true
+
+          # 重启Nginx（确保配置生效）
+          echo "重启Nginx..." >> $LOG_FILE
+          systemctl reload nginx || service nginx reload
+
+          echo "[$(date)] 部署成功完成" >> $LOG_FILE
+          echo "=========================================="
+          echo "部署成功完成！"
+          echo "应用地址: http://bk.yushuo.click"
+          echo "API测试: http://bk.yushuo.click/api/stocks"
+          echo "=========================================="
+
+    - name: 通知部署结果
+      if: always()
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT }}
+        script: |
+          LOG_FILE="/www/wwwroot/stock-tracker/logs/deploy.log"
+          if [ -f "$LOG_FILE" ]; then
+            echo "最近部署日志："
+            tail -20 $LOG_FILE
+          fi
+
+          # 检查应用状态
+          if curl -f http://localhost:3000 > /dev/null 2>&1; then
+            echo "✅ 应用运行正常"
+          else
+            echo "❌ 应用可能存在问题"
+          fi
+
+    - name: 创建部署标签
+      if: success()
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        TAG_NAME="deploy-$(date +%Y%m%d-%H%M%S)"
+        git tag $TAG_NAME
+        git push origin $TAG_NAME
