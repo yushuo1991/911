@@ -24,7 +24,10 @@
       "Bash(timeout:*)",
       "Bash(curl:*)",
       "Bash(echo:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(pm2 list:*)",
+      "Read(//c/**)",
+      "Bash(npm start)"
     ],
     "deny": [],
     "ask": []
