@@ -25,6 +25,20 @@ interface LimitUpApiResponse {
     ZSName: string;
     StockList: Array<any>;
   }>;
+  data?: Stock[];
+  List?: Array<{
+    ZSName: string;
+    TD: Array<{
+      ZSName: string;
+      TDType: string;
+      Stock: Array<{
+        StockName: string;
+        StockID: string;
+        ZSName: string;
+        TDType: string;
+      }>;
+    }>;
+  }>;
 }
 
 // 动态导入mysql以避免构建时问题
@@ -337,8 +351,7 @@ async function preloadStockData(date: string) {
       message: `成功预加载${date}的数据`,
       stocks: stocks.length,
       tradingDays: tradingDays.length,
-      duration: `${duration}ms`,
-      performance_records: Array.from(performanceData.values()).reduce((sum, data) => sum + Object.keys(data).length, 0)
+      duration: `${duration}ms`
     };
 
   } catch (error) {
@@ -437,16 +450,14 @@ export async function POST(request: NextRequest) {
             date: dateStr,
             success: result.success,
             message: result.message,
-            stocks: result.stocks || 0,
-            performance_records: result.performance_records || 0
+            stocks: result.stocks || 0
           });
         } catch (error) {
           results.push({
             date: dateStr,
             success: false,
             message: String(error),
-            stocks: 0,
-            performance_records: 0
+            stocks: 0
           });
         }
 
@@ -456,10 +467,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const totalStocks = results.reduce((sum, r) => sum + r.stocks, 0);
-      const totalRecords = results.reduce((sum, r) => sum + r.performance_records, 0);
-      const successfulDates = results.filter(r => r.success).length;
-
       return NextResponse.json({
         success: true,
         message: '批量数据预加载完成',
@@ -468,9 +475,7 @@ export async function POST(request: NextRequest) {
           results,
           timestamp: new Date().toISOString(),
           processed_dates: results.length,
-          successful_dates: successfulDates,
-          total_stocks: totalStocks,
-          total_performance_records: totalRecords
+          successful_dates: results.filter(r => r.success).length
         }
       });
     }
