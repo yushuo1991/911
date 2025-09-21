@@ -27,7 +27,8 @@
       "Bash(ping:*)",
       "Bash(pm2 list:*)",
       "Read(//c/**)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []
