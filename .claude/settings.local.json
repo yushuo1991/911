@@ -9,7 +9,22 @@
       "Bash(then echo \"src目录内容:\")",
       "Bash(else echo \"src目录正常\")",
       "Bash(fi)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(netstat:*)",
+      "Bash(systemctl:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "Bash(server-fix-diagnostic.bat)",
+      "Bash(taskkill:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm install)",
+      "Bash(npm run start:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(echo:*)",
+      "Bash(ping:*)"
     ],
     "deny": [],
     "ask": []
