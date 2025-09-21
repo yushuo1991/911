@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(cleanup-redundant-files.bat)",
+      "Bash(cmd:*)",
+      "Bash(rm:*)",
+      "Bash(if [ -d \"src\" ])",
+      "Bash(then echo \"src目录内容:\")",
+      "Bash(else echo \"src目录正常\")",
+      "Bash(fi)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
