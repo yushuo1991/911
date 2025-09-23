@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  stock-tracker:
+    build: .
+    container_name: stock-tracker-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    volumes:
+      - ./log:/app/log
+    networks:
+      - stock-network
+
+networks:
+  stock-network:
+    driver: bridge
