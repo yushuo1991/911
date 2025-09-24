@@ -23,6 +23,11 @@ export default function Home() {
   const [expandedSectors, setExpandedSectors] = useState<Record<string, boolean>>({});
   const [showModal, setShowModal] = useState(false);
   const [selectedStock, setSelectedStock] = useState<{name: string, code: string} | null>(null);
+  const [showSectorModal, setShowSectorModal] = useState(false);
+  const [selectedSectorData, setSelectedSectorData] = useState<{name: string, date: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>} | null>(null);
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [selectedDateData, setSelectedDateData] = useState<{date: string, allStocks: any[]} | null>(null);
+  const [showSectorRankingModal, setShowSectorRankingModal] = useState(false);
 
   // 生成最近7个交易日
   const generate7TradingDays = (endDate: string): string[] => {
@@ -67,13 +72,37 @@ export default function Home() {
     fetch7DaysData();
   }, []);
 
-  // 处理板块展开/收起
-  const toggleSectorExpansion = (dateKey: string, sectorName: string) => {
-    const key = `${dateKey}-${sectorName}`;
-    setExpandedSectors(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+  // 处理板块点击显示弹窗
+  const handleSectorClick = (date: string, sectorName: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>) => {
+    setSelectedSectorData({
+      name: sectorName,
+      date: date,
+      stocks: stocks,
+      followUpData: followUpData
+    });
+    setShowSectorModal(true);
+  };
+
+  // 处理日期点击显示所有个股
+  const handleDateClick = (date: string) => {
+    const dayData = sevenDaysData?.[date];
+    if (!dayData) return;
+
+    // 收集所有个股
+    const allStocks: any[] = [];
+    Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
+      stocks.forEach(stock => {
+        const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
+        allStocks.push({
+          ...stock,
+          sectorName,
+          followUpData
+        });
+      });
+    });
+
+    setSelectedDateData({ date, allStocks });
+    setShowDateModal(true);
   };
 
   // 处理股票名称点击
@@ -86,6 +115,20 @@ export default function Home() {
   const closeModal = () => {
     setShowModal(false);
     setSelectedStock(null);
+  };
+
+  const closeSectorModal = () => {
+    setShowSectorModal(false);
+    setSelectedSectorData(null);
+  };
+
+  const closeDateModal = () => {
+    setShowDateModal(false);
+    setSelectedDateData(null);
+  };
+
+  const closeSectorRankingModal = () => {
+    setShowSectorRankingModal(false);
   };
 
   // 处理7天数据，按日期生成板块汇总
@@ -134,6 +177,60 @@ export default function Home() {
     });
   };
 
+  // 计算板块强度排序数据
+  const getSectorStrengthRanking = useMemo(() => {
+    if (!sevenDaysData || !dates) return [];
+
+    const sectorStrengthMap: Record<string, { name: string; totalPremium: number; avgPremium: number; stockCount: number; dates: string[] }> = {};
+
+    // 收集所有板块的溢价数据
+    dates.forEach(date => {
+      const dayData = sevenDaysData[date];
+      if (!dayData) return;
+
+      Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
+        if (!sectorStrengthMap[sectorName]) {
+          sectorStrengthMap[sectorName] = {
+            name: sectorName,
+            totalPremium: 0,
+            avgPremium: 0,
+            stockCount: 0,
+            dates: []
+          };
+        }
+
+        // 计算该板块在该日期的平均溢价
+        let sectorDayPremium = 0;
+        let sectorDayStockCount = 0;
+
+        stocks.forEach(stock => {
+          const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
+          const stockTotalReturn = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
+          sectorDayPremium += stockTotalReturn;
+          sectorDayStockCount += 1;
+        });
+
+        if (sectorDayStockCount > 0) {
+          sectorStrengthMap[sectorName].totalPremium += sectorDayPremium;
+          sectorStrengthMap[sectorName].stockCount += sectorDayStockCount;
+          if (!sectorStrengthMap[sectorName].dates.includes(date)) {
+            sectorStrengthMap[sectorName].dates.push(date);
+          }
+        }
+      });
+    });
+
+    // 计算平均溢价并排序
+    const rankedSectors = Object.values(sectorStrengthMap)
+      .map(sector => ({
+        ...sector,
+        avgPremium: sector.stockCount > 0 ? sector.totalPremium / sector.stockCount : 0
+      }))
+      .sort((a, b) => b.avgPremium - a.avgPremium);
+
+    return rankedSectors;
+  }, [sevenDaysData, dates]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -148,6 +245,188 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
+      {/* 板块溢价弹窗 */}
+      {showSectorModal && selectedSectorData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-6xl max-h-[90vh] overflow-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">
+                📊 {selectedSectorData.name} - 个股溢价分析 ({formatDate(selectedSectorData.date)})
+              </h3>
+              <button
+                onClick={closeSectorModal}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {getSortedStocksForSector(selectedSectorData.stocks, selectedSectorData.followUpData).map((stock) => {
+                const followUpData = selectedSectorData.followUpData[stock.code] || {};
+                const followUpDates = Object.keys(followUpData).sort();
+                const totalReturn = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
+
+                return (
+                  <div key={stock.code} className="bg-gray-50 rounded-lg p-4 border">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4
+                          className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline text-lg"
+                          onClick={() => handleStockClick(stock.name, stock.code)}
+                        >
+                          {stock.name} ({stock.code})
+                        </h4>
+                        <span className="text-sm text-gray-500">板位: {stock.td_type}</span>
+                      </div>
+                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        getPerformanceClass(totalReturn)
+                      }`}>
+                        累计溢价: {totalReturn.toFixed(2)}%
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-5 gap-3">
+                      {followUpDates.slice(0, 5).map((followDate, index) => {
+                        const performance = followUpData[followDate] || 0;
+                        return (
+                          <div key={followDate} className="text-center bg-white rounded p-2">
+                            <div className="text-gray-500 text-sm mb-1">T+{index + 1}</div>
+                            <div className="text-xs text-gray-400 mb-2">{formatDate(followDate).slice(5)}</div>
+                            <div className={`px-2 py-1 rounded text-sm font-medium ${getPerformanceClass(performance)}`}>
+                              {performance.toFixed(1)}%
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 日期所有个股溢价弹窗 */}
+      {showDateModal && selectedDateData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-7xl max-h-[90vh] overflow-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">
+                📈 {formatDate(selectedDateData.date)} - 所有涨停个股溢价分析
+              </h3>
+              <button
+                onClick={closeDateModal}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4 text-sm text-gray-600">
+              共 {selectedDateData.allStocks.length} 只涨停个股，按5日累计溢价排序
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {selectedDateData.allStocks
+                .sort((a, b) => {
+                  const aTotal = Object.values(a.followUpData).reduce((sum: number, val: number) => sum + val, 0);
+                  const bTotal = Object.values(b.followUpData).reduce((sum: number, val: number) => sum + val, 0);
+                  return bTotal - aTotal;
+                })
+                .map((stock) => {
+                  const followUpDates = Object.keys(stock.followUpData).sort();
+                  const totalReturn = Object.values(stock.followUpData).reduce((sum: number, val: number) => sum + val, 0);
+
+                  return (
+                    <div key={stock.code} className="bg-gray-50 rounded-lg p-3 border">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4
+                            className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                            onClick={() => handleStockClick(stock.name, stock.code)}
+                          >
+                            {stock.name} ({stock.code})
+                          </h4>
+                          <div className="text-xs text-gray-500">
+                            {stock.sectorName} · {stock.td_type}
+                          </div>
+                        </div>
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${
+                          getPerformanceClass(totalReturn)
+                        }`}>
+                          {totalReturn.toFixed(1)}%
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-1">
+                        {followUpDates.slice(0, 5).map((followDate, index) => {
+                          const performance = stock.followUpData[followDate] || 0;
+                          return (
+                            <div key={followDate} className="text-center">
+                              <div className="text-gray-400 text-xs">+{index + 1}</div>
+                              <div className={`px-1 py-0.5 rounded text-xs ${getPerformanceClass(performance)}`}>
+                                {performance.toFixed(1)}%
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 板块强度排序弹窗 */}
+      {showSectorRankingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-4xl max-h-[90vh] overflow-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">
+                🏆 板块强度溢价排序 (7天平均)
+              </h3>
+              <button
+                onClick={closeSectorRankingModal}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {getSectorStrengthRanking.map((sector, index) => (
+                <div key={sector.name} className="bg-gray-50 rounded-lg p-4 border">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                        index < 3 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white' : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">{sector.name}</h4>
+                        <div className="text-sm text-gray-500">
+                          活跃{sector.dates.length}天 · 总计{sector.stockCount}只个股
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`px-4 py-2 rounded-full font-medium ${
+                      getPerformanceClass(sector.avgPremium)
+                    }`}>
+                      平均溢价: {sector.avgPremium.toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* K线图弹窗 */}
       {showModal && selectedStock && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
@@ -199,6 +478,15 @@ export default function Home() {
               <span className="text-gray-700">只显示≥5个涨停的板块</span>
             </label>
 
+            {/* 板块强度排序按钮 */}
+            <button
+              onClick={() => setShowSectorRankingModal(true)}
+              disabled={loading || !sevenDaysData}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50"
+            >
+              🏆 板块强度排序
+            </button>
+
             {/* 刷新按钮 */}
             <button
               onClick={fetch7DaysData}
@@ -231,16 +519,19 @@ export default function Home() {
 
               return (
                 <div key={date} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  {/* 日期头部 */}
-                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 text-center">
+                  {/* 日期头部（可点击查看所有个股） */}
+                  <div
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 text-center cursor-pointer hover:from-blue-700 hover:to-blue-800 transition-colors"
+                    onClick={() => handleDateClick(date)}
+                  >
                     <div className="text-sm font-medium">
                       {formatDate(date).slice(5)} {/* MM-DD格式 */}
                     </div>
                     <div className="text-xs opacity-90">
                       {new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' })}
                     </div>
-                    <div className="text-xs mt-1 bg-white/20 rounded px-2 py-1">
-                      {dayData?.stats.total_stocks || 0} 只涨停
+                    <div className="text-xs mt-1 bg-white/20 rounded px-2 py-1 hover:bg-white/30 transition-colors">
+                      {dayData?.stats.total_stocks || 0} 只涨停 👆
                     </div>
                   </div>
 
@@ -252,82 +543,39 @@ export default function Home() {
                       </div>
                     ) : (
                       sectors.map((sector) => {
-                        const expandKey = `${date}-${sector.name}`;
-                        const isExpanded = expandedSectors[expandKey];
+                        // 计算板块平均溢价
+                        const sectorAvgPremium = sector.stocks.reduce((total, stock) => {
+                          const followUpData = sector.followUpData[stock.code] || {};
+                          const stockTotalReturn = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
+                          return total + stockTotalReturn;
+                        }, 0) / sector.stocks.length;
 
                         return (
-                          <div key={sector.name} className="border border-gray-200 rounded-lg">
-                            {/* 板块标题（可点击展开） */}
-                            <div
-                              className="p-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                              onClick={() => toggleSectorExpansion(date, sector.name)}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="font-medium text-gray-900 text-sm truncate">
-                                    {sector.name}
-                                  </div>
-                                  <div className={`text-xs px-2 py-1 rounded mt-1 inline-block ${
-                                    sector.count >= 5 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                  }`}>
-                                    {sector.count}个涨停
-                                  </div>
+                          <div
+                            key={sector.name}
+                            className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50 hover:border-blue-300 transition-all"
+                            onClick={() => handleSectorClick(date, sector.name, sector.stocks, sector.followUpData)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900 text-sm truncate hover:text-blue-600 transition-colors">
+                                  {sector.name} 📊
                                 </div>
-                                <div className="ml-2 text-gray-400">
-                                  {isExpanded ? '▼' : '▶'}
+                                <div className={`text-xs px-2 py-1 rounded mt-1 inline-block ${
+                                  sector.count >= 5 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {sector.count}个涨停
+                                </div>
+                              </div>
+                              <div className="ml-2 text-right">
+                                <div className="text-xs text-gray-500">平均溢价</div>
+                                <div className={`text-xs px-2 py-1 rounded font-medium ${
+                                  getPerformanceClass(sectorAvgPremium)
+                                }`}>
+                                  {sectorAvgPremium.toFixed(1)}%
                                 </div>
                               </div>
                             </div>
-
-                            {/* 展开的股票详情 */}
-                            {isExpanded && (
-                              <div className="border-t border-gray-100 p-3 bg-gray-50">
-                                <div className="space-y-2">
-                                  {getSortedStocksForSector(sector.stocks, sector.followUpData).map((stock) => {
-                                    const followUpData = sector.followUpData[stock.code] || {};
-                                    const followUpDates = Object.keys(followUpData).sort();
-
-                                    return (
-                                      <div key={stock.code} className="text-xs bg-white rounded p-2">
-                                        {/* 股票名称 */}
-                                        <div
-                                          className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline mb-1"
-                                          onClick={() => handleStockClick(stock.name, stock.code)}
-                                        >
-                                          {stock.name} ({stock.td_type})
-                                        </div>
-
-                                        {/* 后续5日表现 */}
-                                        <div className="space-y-1">
-                                          <div className="text-gray-600 font-medium">后续5日表现:</div>
-                                          <div className="grid grid-cols-5 gap-1">
-                                            {followUpDates.slice(0, 5).map((followDate, index) => {
-                                              const performance = followUpData[followDate] || 0;
-                                              return (
-                                                <div key={followDate} className="text-center">
-                                                  <div className="text-gray-500 text-xs">+{index + 1}</div>
-                                                  <div className={`px-1 py-0.5 rounded text-xs ${getPerformanceClass(performance)}`}>
-                                                    {performance.toFixed(1)}%
-                                                  </div>
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-                                          <div className="text-center mt-1">
-                                            <span className="text-gray-600 text-xs">累计: </span>
-                                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                              getPerformanceClass(Object.values(followUpData).reduce((sum, val) => sum + val, 0))
-                                            }`}>
-                                              {Object.values(followUpData).reduce((sum, val) => sum + val, 0).toFixed(1)}%
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         );
                       })
@@ -342,9 +590,10 @@ export default function Home() {
           <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="text-blue-800 font-medium mb-2">💡 使用说明</h3>
             <ul className="text-blue-700 text-sm space-y-1">
-              <li>• 按最近7个交易日排列，显示每日涨停板块及数量</li>
-              <li>• 点击板块名称展开查看个股详情和后续5日表现</li>
-              <li>• 个股按后续5日累计收益排序，便于分析溢价情况</li>
+              <li>• 按最近7个交易日排列，显示每日涨停板块及数量和平均溢价</li>
+              <li>• 点击日期头部查看当日所有涨停个股溢价分析</li>
+              <li>• 点击板块名称弹窗查看该板块个股详情和后续5日表现</li>
+              <li>• 点击"板块强度排序"查看7天板块溢价强度排名</li>
               <li>• 点击股票名称可查看K线图</li>
               <li>• 可筛选只显示≥5个涨停的活跃板块</li>
             </ul>
@@ -374,6 +623,24 @@ export default function Home() {
         <div
           className="fixed inset-0 z-40"
           onClick={closeModal}
+        />
+      )}
+      {showSectorModal && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={closeSectorModal}
+        />
+      )}
+      {showDateModal && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={closeDateModal}
+        />
+      )}
+      {showSectorRankingModal && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={closeSectorRankingModal}
         />
       )}
     </div>

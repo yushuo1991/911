@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
   import { Stock, LimitUpApiResponse, StockPerformance, TrackingData } from '@/types/stock';
   import { generateTradingDays, generateMockPerformance, sortStocksByBoard, calculateStats } from '@/lib/utils';
+  import { stockDatabase } from '@/lib/database';
 
   const TUSHARE_TOKEN = '2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211';
 
@@ -142,9 +143,25 @@ import { NextRequest, NextResponse } from 'next/server';
     console.log(`[API] 开始获取${date}的涨停个股数据`);
 
     try {
+      // 首先尝试从数据库获取缓存数据
+      const cachedStocks = await stockDatabase.getCachedStockData(date);
+      if (cachedStocks && cachedStocks.length > 0) {
+        console.log(`[数据库] 使用缓存数据，${cachedStocks.length}只股票`);
+        return cachedStocks;
+      }
+
+      // 缓存未命中，从外部API获取
       const result = await tryGetLimitUpStocks(date);
       if (result.length > 0) {
         console.log(`[API] 成功获取数据，${result.length}只股票`);
+
+        // 缓存到数据库
+        try {
+          await stockDatabase.cacheStockData(date, result);
+        } catch (cacheError) {
+          console.log(`[数据库] 缓存股票数据失败:`, cacheError);
+        }
+
         return result;
       } else {
         console.log(`[API] API返回空数据`);
@@ -153,6 +170,14 @@ import { NextRequest, NextResponse } from 'next/server';
     } catch (error) {
       const err = error as any;
       console.log(`[API] 获取数据失败: ${err}`);
+
+      // 尝试从数据库获取旧数据作为降级
+      const fallbackData = await stockDatabase.getCachedStockData(date);
+      if (fallbackData && fallbackData.length > 0) {
+        console.log(`[数据库] 使用降级缓存数据`);
+        return fallbackData;
+      }
+
       return [];
     }
   }
@@ -478,13 +503,27 @@ import { NextRequest, NextResponse } from 'next/server';
   // 添加延时函数避免API限流
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  async function getStockPerformance(stockCode: string, tradingDays: string[]): Promise<Record<string, number>> {
+  async function getStockPerformance(stockCode: string, tradingDays: string[], baseDate?: string): Promise<Record<string, number>> {
     console.log(`[数据获取] 开始获取${stockCode}的表现数据`);
 
-    // 1. 首先检查缓存
+    // 1. 首先检查内存缓存
     const cachedData = stockCache.get(stockCode, tradingDays);
     if (cachedData) {
       return cachedData;
+    }
+
+    // 2. 检查数据库缓存（如果提供了baseDate）
+    if (baseDate) {
+      try {
+        const dbCachedData = await stockDatabase.getCachedStockPerformance(stockCode, baseDate, tradingDays);
+        if (dbCachedData) {
+          // 存储到内存缓存以提高后续访问速度
+          stockCache.set(stockCode, tradingDays, dbCachedData);
+          return dbCachedData;
+        }
+      } catch (dbError) {
+        console.log(`[数据库] 获取缓存失败: ${dbError}`);
+      }
     }
 
     // 2. 尝试从Tushare API获取真实数据
@@ -533,8 +572,18 @@ import { NextRequest, NextResponse } from 'next/server';
 
       console.log(`[数据获取] 成功获取${stockCode}的完整Tushare数据`);
 
-      // 缓存真实数据
+      // 缓存真实数据到内存
       stockCache.set(stockCode, tradingDays, performance);
+
+      // 如果提供了baseDate，也缓存到数据库
+      if (baseDate) {
+        try {
+          await stockDatabase.cacheStockPerformance(stockCode, baseDate, performance);
+        } catch (dbError) {
+          console.log(`[数据库] 缓存股票表现数据失败: ${dbError}`);
+        }
+      }
+
       return performance;
 
     } catch (error) {
@@ -689,18 +738,38 @@ import { NextRequest, NextResponse } from 'next/server';
     const sevenDays = generate7TradingDays(endDate);
     console.log(`[API] 7天交易日: ${sevenDays}`);
 
-    // 检查7天数据缓存
+    // 检查7天数据缓存（内存优先）
     const cacheKey = `7days:${sevenDays.join(',')}:${endDate}`;
-    const cachedResult = stockCache.get7DaysCache(cacheKey);
+    const memoryCachedResult = stockCache.get7DaysCache(cacheKey);
 
-    if (cachedResult) {
-      console.log(`[API] 使用7天缓存数据`);
+    if (memoryCachedResult) {
+      console.log(`[API] 使用7天内存缓存数据`);
       return NextResponse.json({
         success: true,
-        data: cachedResult,
+        data: memoryCachedResult,
         dates: sevenDays,
         cached: true
       });
+    }
+
+    // 检查数据库缓存
+    try {
+      const dbCachedResult = await stockDatabase.get7DaysCache(cacheKey);
+      if (dbCachedResult) {
+        console.log(`[API] 使用7天数据库缓存数据`);
+
+        // 存储到内存缓存
+        stockCache.set7DaysCache(cacheKey, dbCachedResult.data);
+
+        return NextResponse.json({
+          success: true,
+          data: dbCachedResult.data,
+          dates: dbCachedResult.dates,
+          cached: true
+        });
+      }
+    } catch (dbError) {
+      console.log(`[数据库] 获取7天缓存失败: ${dbError}`);
     }
 
     const result: Record<string, any> = {};
@@ -733,8 +802,8 @@ import { NextRequest, NextResponse } from 'next/server';
         for (const stock of limitUpStocks) {
           const category = stock.ZSName || '其他';
 
-          // 获取后续5日表现
-          const followUpPerformance = await getStockPerformance(stock.StockCode, followUpDays);
+          // 获取后续5日表现（传入baseDate用于数据库缓存）
+          const followUpPerformance = await getStockPerformance(stock.StockCode, followUpDays, day);
           const totalReturn = Object.values(followUpPerformance).reduce((sum, val) => sum + val, 0);
 
           const stockPerformance: StockPerformance = {
@@ -785,8 +854,16 @@ import { NextRequest, NextResponse } from 'next/server';
 
     console.log(`[API] 7天数据处理完成，存储到缓存`);
 
-    // 缓存7天数据结果，减少后续API调用
+    // 缓存7天数据结果到内存，减少后续API调用
     stockCache.set7DaysCache(cacheKey, result);
+
+    // 也缓存到数据库
+    try {
+      await stockDatabase.cache7DaysData(cacheKey, result, sevenDays);
+      console.log(`[数据库] 7天数据已缓存到数据库`);
+    } catch (dbError) {
+      console.log(`[数据库] 7天数据缓存失败: ${dbError}`);
+    }
 
     return NextResponse.json({
       success: true,
