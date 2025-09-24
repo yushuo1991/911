@@ -11,9 +11,17 @@ import { NextRequest, NextResponse } from 'next/server';
     expiry: number;
   }
 
+  interface SevenDaysCacheEntry {
+    data: Record<string, any>;
+    timestamp: number;
+    expiry: number;
+  }
+
   class StockDataCache {
     private cache = new Map<string, CacheEntry>();
+    private sevenDaysCache = new Map<string, SevenDaysCacheEntry>();
     private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24小时
+    private readonly SEVEN_DAYS_CACHE_DURATION = 2 * 60 * 60 * 1000; // 7天数据缓存2小时
 
     private getCacheKey(stockCode: string, tradingDays: string[]): string {
       return `${stockCode}:${tradingDays.join(',')}`;
@@ -53,10 +61,39 @@ import { NextRequest, NextResponse } from 'next/server';
       console.log(`[缓存] 清空缓存`);
     }
 
-    getStats(): { size: number; hitRate: number } {
+    // 7天数据缓存方法
+    get7DaysCache(cacheKey: string): Record<string, any> | null {
+      const entry = this.sevenDaysCache.get(cacheKey);
+
+      if (!entry) return null;
+
+      // 检查缓存是否过期
+      if (Date.now() > entry.expiry) {
+        this.sevenDaysCache.delete(cacheKey);
+        return null;
+      }
+
+      console.log(`[7天缓存] 命中缓存: ${cacheKey}`);
+      return entry.data;
+    }
+
+    set7DaysCache(cacheKey: string, data: Record<string, any>): void {
+      const now = Date.now();
+
+      this.sevenDaysCache.set(cacheKey, {
+        data,
+        timestamp: now,
+        expiry: now + this.SEVEN_DAYS_CACHE_DURATION
+      });
+
+      console.log(`[7天缓存] 存储数据: ${cacheKey}`);
+    }
+
+    getStats(): { size: number; hitRate: number; sevenDaysSize: number } {
       return {
         size: this.cache.size,
-        hitRate: 0 // 简化版本，实际应该追踪命中率
+        hitRate: 0, // 简化版本，实际应该追踪命中率
+        sevenDaysSize: this.sevenDaysCache.size
       };
     }
   }
@@ -652,6 +689,20 @@ import { NextRequest, NextResponse } from 'next/server';
     const sevenDays = generate7TradingDays(endDate);
     console.log(`[API] 7天交易日: ${sevenDays}`);
 
+    // 检查7天数据缓存
+    const cacheKey = `7days:${sevenDays.join(',')}:${endDate}`;
+    const cachedResult = stockCache.get7DaysCache(cacheKey);
+
+    if (cachedResult) {
+      console.log(`[API] 使用7天缓存数据`);
+      return NextResponse.json({
+        success: true,
+        data: cachedResult,
+        dates: sevenDays,
+        cached: true
+      });
+    }
+
     const result: Record<string, any> = {};
 
     // 为每一天获取数据
@@ -732,11 +783,16 @@ import { NextRequest, NextResponse } from 'next/server';
       }
     }
 
-    console.log(`[API] 7天数据处理完成`);
+    console.log(`[API] 7天数据处理完成，存储到缓存`);
+
+    // 缓存7天数据结果，减少后续API调用
+    stockCache.set7DaysCache(cacheKey, result);
+
     return NextResponse.json({
       success: true,
       data: result,
-      dates: sevenDays
+      dates: sevenDays,
+      cached: false
     });
   }
 
