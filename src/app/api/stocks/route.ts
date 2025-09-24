@@ -529,6 +529,7 @@ import { NextRequest, NextResponse } from 'next/server';
   export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
+    const mode = searchParams.get('mode'); // 新增：支持不同模式
 
     if (!date) {
       return NextResponse.json(
@@ -538,87 +539,12 @@ import { NextRequest, NextResponse } from 'next/server';
     }
 
     try {
-      console.log(`[API] 开始处理${date}的跟踪数据`);
-
-      // 添加超时控制
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('API处理超时')), 45000); // 45秒超时
-      });
-
-      // 获取涨停个股数据（带超时）
-      const limitUpStocksPromise = getLimitUpStocks(date);
-      const limitUpStocks = await Promise.race([limitUpStocksPromise, timeoutPromise]) as Stock[];
-
-      if (!limitUpStocks || limitUpStocks.length === 0) {
-        return NextResponse.json({
-          success: true,
-          data: {
-            date,
-            trading_days: [],
-            categories: {},
-            stats: {
-              total_stocks: 0,
-              category_count: 0,
-              profit_ratio: 0
-            }
-          }
-        });
+      // 支持单日模式和7天模式
+      if (mode === '7days') {
+        return await get7DaysData(date);
+      } else {
+        return await getSingleDayData(date);
       }
-
-      // 获取交易日
-      const tradingDays = generateTradingDays(date, 5);
-      console.log(`[API] 生成交易日: ${tradingDays}`);
-
-      // 按分类整理数据
-      const categories: Record<string, StockPerformance[]> = {};
-
-      for (const stock of limitUpStocks) {
-        const category = stock.ZSName || '其他';
-        const performance = await getStockPerformance(stock.StockCode, tradingDays);
-        const totalReturn = Object.values(performance).reduce((sum, val) => sum + val, 0);
-
-        const stockPerformance: StockPerformance = {
-          name: stock.StockName,
-          code: stock.StockCode,
-          td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
-          performance,
-          total_return: Math.round(totalReturn * 100) / 100
-        };
-
-        if (!categories[category]) {
-          categories[category] = [];
-        }
-        categories[category].push(stockPerformance);
-      }
-
-      // 按板位优先排序，同板位内按涨停时间排序
-      Object.keys(categories).forEach(category => {
-        categories[category] = sortStocksByBoard(categories[category]);
-      });
-
-      // 计算统计数据
-      const stats = calculateStats(categories);
-
-      // 添加系统统计信息
-      const cacheStats = stockCache.getStats();
-      const rateStats = rateController.getStats();
-
-      const result: TrackingData = {
-        date,
-        trading_days: tradingDays,
-        categories,
-        stats
-      };
-
-      console.log(`[API] 数据处理完成: ${stats.total_stocks}只股票, ${stats.category_count}个分类`);
-      console.log(`[缓存统计] 缓存大小: ${cacheStats.size}, 命中率: ${cacheStats.hitRate}%`);
-      console.log(`[频率统计] 当前请求数: ${rateStats.currentRequests}/${rateStats.maxRequests}`);
-      console.log(`[数据源] 使用真实Tushare API数据`);
-
-      return NextResponse.json({
-        success: true,
-        data: result
-      });
 
     } catch (error) {
       const err = error as any;
@@ -631,4 +557,202 @@ import { NextRequest, NextResponse } from 'next/server';
         { status: 500 }
       );
     }
+  }
+
+  // 原有的单日数据获取逻辑
+  async function getSingleDayData(date: string) {
+    console.log(`[API] 开始处理${date}的跟踪数据`);
+
+    // 添加超时控制
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('API处理超时')), 45000); // 45秒超时
+    });
+
+    // 获取涨停个股数据（带超时）
+    const limitUpStocksPromise = getLimitUpStocks(date);
+    const limitUpStocks = await Promise.race([limitUpStocksPromise, timeoutPromise]) as Stock[];
+
+    if (!limitUpStocks || limitUpStocks.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          date,
+          trading_days: [],
+          categories: {},
+          stats: {
+            total_stocks: 0,
+            category_count: 0,
+            profit_ratio: 0
+          }
+        }
+      });
+    }
+
+    // 获取交易日
+    const tradingDays = generateTradingDays(date, 5);
+    console.log(`[API] 生成交易日: ${tradingDays}`);
+
+    // 按分类整理数据
+    const categories: Record<string, StockPerformance[]> = {};
+
+    for (const stock of limitUpStocks) {
+      const category = stock.ZSName || '其他';
+      const performance = await getStockPerformance(stock.StockCode, tradingDays);
+      const totalReturn = Object.values(performance).reduce((sum, val) => sum + val, 0);
+
+      const stockPerformance: StockPerformance = {
+        name: stock.StockName,
+        code: stock.StockCode,
+        td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
+        performance,
+        total_return: Math.round(totalReturn * 100) / 100
+      };
+
+      if (!categories[category]) {
+        categories[category] = [];
+      }
+      categories[category].push(stockPerformance);
+    }
+
+    // 按板位优先排序，同板位内按涨停时间排序
+    Object.keys(categories).forEach(category => {
+      categories[category] = sortStocksByBoard(categories[category]);
+    });
+
+    // 计算统计数据
+    const stats = calculateStats(categories);
+
+    // 添加系统统计信息
+    const cacheStats = stockCache.getStats();
+    const rateStats = rateController.getStats();
+
+    const result: TrackingData = {
+      date,
+      trading_days: tradingDays,
+      categories,
+      stats
+    };
+
+    console.log(`[API] 数据处理完成: ${stats.total_stocks}只股票, ${stats.category_count}个分类`);
+    console.log(`[缓存统计] 缓存大小: ${cacheStats.size}, 命中率: ${cacheStats.hitRate}%`);
+    console.log(`[频率统计] 当前请求数: ${rateStats.currentRequests}/${rateStats.maxRequests}`);
+    console.log(`[数据源] 使用真实Tushare API数据`);
+
+    return NextResponse.json({
+      success: true,
+      data: result
+    });
+  }
+
+  // 新增：7天数据获取逻辑
+  async function get7DaysData(endDate: string) {
+    console.log(`[API] 开始处理7天数据，结束日期: ${endDate}`);
+
+    // 生成最近7个交易日
+    const sevenDays = generate7TradingDays(endDate);
+    console.log(`[API] 7天交易日: ${sevenDays}`);
+
+    const result: Record<string, any> = {};
+
+    // 为每一天获取数据
+    for (const day of sevenDays) {
+      try {
+        console.log(`[API] 处理日期: ${day}`);
+
+        // 获取当天涨停股票
+        const limitUpStocks = await getLimitUpStocks(day);
+
+        if (!limitUpStocks || limitUpStocks.length === 0) {
+          result[day] = {
+            date: day,
+            categories: {},
+            stats: { total_stocks: 0, category_count: 0, profit_ratio: 0 },
+            followUpData: {}
+          };
+          continue;
+        }
+
+        // 获取该天后5个交易日（用于溢价计算）
+        const followUpDays = generateTradingDays(day, 5);
+
+        // 按分类整理数据
+        const categories: Record<string, StockPerformance[]> = {};
+        const followUpData: Record<string, Record<string, Record<string, number>>> = {};
+
+        for (const stock of limitUpStocks) {
+          const category = stock.ZSName || '其他';
+
+          // 获取后续5日表现
+          const followUpPerformance = await getStockPerformance(stock.StockCode, followUpDays);
+          const totalReturn = Object.values(followUpPerformance).reduce((sum, val) => sum + val, 0);
+
+          const stockPerformance: StockPerformance = {
+            name: stock.StockName,
+            code: stock.StockCode,
+            td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
+            performance: { [day]: 10.0 }, // 涨停日当天固定为10%
+            total_return: Math.round(totalReturn * 100) / 100
+          };
+
+          if (!categories[category]) {
+            categories[category] = [];
+          }
+          categories[category].push(stockPerformance);
+
+          // 存储后续表现数据
+          if (!followUpData[category]) {
+            followUpData[category] = {};
+          }
+          followUpData[category][stock.StockCode] = followUpPerformance;
+        }
+
+        // 排序
+        Object.keys(categories).forEach(category => {
+          categories[category] = sortStocksByBoard(categories[category]);
+        });
+
+        // 计算统计数据
+        const stats = calculateStats(categories);
+
+        result[day] = {
+          date: day,
+          categories,
+          stats,
+          followUpData
+        };
+
+      } catch (error) {
+        console.error(`[API] 处理${day}数据失败:`, error);
+        result[day] = {
+          date: day,
+          categories: {},
+          stats: { total_stocks: 0, category_count: 0, profit_ratio: 0 },
+          followUpData: {}
+        };
+      }
+    }
+
+    console.log(`[API] 7天数据处理完成`);
+    return NextResponse.json({
+      success: true,
+      data: result,
+      dates: sevenDays
+    });
+  }
+
+  // 生成最近7个交易日（工作日，排除周末）
+  function generate7TradingDays(endDate: string): string[] {
+    const dates = [];
+    const end = new Date(endDate);
+    let current = new Date(end);
+
+    while (dates.length < 7) {
+      // 跳过周末
+      if (current.getDay() !== 0 && current.getDay() !== 6) {
+        dates.push(current.toISOString().split('T')[0]);
+      }
+      current.setDate(current.getDate() - 1);
+    }
+
+    return dates.reverse(); // 返回从早到晚的顺序
   }

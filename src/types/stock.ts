@@ -28,6 +28,30 @@ export interface TrackingData {
   };
 }
 
+// 新增：7天数据结构
+export interface DayData {
+  date: string;
+  categories: CategoryData;
+  stats: {
+    total_stocks: number;
+    category_count: number;
+    profit_ratio: number;
+  };
+  followUpData: Record<string, Record<string, Record<string, number>>>; // 板块->股票代码->后续日期表现
+}
+
+export interface SevenDaysData {
+  [date: string]: DayData;
+}
+
+// 新增：板块汇总信息（用于时间轴显示）
+export interface SectorSummary {
+  name: string;
+  count: number;
+  stocks: StockPerformance[];
+  followUpData: Record<string, Record<string, number>>; // 股票代码->后续日期表现
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
