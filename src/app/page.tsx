@@ -95,7 +95,7 @@ export default function Home() {
     if (!dayData) return;
 
     // 按板块组织数据
-    const sectorData: { sectorName: string; stocks: any[]; avgPremium: number; }[] = [];
+    const sectorData: { sectorName: string; stocks: any[]; avgPremium: number; totalCumulativeReturn: number; }[] = [];
     Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
       const sectorStocks = stocks.map(stock => {
         const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
@@ -113,15 +113,19 @@ export default function Home() {
       // 计算板块平均溢价
       const avgPremium = sectorStocks.reduce((total, stock) => total + stock.totalReturn, 0) / sectorStocks.length;
 
+      // 计算板块累计涨幅总和
+      const totalCumulativeReturn = sectorStocks.reduce((total, stock) => total + stock.totalReturn, 0);
+
       sectorData.push({
         sectorName,
         stocks: sectorStocks,
-        avgPremium
+        avgPremium,
+        totalCumulativeReturn
       });
     });
 
-    // 按板块平均溢价排序
-    sectorData.sort((a, b) => b.avgPremium - a.avgPremium);
+    // 按板块累计涨幅总和排序
+    sectorData.sort((a, b) => b.totalCumulativeReturn - a.totalCumulativeReturn);
 
     setSelectedDateData({ date, sectorData });
     setShowDateModal(true);
@@ -375,6 +379,84 @@ export default function Home() {
               共 {selectedSectorData.stocks.length} 只个股，按5日累计溢价排序
             </div>
 
+            {/* 板块5天平均溢价趋势图表 */}
+            <div className="mb-6 bg-gray-50 rounded-lg p-4">
+              <h4 className="text-lg font-semibold mb-4 text-gray-800">📈 板块5天平均溢价趋势</h4>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={(() => {
+                      const chartData: { date: string; avgPremium: number; stockCount: number }[] = [];
+
+                      // 获取所有交易日期
+                      const allDates = new Set<string>();
+                      Object.values(selectedSectorData.followUpData).forEach(stockData => {
+                        Object.keys(stockData).forEach(date => allDates.add(date));
+                      });
+
+                      const sortedDates = Array.from(allDates).sort().slice(0, 5);
+
+                      sortedDates.forEach(date => {
+                        let totalPremium = 0;
+                        let validStockCount = 0;
+
+                        Object.entries(selectedSectorData.followUpData).forEach(([stockCode, stockData]) => {
+                          if (stockData[date] !== undefined) {
+                            totalPremium += stockData[date];
+                            validStockCount++;
+                          }
+                        });
+
+                        const avgPremium = validStockCount > 0 ? totalPremium / validStockCount : 0;
+
+                        let formattedDate = '';
+                        try {
+                          const formatted = formatDate(date);
+                          formattedDate = formatted ? formatted.slice(5) : date;
+                        } catch (error) {
+                          formattedDate = date;
+                        }
+
+                        chartData.push({
+                          date: formattedDate,
+                          avgPremium: Math.round(avgPremium * 100) / 100,
+                          stockCount: validStockCount
+                        });
+                      });
+
+                      return chartData;
+                    })()}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value, name) => [
+                        name === 'avgPremium' ? `${value}%` : value,
+                        name === 'avgPremium' ? '平均溢价' : '个股数量'
+                      ]}
+                      labelFormatter={(label) => `日期: ${label}`}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="avgPremium"
+                      stroke="#2563eb"
+                      strokeWidth={2}
+                      dot={{ fill: '#2563eb', strokeWidth: 2, r: 4 }}
+                      name="平均溢价(%)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {getSortedStocksForSector(selectedSectorData.stocks, selectedSectorData.followUpData).map((stock, index) => {
                 const followUpDates = Object.keys(selectedSectorData.followUpData[stock.code] || {}).sort();
@@ -420,7 +502,6 @@ export default function Home() {
 
                         return (
                           <div key={followDate || `day-${dayIndex}`} className="text-center bg-gray-50 rounded p-2">
-                            <div className="text-gray-400 text-xs mb-1">T+{dayIndex + 1}</div>
                             <div className="text-xs text-gray-400 mb-1">{formattedDate}</div>
                             <div className={`px-2 py-1 rounded text-sm font-medium ${getPerformanceClass(performance)}`}>
                               {performance.toFixed(1)}%
@@ -650,7 +731,6 @@ export default function Home() {
 
                           return (
                             <div key={followDate || `day-${dayIndex}`} className="text-center bg-gray-50 rounded p-2">
-                              <div className="text-gray-400 text-xs mb-1">T+{dayIndex + 1}</div>
                               <div className="text-xs text-gray-400 mb-1">{formattedDate}</div>
                               <div className={`px-2 py-1 rounded text-sm font-medium ${getPerformanceClass(performance)}`}>
                                 {performance.toFixed(1)}%
@@ -967,7 +1047,37 @@ export default function Home() {
                 onChange={(e) => setOnlyLimitUp5Plus(e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-gray-700">只显示≥5个涨停的板块</span>
+              <span className="text-gray-700">
+                {(() => {
+                  if (!sevenDaysData || !dates) {
+                    return "只显示≥5个涨停的板块";
+                  }
+
+                  // 计算当前显示的板块总数和符合≥5个条件的板块数
+                  let totalSectors = 0;
+                  let filtered5PlusSectors = 0;
+
+                  dates.forEach(date => {
+                    const dayData = sevenDaysData[date];
+                    if (dayData) {
+                      Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
+                        if (sectorName !== '其他' && sectorName !== 'ST板块') {
+                          totalSectors++;
+                          if (stocks.length >= 5) {
+                            filtered5PlusSectors++;
+                          }
+                        }
+                      });
+                    }
+                  });
+
+                  if (onlyLimitUp5Plus) {
+                    return `显示全部板块 (当前${filtered5PlusSectors}个≥5家)`;
+                  } else {
+                    return `只显示≥5家板块 (共${totalSectors}个板块)`;
+                  }
+                })()}
+              </span>
             </label>
 
             {/* 板块3天涨停排行按钮 */}
@@ -1019,10 +1129,7 @@ export default function Home() {
                     >
                       {formatDate(date).slice(5)} {/* MM-DD格式 */}
                     </div>
-                    <div
-                      className="text-xs opacity-90 cursor-pointer hover:bg-white/10 rounded px-2 py-1 transition-colors"
-                      onClick={() => handleWeekdayClick(date)}
-                    >
+                    <div className="text-xs opacity-90 px-2 py-1">
                       {new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' })}
                     </div>
                     <div

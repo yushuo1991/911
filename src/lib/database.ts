@@ -1,5 +1,8 @@
 import mysql from 'mysql2/promise';
 
+// 检查是否禁用数据库
+const isDatabaseDisabled = process.env.DB_DISABLE === 'true';
+
 // 数据库配置
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
@@ -11,8 +14,8 @@ const dbConfig = {
   timezone: '+08:00'
 };
 
-// 连接池
-const pool = mysql.createPool({
+// 连接池（仅在数据库未禁用时创建）
+const pool = isDatabaseDisabled ? null : mysql.createPool({
   ...dbConfig,
   waitForConnections: true,
   connectionLimit: 10,
@@ -27,7 +30,7 @@ export class StockDatabase {
   private pool: mysql.Pool;
 
   private constructor() {
-    this.pool = pool;
+    this.pool = pool || ({} as mysql.Pool); // 空对象占位
   }
 
   public static getInstance(): StockDatabase {
@@ -39,6 +42,11 @@ export class StockDatabase {
 
   // 初始化数据库表
   async initializeTables(): Promise<void> {
+    if (isDatabaseDisabled) {
+      console.log('[数据库] 数据库已禁用，跳过初始化');
+      return;
+    }
+
     try {
       console.log('[数据库] 开始初始化数据库表...');
 
@@ -101,6 +109,10 @@ export class StockDatabase {
 
   // 缓存股票数据
   async cacheStockData(date: string, stocks: any[]): Promise<void> {
+    if (isDatabaseDisabled) {
+      return;
+    }
+
     try {
       console.log(`[数据库] 开始缓存 ${date} 的 ${stocks.length} 只股票数据`);
 
@@ -144,6 +156,10 @@ export class StockDatabase {
 
   // 缓存股票表现数据
   async cacheStockPerformance(stockCode: string, baseDate: string, performances: Record<string, number>): Promise<void> {
+    if (isDatabaseDisabled) {
+      return;
+    }
+
     try {
       const connection = await this.pool.getConnection();
       await connection.beginTransaction();
@@ -176,6 +192,10 @@ export class StockDatabase {
 
   // 获取缓存的股票数据
   async getCachedStockData(date: string): Promise<any[] | null> {
+    if (isDatabaseDisabled) {
+      return null;
+    }
+
     try {
       const [rows] = await this.pool.execute(`
         SELECT stock_code, stock_name, sector_name, td_type
@@ -203,6 +223,10 @@ export class StockDatabase {
 
   // 获取缓存的股票表现数据
   async getCachedStockPerformance(stockCode: string, baseDate: string, tradingDays: string[]): Promise<Record<string, number> | null> {
+    if (isDatabaseDisabled) {
+      return null;
+    }
+
     try {
       const [rows] = await this.pool.execute(`
         SELECT performance_date, pct_change
@@ -229,6 +253,10 @@ export class StockDatabase {
 
   // 缓存7天数据
   async cache7DaysData(cacheKey: string, data: Record<string, any>, dates: string[]): Promise<void> {
+    if (isDatabaseDisabled) {
+      return;
+    }
+
     try {
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 2); // 2小时后过期
@@ -258,6 +286,10 @@ export class StockDatabase {
 
   // 获取7天缓存数据
   async get7DaysCache(cacheKey: string): Promise<{ data: Record<string, any>; dates: string[] } | null> {
+    if (isDatabaseDisabled) {
+      return null;
+    }
+
     try {
       const [rows] = await this.pool.execute(`
         SELECT data, dates
@@ -284,6 +316,10 @@ export class StockDatabase {
 
   // 清理过期缓存
   async cleanExpiredCache(): Promise<void> {
+    if (isDatabaseDisabled) {
+      return;
+    }
+
     try {
       const [result] = await this.pool.execute(`
         DELETE FROM seven_days_cache WHERE expires_at < NOW()
@@ -297,6 +333,14 @@ export class StockDatabase {
 
   // 获取数据库统计信息
   async getStats(): Promise<any> {
+    if (isDatabaseDisabled) {
+      return {
+        totalStocks: 0,
+        totalPerformanceRecords: 0,
+        activeCacheCount: 0
+      };
+    }
+
     try {
       const [stockCount] = await this.pool.execute('SELECT COUNT(*) as count FROM stock_data');
       const [performanceCount] = await this.pool.execute('SELECT COUNT(*) as count FROM stock_performance');
@@ -315,6 +359,10 @@ export class StockDatabase {
 
   // 测试数据库连接
   async testConnection(): Promise<boolean> {
+    if (isDatabaseDisabled) {
+      return true; // 数据库禁用时认为连接正常
+    }
+
     try {
       await this.pool.execute('SELECT 1');
       console.log('[数据库] 数据库连接测试成功');
@@ -327,6 +375,10 @@ export class StockDatabase {
 
   // 关闭连接池
   async close(): Promise<void> {
+    if (isDatabaseDisabled || !this.pool.end) {
+      return;
+    }
+
     await this.pool.end();
   }
 }
