@@ -262,10 +262,10 @@ export default function Home() {
       // 按涨停数量排序
       sectors.sort((a, b) => b.count - a.count);
 
-      // 根据筛选条件过滤
-      const filteredSectors = onlyLimitUp5Plus
-        ? sectors.filter(sector => sector.count >= 5)
-        : sectors;
+      // 根据筛选条件过滤，默认排除"其他"和"ST板块"
+      const filteredSectors = sectors
+        .filter(sector => sector.name !== '其他' && sector.name !== 'ST板块')
+        .filter(sector => onlyLimitUp5Plus ? sector.count >= 5 : true);
 
       result[date] = filteredSectors;
     });
@@ -288,18 +288,34 @@ export default function Home() {
   const getSectorStrengthRanking = useMemo(() => {
     if (!sevenDaysData || !dates) return [];
 
-    // 获取最近3天的日期
-    const recent3Days = dates.slice(-3);
+    // 根据当前时间选择3天数据：17点前选择前3天，17点后包含今天
+    const now = new Date();
+    const currentHour = now.getHours();
+    let recent3Days: string[];
+
+    if (currentHour < 17) {
+      // 17点前：选择今天之外的前3天
+      recent3Days = dates.slice(-4, -1);
+    } else {
+      // 17点后：选择包含前2天和今天
+      recent3Days = dates.slice(-3);
+    }
+
     if (recent3Days.length === 0) return [];
 
     const sectorCountMap: Record<string, { name: string; totalLimitUpCount: number; dailyBreakdown: { date: string; count: number }[] }> = {};
 
-    // 统计最近3天每个板块的涨停家数
+    // 统计最近3天每个板块的涨停家数，排除"其他"和"ST板块"
     recent3Days.forEach(date => {
       const dayData = sevenDaysData[date];
       if (!dayData) return;
 
       Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
+        // 排除"其他"板块和"ST板块"
+        if (sectorName === '其他' || sectorName === 'ST板块') {
+          return;
+        }
+
         if (!sectorCountMap[sectorName]) {
           sectorCountMap[sectorName] = {
             name: sectorName,
@@ -791,7 +807,7 @@ export default function Home() {
           <div className="bg-white rounded-xl p-6 max-w-4xl max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-900">
-                🏆 板块3天涯停总数排行 (前5名)
+                🏆 板块3天涨停总数排行 (前5名)
               </h3>
               <button
                 onClick={closeSectorRankingModal}
@@ -805,7 +821,7 @@ export default function Home() {
             <div className="mb-6 bg-blue-50 rounded-lg p-4">
               <h4 className="text-lg font-semibold text-blue-800 mb-2">📊 统计说明</h4>
               <p className="text-blue-700 text-sm">
-                统计最近3个交易日各板块涯停总数，按总数降序排列，显示前5名最活跃板块
+                统计最近3个交易日各板块涨停总数，按总数降序排列，显示前5名最活跃板块
               </p>
               {dates.length >= 3 && (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -846,7 +862,7 @@ export default function Home() {
                         <div>
                           <h4 className="text-lg font-semibold text-gray-900">{sector.name}</h4>
                           <div className="text-sm text-gray-500">
-                            最近3天累计涯停数
+                            最近3天累计涨停数
                           </div>
                         </div>
                       </div>
@@ -882,7 +898,7 @@ export default function Home() {
                             }`}>
                               {day.count}
                             </div>
-                            <div className="text-xs text-gray-400">只涯停</div>
+                            <div className="text-xs text-gray-400">只涨停</div>
                           </div>
                         );
                       })}
@@ -896,7 +912,7 @@ export default function Home() {
               <div className="text-center py-8 text-gray-500">
                 <div className="text-4xl mb-4">📊</div>
                 <p className="text-lg">暂无数据</p>
-                <p className="text-sm">最近3天没有足够的涯停数据</p>
+                <p className="text-sm">最近3天没有足够的涨停数据</p>
               </div>
             )}
           </div>
@@ -954,13 +970,13 @@ export default function Home() {
               <span className="text-gray-700">只显示≥5个涨停的板块</span>
             </label>
 
-            {/* 板块3天涯停排行按钮 */}
+            {/* 板块3天涨停排行按钮 */}
             <button
               onClick={() => setShowSectorRankingModal(true)}
               disabled={loading || !sevenDaysData}
               className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50"
             >
-              🏆 3天涯停排行
+              🏆 3天涨停排行
             </button>
 
             {/* 刷新按钮 */}
