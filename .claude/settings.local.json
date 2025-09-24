@@ -35,7 +35,9 @@
       "Bash(chmod:*)",
       "Bash(cat:*)",
       "Bash(start http://localhost:3000)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(node:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []
