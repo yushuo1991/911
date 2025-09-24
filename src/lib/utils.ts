@@ -143,9 +143,9 @@ export function generateTradingDays(startDate: string, days: number = 5): string
   currentDate.setDate(currentDate.getDate() + 1); // 从第二天开始
 
   while (tradingDays.length < days) {
-    // 检查是否超过今天的日期
-    if (currentDate > today) {
-      console.log(`[日期生成] 到达未来日期 ${currentDate.toISOString().split('T')[0]}，停止生成`);
+    // 检查是否超过今天的日期（允许包含今天）
+    if (currentDate.getTime() > today.getTime()) {
+      console.log(`[日期生成] 到达真正的未来日期 ${currentDate.toISOString().split('T')[0]}，停止生成（今天: ${today.toISOString().split('T')[0]}）`);
       break;
     }
 
@@ -182,8 +182,9 @@ export function generateMockPerformance(stockCode: string, tradingDays: string[]
       parseInt(day.slice(6, 8))
     );
 
-    if (dayDate > today) {
-      console.log(`[模拟数据] 跳过未来日期: ${day}`);
+    // 允许包括今天在内的日期
+    if (dayDate.getTime() > today.getTime()) {
+      console.log(`[模拟数据] 跳过真正的未来日期: ${day} (今天: ${today.toISOString().split('T')[0]})`);
       performance[day] = 0; // 未来日期返回0
       continue;
     }

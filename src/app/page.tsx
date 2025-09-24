@@ -14,6 +14,31 @@ function getStockCodeFormat(stockCode: string): string {
   }
 }
 
+// 提取连板数函数
+function extractBoardCount(tdType: string): string {
+  if (!tdType) return '1';
+
+  // 匹配数字+连板的格式，如 "2连板"、"3连板"
+  const match = tdType.match(/(\d+)连板/);
+  if (match) {
+    return match[1];
+  }
+
+  // 处理特殊情况
+  if (tdType.includes('首板') || tdType.includes('一板')) {
+    return '1';
+  }
+
+  // 提取其他数字格式，如 "3天2板"
+  const dayBoardMatch = tdType.match(/(\d+)天(\d+)板/);
+  if (dayBoardMatch) {
+    return dayBoardMatch[2];
+  }
+
+  // 默认返回1
+  return '1';
+}
+
 export default function Home() {
   const [sevenDaysData, setSevenDaysData] = useState<SevenDaysData | null>(null);
   const [dates, setDates] = useState<string[]>([]);
@@ -533,7 +558,6 @@ export default function Home() {
                         return (
                           <div key={followDate || `day-${dayIndex}`} className="text-center bg-gray-50 rounded p-2">
                             <div className="text-xs text-gray-400 mb-1">{formattedDate}</div>
-                            <div className="text-xs text-gray-400 mb-1">{formattedDate}</div>
                             <div className={`px-2 py-1 rounded text-sm font-medium ${getPerformanceClass(performance)}`}>
                               {performance.toFixed(1)}%
                             </div>
@@ -670,9 +694,17 @@ export default function Home() {
                                     </div>
                                   </td>
                                   <td className="px-2 py-2 text-center">
-                                    <div className={`px-2 py-1 rounded text-xs font-medium ${getPerformanceClass(stock.totalReturn)}`}>
-                                      {stock.totalReturn.toFixed(1)}%
-                                    </div>
+                                    {selectedWeekdayData.sectorData.length === 1 ? (
+                                      // 单板块模式：显示连板数
+                                      <div className="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-800">
+                                        {extractBoardCount(stock.td_type)}板
+                                      </div>
+                                    ) : (
+                                      // 多板块模式：显示溢价
+                                      <div className={`px-2 py-1 rounded text-xs font-medium ${getPerformanceClass(stock.totalReturn)}`}>
+                                        {stock.totalReturn.toFixed(1)}%
+                                      </div>
+                                    )}
                                   </td>
                                   {chartData.slice(0, 5).map((dayData: any, dayIndex: number) => (
                                     <td key={dayData.date || dayIndex} className="px-2 py-2 text-center">
@@ -772,10 +804,10 @@ export default function Home() {
                             const sector = selectedWeekdayData.sectorData[0];
                             const stocksData = (sector as any).stocksData || [];
 
-                            // 筛选条件：只显示涨幅大于10的个股
+                            // 筛选条件：根据用户选择决定是否筛选和限制数量
                             const filteredStocks = stocksData.filter((stock: any) =>
                               showOnly5PlusInWeekdayModal ? stock.totalReturn > 10 : true
-                            ).slice(0, 10); // 最多显示10只股票
+                            ).slice(0, showOnly5PlusInWeekdayModal ? 10 : stocksData.length); // 显示全部个股时不限制数量
 
                             if (filteredStocks.length === 0) return [];
 
@@ -930,19 +962,32 @@ export default function Home() {
                               const stocksData = (sector as any).stocksData || [];
                               const filteredStocks = stocksData.filter((stock: any) =>
                                 showOnly5PlusInWeekdayModal ? stock.totalReturn > 10 : true
-                              ).slice(0, 10);
+                              ).slice(0, showOnly5PlusInWeekdayModal ? 10 : stocksData.length); // 显示全部个股时不限制数量
 
-                              const colors = [
+                              // 扩展颜色数组，支持更多个股
+                              const baseColors = [
                                 '#dc2626', '#2563eb', '#16a34a', '#ca8a04', '#9333ea',
-                                '#c2410c', '#0891b2', '#be185d', '#4338ca', '#059669'
+                                '#c2410c', '#0891b2', '#be185d', '#4338ca', '#059669',
+                                '#f97316', '#8b5cf6', '#06b6d4', '#ef4444', '#10b981',
+                                '#f59e0b', '#6366f1', '#14b8a6', '#f43f5e', '#84cc16'
                               ];
+
+                              // 动态生成颜色函数
+                              const generateColor = (index: number) => {
+                                if (index < baseColors.length) {
+                                  return baseColors[index];
+                                }
+                                // 当超过预设颜色时，基于HSL生成颜色
+                                const hue = (index * 137.508) % 360; // 使用黄金角度分布
+                                return `hsl(${hue}, 65%, 45%)`;
+                              };
 
                               return filteredStocks.map((stock: any, index: number) => (
                                 <Line
                                   key={stock.code}
                                   type="monotone"
                                   dataKey={stock.name.length > 4 ? stock.name.slice(0, 4) : stock.name}
-                                  stroke={colors[index % colors.length]}
+                                  stroke={generateColor(index)}
                                   strokeWidth={2}
                                   dot={{ r: 3 }}
                                   activeDot={{ r: 5 }}
@@ -987,9 +1032,12 @@ export default function Home() {
                         const filteredCount = stocksData.filter((stock: any) =>
                           showOnly5PlusInWeekdayModal ? stock.totalReturn > 10 : true
                         ).length;
-                        return filteredCount > 10
-                          ? `显示前10只个股，共${filteredCount}只`
-                          : null;
+                        if (showOnly5PlusInWeekdayModal && filteredCount > 10) {
+                          return `显示前10只个股，共${filteredCount}只`;
+                        } else if (!showOnly5PlusInWeekdayModal && filteredCount > 0) {
+                          return `显示全部${filteredCount}只个股`;
+                        }
+                        return null;
                       })()
                     : selectedWeekdayData.sectorData.filter(sector => showOnly5PlusInWeekdayModal ? sector.stockCount >= 5 : true).length > 10 &&
                       `显示前10个板块，共${selectedWeekdayData.sectorData.filter(sector => showOnly5PlusInWeekdayModal ? sector.stockCount >= 5 : true).length}个`
@@ -1096,7 +1144,6 @@ export default function Home() {
 
                           return (
                             <div key={followDate || `day-${dayIndex}`} className="text-center bg-gray-50 rounded p-2">
-                              <div className="text-xs text-gray-400 mb-1">{formattedDate}</div>
                               <div className="text-xs text-gray-400 mb-1">{formattedDate}</div>
                               <div className={`px-2 py-1 rounded text-sm font-medium ${getPerformanceClass(performance)}`}>
                                 {performance.toFixed(1)}%
@@ -1389,10 +1436,38 @@ export default function Home() {
       {/* 页面标题和控制 */}
       <div className="max-w-full mx-auto mb-6">
         <div className="flex justify-between items-center bg-white rounded-lg shadow-sm p-4">
+          {/* 左侧：标题 */}
           <h1 className="text-2xl font-bold text-gray-900">📈 宇硕板块节奏</h1>
 
+          {/* 中间：横向三天涨停排行前三名 */}
+          {sevenDaysData && getSectorStrengthRanking.length > 0 && (
+            <div className="flex items-center gap-4 px-6 py-2 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+              <div className="text-sm font-semibold text-gray-700">🏆 三天涨停王：</div>
+              {getSectorStrengthRanking.slice(0, 3).map((sector, index) => (
+                <div key={sector.name} className="flex items-center gap-1">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                    index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' :
+                    index === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-400' :
+                    'bg-gradient-to-r from-orange-300 to-orange-400'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">{sector.name}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                    index === 0 ? 'bg-red-100 text-red-700' :
+                    index === 1 ? 'bg-orange-100 text-orange-700' :
+                    'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {sector.totalLimitUpCount}只
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 右侧：控制按钮和筛选 */}
           <div className="flex items-center gap-4">
-            {/* 板块筛选开关 */}
+            {/* 筛选开关 */}
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -1407,7 +1482,7 @@ export default function Home() {
             <button
               onClick={() => setShowSectorRankingModal(true)}
               disabled={loading || !sevenDaysData}
-              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50"
+              className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50 text-sm"
             >
               🏆 3天涨停排行
             </button>
@@ -1416,7 +1491,7 @@ export default function Home() {
             <button
               onClick={fetch7DaysData}
               disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm"
             >
               {loading ? '刷新中...' : '🔄 刷新数据'}
             </button>
