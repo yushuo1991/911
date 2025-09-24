@@ -31,6 +31,9 @@ export default function Home() {
   const [showOnly5PlusInDateModal, setShowOnly5PlusInDateModal] = useState(true);
   const [showWeekdayModal, setShowWeekdayModal] = useState(false);
   const [selectedWeekdayData, setSelectedWeekdayData] = useState<{date: string, sectorData: { sectorName: string; avgPremium: number; stockCount: number; }[], chartData?: { date: string; avgPremium: number; stockCount: number; }[]} | null>(null);
+  const [showStockCountModal, setShowStockCountModal] = useState(false);
+  const [selectedStockCountData, setSelectedStockCountData] = useState<{date: string, sectorData: { sectorName: string; stocks: any[]; avgPremium: number; }[]} | null>(null);
+  const [showOnly5PlusInStockCountModal, setShowOnly5PlusInStockCountModal] = useState(true);
 
   // 生成最近7个交易日
   const generate7TradingDays = (endDate: string): string[] => {
@@ -124,6 +127,44 @@ export default function Home() {
     setShowDateModal(true);
   };
 
+  // 处理涨停数点击显示当天所有个股按板块分组
+  const handleStockCountClick = (date: string) => {
+    const dayData = sevenDaysData?.[date];
+    if (!dayData) return;
+
+    // 按板块组织数据，按板块涨停数排序，板块内按累计溢价排序
+    const sectorData: { sectorName: string; stocks: any[]; avgPremium: number; }[] = [];
+    Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
+      const sectorStocks = stocks.map(stock => {
+        const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
+        const totalReturn = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
+        return {
+          ...stock,
+          followUpData,
+          totalReturn
+        };
+      });
+
+      // 板块内个股按累计溢价排序（降序）
+      sectorStocks.sort((a, b) => b.totalReturn - a.totalReturn);
+
+      // 计算板块平均溢价
+      const avgPremium = sectorStocks.reduce((total, stock) => total + stock.totalReturn, 0) / sectorStocks.length;
+
+      sectorData.push({
+        sectorName,
+        stocks: sectorStocks,
+        avgPremium
+      });
+    });
+
+    // 按板块涨停数排序（降序）
+    sectorData.sort((a, b) => b.stocks.length - a.stocks.length);
+
+    setSelectedStockCountData({ date, sectorData });
+    setShowStockCountModal(true);
+  };
+
   // 处理星期几点击显示板块平均溢价表格和图表
   const handleWeekdayClick = (date: string) => {
     const dayData = sevenDaysData?.[date];
@@ -186,6 +227,11 @@ export default function Home() {
   const closeWeekdayModal = () => {
     setShowWeekdayModal(false);
     setSelectedWeekdayData(null);
+  };
+
+  const closeStockCountModal = () => {
+    setShowStockCountModal(false);
+    setSelectedStockCountData(null);
   };
 
   // 处理7天数据，按日期生成板块汇总
@@ -618,6 +664,140 @@ export default function Home() {
         </div>
       )}
 
+      {/* 涨停数弹窗 - 按板块分组显示个股溢价 */}
+      {showStockCountModal && selectedStockCountData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-[95vw] max-h-[90vh] overflow-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">
+                📊 {(() => {
+                  try {
+                    return formatDate(selectedStockCountData.date);
+                  } catch (error) {
+                    console.warn('[涨停数弹窗] 标题日期格式化失败:', selectedStockCountData.date, error);
+                    return selectedStockCountData.date;
+                  }
+                })()} - 涨停个股5天溢价表现
+              </h3>
+              <button
+                onClick={closeStockCountModal}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4 flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                共 {selectedStockCountData.sectorData
+                  .filter(sector => showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true)
+                  .reduce((total, sector) => total + sector.stocks.length, 0)} 只涨停个股，按板块分组显示
+              </div>
+              <button
+                onClick={() => setShowOnly5PlusInStockCountModal(!showOnly5PlusInStockCountModal)}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  showOnly5PlusInStockCountModal
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-gray-100 text-gray-700 border border-gray-300'
+                }`}
+              >
+                {showOnly5PlusInStockCountModal ? '显示全部板块' : '只显示≥5家板块'}
+              </button>
+            </div>
+
+            {/* 按板块分组显示 */}
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+              {selectedStockCountData.sectorData
+                .filter(sector => showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true)
+                .map((sector, sectorIndex) => {
+                  // 获取该板块的5日期范围
+                  const allFollowUpDates = new Set<string>();
+                  sector.stocks.forEach(stock => {
+                    Object.keys(stock.followUpData).forEach(date => {
+                      allFollowUpDates.add(date);
+                    });
+                  });
+                  const followUpDates = Array.from(allFollowUpDates).sort().slice(0, 5);
+
+                  return (
+                    <div key={sector.sectorName} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-lg font-semibold text-gray-800">
+                          📈 {sector.sectorName} ({sector.stocks.length}只)
+                        </h4>
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          getPerformanceClass(sector.avgPremium)
+                        }`}>
+                          平均: {sector.avgPremium.toFixed(1)}%
+                        </div>
+                      </div>
+
+                      {/* 紧凑的表格显示 */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-white">
+                            <tr className="border-b">
+                              <th className="px-2 py-1 text-left font-semibold text-gray-700 min-w-[120px]">名称</th>
+                              {followUpDates.map((date, index) => {
+                                let formattedDate = '';
+                                try {
+                                  const formatted = formatDate(date);
+                                  formattedDate = formatted ? formatted.slice(5).replace('-', '') : `${date.slice(-2)}`;
+                                } catch (error) {
+                                  console.warn('[涨停数弹窗] 日期格式化失败:', date, error);
+                                  formattedDate = `${date.slice(-2)}`;
+                                }
+                                return (
+                                  <th key={date} className="px-1 py-1 text-center font-semibold text-gray-700 min-w-[45px]">
+                                    {formattedDate}
+                                  </th>
+                                );
+                              })}
+                              <th className="px-2 py-1 text-center font-semibold text-gray-700 min-w-[60px]">累计</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sector.stocks.map((stock, stockIndex) => (
+                              <tr key={stock.code} className={`border-b ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
+                                <td className="px-2 py-1">
+                                  <div
+                                    className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline truncate"
+                                    onClick={() => handleStockClick(stock.name, stock.code)}
+                                    title={`${stock.name} (${stock.code})`}
+                                  >
+                                    {stock.name.length > 6 ? stock.name.slice(0, 6) : stock.name}
+                                    <span className="text-gray-400 text-[10px] ml-1">{stock.code}</span>
+                                  </div>
+                                </td>
+                                {followUpDates.map(date => {
+                                  const performance = stock.followUpData[date] || 0;
+                                  return (
+                                    <td key={date} className="px-1 py-1 text-center">
+                                      <div className={`px-1 py-0.5 rounded text-[10px] font-medium ${getPerformanceClass(performance)}`}>
+                                        {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-2 py-1 text-center">
+                                  <div className={`px-2 py-0.5 rounded text-xs font-medium ${getPerformanceClass(stock.totalReturn)}`}>
+                                    {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(1)}%` : `${stock.totalReturn.toFixed(1)}%`}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 板块强度排序弹窗 */}
       {showSectorRankingModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
@@ -770,7 +950,10 @@ export default function Home() {
                     >
                       {new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' })}
                     </div>
-                    <div className="text-xs mt-1 bg-white/20 rounded px-2 py-1">
+                    <div
+                      className="text-xs mt-1 bg-white/20 rounded px-2 py-1 cursor-pointer hover:bg-white/30 transition-colors"
+                      onClick={() => handleStockCountClick(date)}
+                    >
                       {dayData?.stats.total_stocks || 0} 只涨停
                     </div>
                   </div>
@@ -887,6 +1070,12 @@ export default function Home() {
         <div
           className="fixed inset-0 z-40"
           onClick={closeWeekdayModal}
+        />
+      )}
+      {showStockCountModal && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={closeStockCountModal}
         />
       )}
     </div>
