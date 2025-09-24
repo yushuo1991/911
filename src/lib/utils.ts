@@ -6,7 +6,26 @@ export function cn(...classes: string[]): string {
 }
 
 export function formatDate(date: string): string {
-  return format(new Date(date), 'yyyy-MM-dd');
+  // 检查日期字符串是否有效
+  if (!date || typeof date !== 'string') {
+    console.warn('[formatDate] 无效的日期参数:', date);
+    return '';
+  }
+
+  try {
+    const parsedDate = new Date(date);
+
+    // 检查日期是否有效
+    if (isNaN(parsedDate.getTime())) {
+      console.warn('[formatDate] 无法解析的日期:', date);
+      return date; // 返回原始字符串
+    }
+
+    return format(parsedDate, 'yyyy-MM-dd');
+  } catch (error) {
+    console.error('[formatDate] 格式化日期时出错:', error, '日期:', date);
+    return date; // 返回原始字符串
+  }
 }
 
 export function formatTradingDate(tradingDate: string): string {

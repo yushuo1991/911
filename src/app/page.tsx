@@ -24,11 +24,13 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [selectedStock, setSelectedStock] = useState<{name: string, code: string} | null>(null);
   const [showSectorModal, setShowSectorModal] = useState(false);
-  const [selectedSectorData, setSelectedSectorData] = useState<{name: string, date: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>, chartData?: { date: string; avgPremium: number; stockCount: number; }[]} | null>(null);
+  const [selectedSectorData, setSelectedSectorData] = useState<{name: string, date: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>} | null>(null);
   const [showDateModal, setShowDateModal] = useState(false);
   const [selectedDateData, setSelectedDateData] = useState<{date: string, sectorData: { sectorName: string; stocks: any[]; avgPremium: number; }[]} | null>(null);
   const [showSectorRankingModal, setShowSectorRankingModal] = useState(false);
   const [showOnly5PlusInDateModal, setShowOnly5PlusInDateModal] = useState(true);
+  const [showWeekdayModal, setShowWeekdayModal] = useState(false);
+  const [selectedWeekdayData, setSelectedWeekdayData] = useState<{date: string, sectorData: { sectorName: string; avgPremium: number; stockCount: number; }[], chartData?: { date: string; avgPremium: number; stockCount: number; }[]} | null>(null);
 
   // 生成最近7个交易日
   const generate7TradingDays = (endDate: string): string[] => {
@@ -73,52 +75,13 @@ export default function Home() {
     fetch7DaysData();
   }, []);
 
-  // 处理板块点击显示弹窗 - 计算5天平均溢价数据
+  // 处理板块点击显示弹窗 - 显示该板块个股梯队
   const handleSectorClick = (date: string, sectorName: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>) => {
-    // 计算该板块在最近5天的平均溢价数据
-    const sector5DaysData: { date: string; avgPremium: number; stockCount: number; }[] = [];
-
-    // 获取当前日期在dates数组中的位置
-    const currentDateIndex = dates.indexOf(date);
-
-    // 从当前日期开始，向前取5天数据（如果有的话）
-    const startIndex = Math.max(0, currentDateIndex - 4);
-    const relevantDates = dates.slice(startIndex, currentDateIndex + 1);
-
-    relevantDates.forEach(checkDate => {
-      const dayData = sevenDaysData?.[checkDate];
-      if (!dayData || !dayData.categories[sectorName]) {
-        sector5DaysData.push({ date: checkDate, avgPremium: 0, stockCount: 0 });
-        return;
-      }
-
-      const sectorStocks = dayData.categories[sectorName];
-      const sectorFollowUpData = dayData.followUpData[sectorName] || {};
-
-      let totalPremium = 0;
-      let validStockCount = 0;
-
-      sectorStocks.forEach(stock => {
-        const stockFollowUpData = sectorFollowUpData[stock.code] || {};
-        const stockTotalReturn = Object.values(stockFollowUpData).reduce((sum, val) => sum + val, 0);
-        totalPremium += stockTotalReturn;
-        validStockCount++;
-      });
-
-      const avgPremium = validStockCount > 0 ? totalPremium / validStockCount : 0;
-      sector5DaysData.push({
-        date: checkDate,
-        avgPremium: avgPremium,
-        stockCount: validStockCount
-      });
-    });
-
     setSelectedSectorData({
       name: sectorName,
       date: date,
       stocks: stocks,
-      followUpData: followUpData,
-      chartData: sector5DaysData
+      followUpData: followUpData
     });
     setShowSectorModal(true);
   };
@@ -161,6 +124,39 @@ export default function Home() {
     setShowDateModal(true);
   };
 
+  // 处理星期几点击显示板块平均溢价表格和图表
+  const handleWeekdayClick = (date: string) => {
+    const dayData = sevenDaysData?.[date];
+    if (!dayData) return;
+
+    // 计算各板块的平均溢价数据
+    const sectorData: { sectorName: string; avgPremium: number; stockCount: number; }[] = [];
+    Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
+      let totalPremium = 0;
+      let validStockCount = 0;
+
+      stocks.forEach(stock => {
+        const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
+        const stockTotalReturn = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
+        totalPremium += stockTotalReturn;
+        validStockCount++;
+      });
+
+      const avgPremium = validStockCount > 0 ? totalPremium / validStockCount : 0;
+      sectorData.push({
+        sectorName,
+        avgPremium,
+        stockCount: validStockCount
+      });
+    });
+
+    // 按平均溢价排序
+    sectorData.sort((a, b) => b.avgPremium - a.avgPremium);
+
+    setSelectedWeekdayData({ date, sectorData });
+    setShowWeekdayModal(true);
+  };
+
   // 处理股票名称点击
   const handleStockClick = (stockName: string, stockCode: string) => {
     setSelectedStock({ name: stockName, code: stockCode });
@@ -185,6 +181,11 @@ export default function Home() {
 
   const closeSectorRankingModal = () => {
     setShowSectorRankingModal(false);
+  };
+
+  const closeWeekdayModal = () => {
+    setShowWeekdayModal(false);
+    setSelectedWeekdayData(null);
   };
 
   // 处理7天数据，按日期生成板块汇总
@@ -305,13 +306,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      {/* 板块溢价趋势弹窗 */}
+      {/* 板块个股梯队弹窗 */}
       {showSectorModal && selectedSectorData && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-5xl max-h-[90vh] overflow-auto shadow-2xl">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+          <div className="bg-white rounded-xl p-6 max-w-4xl max-h-[90vh] overflow-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-900">
-                📈 {selectedSectorData.name} - 平均溢价趋势分析
+                📊 {selectedSectorData.name} - 个股梯队详情 ({formatDate(selectedSectorData.date)})
               </h3>
               <button
                 onClick={closeSectorModal}
@@ -321,128 +322,186 @@ export default function Home() {
               </button>
             </div>
 
-            {selectedSectorData.chartData && (
-              <div className="space-y-6">
-                {/* 趋势图表 */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-lg font-semibold mb-4 text-gray-800">📊 平均溢价趋势图</h4>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={selectedSectorData.chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 12 }}
-                        tickFormatter={(value) => formatDate(value).slice(5)}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 12 }}
-                        label={{ value: '溢价(%)', angle: -90, position: 'insideLeft' }}
-                      />
-                      <Tooltip
-                        labelFormatter={(value) => formatDate(value)}
-                        formatter={(value: number) => [`${value.toFixed(2)}%`, '平均溢价']}
-                        contentStyle={{
-                          backgroundColor: '#f8f9fa',
-                          border: '1px solid #dee2e6',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="avgPremium"
-                        stroke="#2563eb"
-                        strokeWidth={3}
-                        dot={{ fill: '#2563eb', strokeWidth: 2, r: 5 }}
-                        activeDot={{ r: 7, stroke: '#2563eb', strokeWidth: 2 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+            <div className="mb-4 text-sm text-gray-600">
+              共 {selectedSectorData.stocks.length} 只个股，按5日累计溢价排序
+            </div>
 
-                {/* 数据表格 */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-lg font-semibold mb-4 text-gray-800">📋 详细数据表格</h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full bg-white rounded-lg shadow-sm">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">日期</th>
-                          <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">涨停个股数</th>
-                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">平均溢价</th>
-                          <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">表现等级</th>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {getSortedStocksForSector(selectedSectorData.stocks, selectedSectorData.followUpData).map((stock, index) => {
+                const followUpDates = Object.keys(selectedSectorData.followUpData[stock.code] || {}).sort();
+                const totalReturn = Object.values(selectedSectorData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
+                return (
+                  <div key={stock.code} className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-gray-400 font-mono w-8">#{index + 1}</span>
+                          <h5
+                            className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                            onClick={() => handleStockClick(stock.name, stock.code)}
+                          >
+                            {stock.name} ({stock.code})
+                          </h5>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 ml-10">
+                          <span>{stock.td_type}</span>
+                        </div>
+                      </div>
+                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        getPerformanceClass(totalReturn)
+                      }`}>
+                        累计: {totalReturn.toFixed(1)}%
+                      </div>
+                    </div>
+
+                    {/* T+1到T+5表现网格 */}
+                    <div className="grid grid-cols-5 gap-2 ml-10">
+                      {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
+                        const performance = selectedSectorData.followUpData[stock.code]?.[followDate] || 0;
+
+                        // 安全格式化日期
+                        let formattedDate = '';
+                        try {
+                          const formatted = formatDate(followDate);
+                          formattedDate = formatted ? formatted.slice(5) : `日期${dayIndex + 1}`;
+                        } catch (error) {
+                          console.warn('[板块弹窗] 日期格式化失败:', followDate, error);
+                          formattedDate = `日期${dayIndex + 1}`;
+                        }
+
+                        return (
+                          <div key={followDate || `day-${dayIndex}`} className="text-center bg-gray-50 rounded p-2">
+                            <div className="text-gray-400 text-xs mb-1">T+{dayIndex + 1}</div>
+                            <div className="text-xs text-gray-400 mb-1">{formattedDate}</div>
+                            <div className={`px-2 py-1 rounded text-sm font-medium ${getPerformanceClass(performance)}`}>
+                              {performance.toFixed(1)}%
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 星期几板块平均溢价弹窗 */}
+      {showWeekdayModal && selectedWeekdayData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-5xl max-h-[90vh] overflow-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">
+                📈 {(() => {
+                  try {
+                    const formattedDate = formatDate(selectedWeekdayData.date);
+                    const weekday = new Date(selectedWeekdayData.date).toLocaleDateString('zh-CN', { weekday: 'long' });
+                    return `${formattedDate} ${weekday}`;
+                  } catch (error) {
+                    console.warn('[星期几弹窗] 日期格式化失败:', selectedWeekdayData.date, error);
+                    return selectedWeekdayData.date;
+                  }
+                })()} - 板块平均溢价分析
+              </h3>
+              <button
+                onClick={closeWeekdayModal}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* 板块溢价数据表格 */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-lg font-semibold mb-4 text-gray-800">📋 板块平均溢价数据表</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full bg-white rounded-lg shadow-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">排名</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">板块名称</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">涨停个股数</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">平均溢价</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">表现等级</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedWeekdayData.sectorData.map((sector, index) => (
+                        <tr key={sector.sectorName} className={`border-t ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                          <td className="px-4 py-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                              index < 3 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white' : 'bg-gray-200 text-gray-600'
+                            }`}>
+                              {index + 1}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-gray-900">{sector.sectorName}</div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              sector.stockCount >= 5
+                                ? 'bg-green-100 text-green-800'
+                                : sector.stockCount > 0
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {sector.stockCount} 只
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                              getPerformanceClass(sector.avgPremium)
+                            }`}>
+                              {sector.avgPremium.toFixed(2)}%
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="text-2xl">
+                              {sector.avgPremium > 15 ? '🔥' :
+                               sector.avgPremium > 10 ? '⚡' :
+                               sector.avgPremium > 5 ? '📈' :
+                               sector.avgPremium > 0 ? '📊' : '📉'}
+                            </span>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {selectedSectorData.chartData.map((dayData, index) => (
-                          <tr key={dayData.date} className={`border-t ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              <div className="font-medium">{formatDate(dayData.date)}</div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(dayData.date).toLocaleDateString('zh-CN', { weekday: 'short' })}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                dayData.stockCount >= 5
-                                  ? 'bg-green-100 text-green-800'
-                                  : dayData.stockCount > 0
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {dayData.stockCount} 只
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                getPerformanceClass(dayData.avgPremium)
-                              }`}>
-                                {dayData.avgPremium.toFixed(2)}%
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="text-2xl">
-                                {dayData.avgPremium > 15 ? '🔥' :
-                                 dayData.avgPremium > 10 ? '⚡' :
-                                 dayData.avgPremium > 5 ? '📈' :
-                                 dayData.avgPremium > 0 ? '📊' : '📉'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* 统计摘要 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {selectedSectorData.chartData.reduce((sum, d) => sum + d.avgPremium, 0).toFixed(1)}%
-                    </div>
-                    <div className="text-sm text-blue-700 mt-1">总溢价</div>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {(selectedSectorData.chartData.reduce((sum, d) => sum + d.avgPremium, 0) / selectedSectorData.chartData.length).toFixed(1)}%
-                    </div>
-                    <div className="text-sm text-green-700 mt-1">平均溢价</div>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-purple-600">
-                      {Math.max(...selectedSectorData.chartData.map(d => d.avgPremium)).toFixed(1)}%
-                    </div>
-                    <div className="text-sm text-purple-700 mt-1">最高溢价</div>
-                  </div>
-                  <div className="bg-orange-50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-orange-600">
-                      {selectedSectorData.chartData.reduce((sum, d) => sum + d.stockCount, 0)}
-                    </div>
-                    <div className="text-sm text-orange-700 mt-1">总涨停数</div>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            )}
+
+              {/* 统计摘要 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {selectedWeekdayData.sectorData.length}
+                  </div>
+                  <div className="text-sm text-blue-700 mt-1">活跃板块数</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {selectedWeekdayData.sectorData.reduce((sum, s) => sum + s.stockCount, 0)}
+                  </div>
+                  <div className="text-sm text-green-700 mt-1">总涨停数</div>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {selectedWeekdayData.sectorData.length > 0 ? Math.max(...selectedWeekdayData.sectorData.map(s => s.avgPremium)).toFixed(1) : 0}%
+                  </div>
+                  <div className="text-sm text-purple-700 mt-1">最高溢价</div>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {selectedWeekdayData.sectorData.length > 0 ? (selectedWeekdayData.sectorData.reduce((sum, s) => sum + s.avgPremium, 0) / selectedWeekdayData.sectorData.length).toFixed(1) : 0}%
+                  </div>
+                  <div className="text-sm text-orange-700 mt-1">平均溢价</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -453,7 +512,14 @@ export default function Home() {
           <div className="bg-white rounded-xl p-6 max-w-7xl max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-900">
-                📈 {formatDate(selectedDateData.date)} - 所有涨停个股溢价分析
+                📈 {(() => {
+                  try {
+                    return formatDate(selectedDateData.date);
+                  } catch (error) {
+                    console.warn('[日期弹窗] 标题日期格式化失败:', selectedDateData.date, error);
+                    return selectedDateData.date;
+                  }
+                })()} - 所有涨停个股溢价分析
               </h3>
               <button
                 onClick={closeDateModal}
@@ -522,10 +588,21 @@ export default function Home() {
                       <div className="grid grid-cols-5 gap-2 ml-10">
                         {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
                           const performance = stock.followUpData[followDate] || 0;
+
+                          // 安全格式化日期
+                          let formattedDate = '';
+                          try {
+                            const formatted = formatDate(followDate);
+                            formattedDate = formatted ? formatted.slice(5) : `日期${dayIndex + 1}`;
+                          } catch (error) {
+                            console.warn('[日期弹窗] 日期格式化失败:', followDate, error);
+                            formattedDate = `日期${dayIndex + 1}`;
+                          }
+
                           return (
-                            <div key={followDate} className="text-center bg-gray-50 rounded p-2">
+                            <div key={followDate || `day-${dayIndex}`} className="text-center bg-gray-50 rounded p-2">
                               <div className="text-gray-400 text-xs mb-1">T+{dayIndex + 1}</div>
-                              <div className="text-xs text-gray-400 mb-1">{formatDate(followDate).slice(5)}</div>
+                              <div className="text-xs text-gray-400 mb-1">{formattedDate}</div>
                               <div className={`px-2 py-1 rounded text-sm font-medium ${getPerformanceClass(performance)}`}>
                                 {performance.toFixed(1)}%
                               </div>
@@ -679,19 +756,22 @@ export default function Home() {
 
               return (
                 <div key={date} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  {/* 日期头部（可点击查看所有个股） */}
-                  <div
-                    className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 text-center cursor-pointer hover:from-blue-700 hover:to-blue-800 transition-colors"
-                    onClick={() => handleDateClick(date)}
-                  >
-                    <div className="text-sm font-medium">
+                  {/* 日期头部 */}
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 text-center">
+                    <div
+                      className="text-sm font-medium cursor-pointer hover:bg-white/10 rounded px-2 py-1 transition-colors"
+                      onClick={() => handleDateClick(date)}
+                    >
                       {formatDate(date).slice(5)} {/* MM-DD格式 */}
                     </div>
-                    <div className="text-xs opacity-90">
+                    <div
+                      className="text-xs opacity-90 cursor-pointer hover:bg-white/10 rounded px-2 py-1 transition-colors"
+                      onClick={() => handleWeekdayClick(date)}
+                    >
                       {new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' })}
                     </div>
-                    <div className="text-xs mt-1 bg-white/20 rounded px-2 py-1 hover:bg-white/30 transition-colors">
-                      {dayData?.stats.total_stocks || 0} 只涨停 👆
+                    <div className="text-xs mt-1 bg-white/20 rounded px-2 py-1">
+                      {dayData?.stats.total_stocks || 0} 只涨停
                     </div>
                   </div>
 
@@ -801,6 +881,12 @@ export default function Home() {
         <div
           className="fixed inset-0 z-40"
           onClick={closeSectorRankingModal}
+        />
+      )}
+      {showWeekdayModal && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={closeWeekdayModal}
         />
       )}
     </div>
