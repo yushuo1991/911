@@ -127,46 +127,87 @@ export default function Home() {
     fetch7DaysData();
   }, []);
 
-  // 处理板块点击显示弹窗 - 使用左右分屏样式，与涨停数弹窗数据完全一致
+  // 处理板块点击显示弹窗 - 使用左右分屏样式
   const handleSectorClick = (date: string, sectorName: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>) => {
     const dayData = sevenDaysData?.[date];
     if (!dayData) return;
 
-    // 使用与handleStockCountClick完全相同的数据处理逻辑，确保数据一致性
-    const sectorStocks = stocks.map(stock => {
-      const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
-      const totalReturn = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
+    // 构建单个板块的数据结构，包含个股详细数据
+    const sectorData: { sectorName: string; avgPremium: number; stockCount: number; chartData?: { date: string; avgPremium: number; stockCount: number; }[]; stocksData?: any[] }[] = [];
 
-      // 构建个股的图表数据 - 使用followUpData的各个日期数据点
+    // 获取后续5日日期
+    const dateIndex = dates.indexOf(date);
+    const next5Days = dates.slice(dateIndex + 1, dateIndex + 6);
+
+    // 处理个股数据，按累计溢价排序
+    const stocksWithData = stocks.map(stock => {
+      const stockFollowUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
+      const stockTotalReturn = Object.values(stockFollowUpData).reduce((sum, val) => sum + val, 0);
+
+      // 构建个股的日期数据
       const stockChartData: { date: string; value: number }[] = [];
-      Object.entries(followUpData).forEach(([dateKey, value]) => {
-        stockChartData.push({
-          date: dateKey, // MM-DD格式
-          value: value
-        });
+
+      next5Days.forEach((nextDate) => {
+        const nextDayData = sevenDaysData?.[nextDate];
+        if (nextDayData && nextDayData.followUpData[sectorName] && nextDayData.followUpData[sectorName][stock.code]) {
+          const nextDayFollowUpData = nextDayData.followUpData[sectorName][stock.code] || {};
+          const nextDayStockReturn = Object.values(nextDayFollowUpData).reduce((sum, val) => sum + val, 0);
+          stockChartData.push({
+            date: nextDate,
+            value: nextDayStockReturn
+          });
+        } else {
+          stockChartData.push({
+            date: nextDate,
+            value: 0
+          });
+        }
       });
 
       return {
         ...stock,
-        followUpData,
-        totalReturn,
-        chartData: stockChartData
+        totalReturn: stockTotalReturn,
+        chartData: stockChartData,
+        followUpData: stockFollowUpData
       };
+    }).sort((a, b) => b.totalReturn - a.totalReturn); // 按累计溢价排序
+
+    // 计算板块平均数据
+    const totalPremium = stocksWithData.reduce((sum, stock) => sum + stock.totalReturn, 0);
+    const avgPremium = stocksWithData.length > 0 ? totalPremium / stocksWithData.length : 0;
+
+    // 计算板块后续5日平均数据
+    const sectorChartData: { date: string; avgPremium: number; stockCount: number; }[] = [];
+    next5Days.forEach((nextDate, index) => {
+      const nextDayData = sevenDaysData?.[nextDate];
+      if (nextDayData && nextDayData.categories[sectorName]) {
+        const nextDayStocks = nextDayData.categories[sectorName];
+        let nextDayTotalPremium = 0;
+        let nextDayValidCount = 0;
+
+        nextDayStocks.forEach(stock => {
+          const nextDayFollowUpData = nextDayData.followUpData[sectorName]?.[stock.code] || {};
+          const nextDayStockReturn = Object.values(nextDayFollowUpData).reduce((sum, val) => sum + val, 0);
+          nextDayTotalPremium += nextDayStockReturn;
+          nextDayValidCount++;
+        });
+
+        const nextDayAvgPremium = nextDayValidCount > 0 ? nextDayTotalPremium / nextDayValidCount : 0;
+        sectorChartData.push({
+          date: nextDate,
+          avgPremium: nextDayAvgPremium,
+          stockCount: nextDayValidCount
+        });
+      }
     });
 
-    // 板块内个股按累计溢价排序（降序） - 与涨停数弹窗完全相同的排序逻辑
-    const stocksWithData = sectorStocks.sort((a, b) => b.totalReturn - a.totalReturn);
-
-    // 计算板块平均溢价 - 与涨停数弹窗完全相同的计算逻辑
-    const avgPremium = stocksWithData.reduce((total, stock) => total + stock.totalReturn, 0) / stocksWithData.length;
-
-    // 构建单个板块的数据结构，用于左右分屏显示
-    const sectorData = [{
+    sectorData.push({
       sectorName,
       avgPremium,
       stockCount: stocksWithData.length,
-      stocksData: stocksWithData // 与涨停数弹窗完全相同的个股数据
-    }];
+      chartData: sectorChartData,
+      stocksData: stocksWithData
+    });
 
     setSelectedWeekdayData({ date, sectorData });
     setShowWeekdayModal(true);
@@ -1256,7 +1297,7 @@ export default function Home() {
                                         performance < 0 ? 'bg-green-100 text-green-800' :
                                         'bg-gray-100 text-gray-600'
                                       }`}>
-                                        {performance > 0 ? `+${performance.toFixed(1)}%` : `${performance.toFixed(1)}%`}
+                                        {performance > 0 ? `+${performance.toFixed(0)}` : performance.toFixed(0)}
                                       </div>
                                     </td>
                                   );
@@ -1269,7 +1310,7 @@ export default function Home() {
                                     stock.totalReturn < 0 ? 'bg-green-100 text-green-800' :
                                     'bg-gray-100 text-gray-600'
                                   }`}>
-                                    {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(1)}%` : `${stock.totalReturn.toFixed(1)}%`}
+                                    {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(0)}` : stock.totalReturn.toFixed(0)}
                                   </div>
                                 </td>
                               </tr>

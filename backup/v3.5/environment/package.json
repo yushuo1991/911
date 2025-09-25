@@ -11,13 +11,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.0",
     "axios": "^1.6.0",
-    "better-sqlite3": "^12.4.1",
     "date-fns": "^2.30.0",
     "dotenv": "^16.3.0",
     "lucide-react": "^0.290.0",

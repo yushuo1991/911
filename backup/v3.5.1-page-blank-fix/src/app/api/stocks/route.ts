@@ -798,19 +798,9 @@ import { NextRequest, NextResponse } from 'next/server';
     const cacheStats = stockCache.getStats();
     const rateStats = rateController.getStats();
 
-    // 格式化交易日为 MM-DD 格式
-    const formattedTradingDays = tradingDays.map(day => {
-      if (day.length === 8) {
-        const month = day.slice(4, 6);
-        const date = day.slice(6, 8);
-        return `${month}-${date}`;
-      }
-      return day;
-    });
-
     const result: TrackingData = {
       date,
-      trading_days: formattedTradingDays,
+      trading_days: tradingDays,
       categories,
       stats
     };
@@ -854,42 +844,12 @@ import { NextRequest, NextResponse } from 'next/server';
       if (dbCachedResult) {
         console.log(`[API] 使用7天数据库缓存数据`);
 
-        // 对缓存数据进行日期格式转换
-        const formattedCachedResult = Object.fromEntries(
-          Object.entries(dbCachedResult).map(([dateKey, dayData]: [string, any]) => {
-            if (dayData && dayData.followUpData) {
-              const formattedFollowUpData: Record<string, Record<string, Record<string, number>>> = {};
-
-              Object.entries(dayData.followUpData).forEach(([category, categoryData]: [string, any]) => {
-                formattedFollowUpData[category] = {};
-                Object.entries(categoryData).forEach(([stockCode, stockData]: [string, any]) => {
-                  const formattedStockData: Record<string, number> = {};
-                  Object.entries(stockData).forEach(([dateKey, value]: [string, any]) => {
-                    if (typeof dateKey === 'string' && dateKey.length === 8) {
-                      const month = dateKey.slice(4, 6);
-                      const date = dateKey.slice(6, 8);
-                      const formattedKey = `${month}-${date}`;
-                      formattedStockData[formattedKey] = value;
-                    } else {
-                      formattedStockData[dateKey] = value;
-                    }
-                  });
-                  formattedFollowUpData[category][stockCode] = formattedStockData;
-                });
-              });
-
-              dayData.followUpData = formattedFollowUpData;
-            }
-            return [dateKey, dayData];
-          })
-        );
-
         // 存储到内存缓存
-        stockCache.set7DaysCache(cacheKey, formattedCachedResult);
+        stockCache.set7DaysCache(cacheKey, dbCachedResult);
 
         return NextResponse.json({
           success: true,
-          data: formattedCachedResult,
+          data: dbCachedResult,
           dates: sevenDays,
           cached: true
         });
@@ -945,23 +905,11 @@ import { NextRequest, NextResponse } from 'next/server';
           }
           categories[category].push(stockPerformance);
 
-          // 存储后续表现数据（转换日期格式）
+          // 存储后续表现数据
           if (!followUpData[category]) {
             followUpData[category] = {};
           }
-          // 转换followUpPerformance中的日期键格式：20250918 -> 09-18
-          const formattedFollowUpPerformance: Record<string, number> = {};
-          Object.entries(followUpPerformance).forEach(([dateKey, value]) => {
-            if (dateKey.length === 8) {
-              const month = dateKey.slice(4, 6);
-              const date = dateKey.slice(6, 8);
-              const formattedKey = `${month}-${date}`;
-              formattedFollowUpPerformance[formattedKey] = value;
-            } else {
-              formattedFollowUpPerformance[dateKey] = value;
-            }
-          });
-          followUpData[category][stock.StockCode] = formattedFollowUpPerformance;
+          followUpData[category][stock.StockCode] = followUpPerformance;
         }
 
         // 排序

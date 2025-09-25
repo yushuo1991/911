@@ -135,19 +135,17 @@ export function generateTradingDays(startDate: string, days: number = 5): string
   const tradingDays: string[] = [];
   let currentDate = new Date(startDate);
 
-  // 获取今天的日期，只比较年月日，允许生成合理的未来交易日
+  // 获取今天的日期，只比较年月日
   const today = new Date();
-  const maxDate = new Date(today);
-  maxDate.setDate(today.getDate() + 10); // 允许生成未来10天的交易日
-  maxDate.setHours(23, 59, 59, 999);
+  today.setHours(23, 59, 59, 999); // 设置为今天的最后一刻
 
   // 从选择日期的第二天开始往后推，生成后续交易日
   currentDate.setDate(currentDate.getDate() + 1); // 从第二天开始
 
   while (tradingDays.length < days) {
-    // 检查是否超过合理的日期范围（允许未来10天）
-    if (currentDate.getTime() > maxDate.getTime()) {
-      console.log(`[日期生成] 到达最大允许日期 ${currentDate.toISOString().split('T')[0]}，停止生成（最大日期: ${maxDate.toISOString().split('T')[0]}）`);
+    // 检查是否超过今天的日期（允许包含今天）
+    if (currentDate.getTime() > today.getTime()) {
+      console.log(`[日期生成] 到达真正的未来日期 ${currentDate.toISOString().split('T')[0]}，停止生成（今天: ${today.toISOString().split('T')[0]}）`);
       break;
     }
 

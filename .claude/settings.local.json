@@ -37,7 +37,12 @@
       "Bash(start http://localhost:3000)",
       "Bash(powershell:*)",
       "Bash(node:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(PORT=3002 npm run dev)",
+      "Bash(scriptsserver-fix-diagnostic.bat)",
+      "Bash(npm run type-check:*)",
+      "Bash(if exist \"nul\" del \"nul\")",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []
