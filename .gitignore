@@ -47,4 +47,4 @@ logs
 *.swo
 
 # OS
-Thumbs.db
+Thumbs.dbdata/stock_tracker.db*
