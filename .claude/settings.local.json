@@ -37,7 +37,9 @@
       "Bash(start http://localhost:3000)",
       "Bash(powershell:*)",
       "Bash(node:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git clean:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
