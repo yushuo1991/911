@@ -12,9 +12,16 @@ import { NextRequest, NextResponse } from 'next/server';
     }
     return Math.abs(hash);
   }
-  import { stockDatabase } from '@/lib/database';
+  import { sqliteDatabase } from '@/lib/sqlite-database';
 
   const TUSHARE_TOKEN = '2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211';
+
+  // 初始化SQLite数据库表
+  try {
+    sqliteDatabase.initializeTables();
+  } catch (error) {
+    console.warn('[SQLite] 初始化失败，将继续使用内存缓存:', error);
+  }
 
   // 智能缓存系统
   interface CacheEntry {
@@ -32,14 +39,17 @@ import { NextRequest, NextResponse } from 'next/server';
   class StockDataCache {
     private cache = new Map<string, CacheEntry>();
     private sevenDaysCache = new Map<string, SevenDaysCacheEntry>();
-    private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24小时
-    private readonly SEVEN_DAYS_CACHE_DURATION = 2 * 60 * 60 * 1000; // 7天数据缓存2小时
+    private readonly CACHE_DURATION = 48 * 60 * 60 * 1000; // 延长到48小时，减少API调用
+    private readonly SEVEN_DAYS_CACHE_DURATION = 6 * 60 * 60 * 1000; // 7天数据缓存延长到6小时
+    private hitCount = 0;
+    private totalRequests = 0;
 
     private getCacheKey(stockCode: string, tradingDays: string[]): string {
       return `${stockCode}:${tradingDays.join(',')}`;
     }
 
     get(stockCode: string, tradingDays: string[]): Record<string, number> | null {
+      this.totalRequests++;
       const key = this.getCacheKey(stockCode, tradingDays);
       const entry = this.cache.get(key);
 
@@ -51,7 +61,8 @@ import { NextRequest, NextResponse } from 'next/server';
         return null;
       }
 
-      console.log(`[缓存] 命中缓存: ${stockCode}`);
+      this.hitCount++;
+      console.log(`[缓存] 命中缓存: ${stockCode} (命中率: ${((this.hitCount/this.totalRequests)*100).toFixed(1)}%)`);
       return entry.data;
     }
 
@@ -101,11 +112,14 @@ import { NextRequest, NextResponse } from 'next/server';
       console.log(`[7天缓存] 存储数据: ${cacheKey}`);
     }
 
-    getStats(): { size: number; hitRate: number; sevenDaysSize: number } {
+    getStats(): { size: number; hitRate: number; sevenDaysSize: number; hitCount: number; totalRequests: number } {
+      const hitRate = this.totalRequests > 0 ? (this.hitCount / this.totalRequests) * 100 : 0;
       return {
         size: this.cache.size,
-        hitRate: 0, // 简化版本，实际应该追踪命中率
-        sevenDaysSize: this.sevenDaysCache.size
+        hitRate: parseFloat(hitRate.toFixed(2)),
+        sevenDaysSize: this.sevenDaysCache.size,
+        hitCount: this.hitCount,
+        totalRequests: this.totalRequests
       };
     }
   }
@@ -155,10 +169,17 @@ import { NextRequest, NextResponse } from 'next/server';
 
     try {
       // 首先尝试从数据库获取缓存数据
-      const cachedStocks = await stockDatabase.getCachedStockData(date);
+      const cachedStocks = sqliteDatabase.getCachedStockData(date);
       if (cachedStocks && cachedStocks.length > 0) {
-        console.log(`[数据库] 使用缓存数据，${cachedStocks.length}只股票`);
-        return cachedStocks;
+        console.log(`[SQLite] 使用缓存数据，${cachedStocks.length}只股票`);
+        // 转换数据格式
+        const formattedStocks: Stock[] = cachedStocks.map((row: any) => ({
+          StockCode: row.stock_code,
+          StockName: row.stock_name,
+          ZSName: row.sector_name,
+          TDType: row.td_type
+        }));
+        return formattedStocks;
       }
 
       // 缓存未命中，从外部API获取
@@ -168,9 +189,27 @@ import { NextRequest, NextResponse } from 'next/server';
 
         // 缓存到数据库
         try {
-          await stockDatabase.cacheStockData(date, result);
+          // 批量缓存股票数据
+          for (const stock of result) {
+            // 跳过没有股票代码的数据
+            if (!stock.StockCode || !stock.StockName) {
+              console.log(`[SQLite] 跳过无效数据: ${JSON.stringify(stock)}`);
+              continue;
+            }
+
+            await sqliteDatabase.cacheStockData(
+              stock.StockCode,
+              stock.StockName,
+              stock.ZSName || '',
+              '',
+              stock.TDType || '',
+              0,
+              date
+            );
+          }
+          console.log(`[SQLite] 成功缓存${result.length}只股票数据`);
         } catch (cacheError) {
-          console.log(`[数据库] 缓存股票数据失败:`, cacheError);
+          console.log(`[SQLite] 缓存股票数据失败:`, cacheError);
         }
 
         return result;
@@ -183,10 +222,17 @@ import { NextRequest, NextResponse } from 'next/server';
       console.log(`[API] 获取数据失败: ${err}`);
 
       // 尝试从数据库获取旧数据作为降级
-      const fallbackData = await stockDatabase.getCachedStockData(date);
+      const fallbackData = sqliteDatabase.getCachedStockData(date);
       if (fallbackData && fallbackData.length > 0) {
-        console.log(`[数据库] 使用降级缓存数据`);
-        return fallbackData;
+        console.log(`[SQLite] 使用降级缓存数据`);
+        // 转换数据格式
+        const formattedFallback: Stock[] = fallbackData.map((row: any) => ({
+          StockCode: row.stock_code,
+          StockName: row.stock_name,
+          ZSName: row.sector_name,
+          TDType: row.td_type
+        }));
+        return formattedFallback;
       }
 
       return [];
@@ -269,12 +315,21 @@ import { NextRequest, NextResponse } from 'next/server';
               const stockName = stockData[1];
               const tdType = stockData[9] || '首板';
 
-              stocks.push({
-                StockName: stockName,
-                StockCode: stockCode,
-                ZSName: zsName,
-                TDType: tdType
-              });
+              // 严格验证数据完整性，确保不会有空值插入数据库
+              if (stockCode && stockName &&
+                  typeof stockCode === 'string' &&
+                  typeof stockName === 'string' &&
+                  stockCode.trim() !== '' &&
+                  stockName.trim() !== '') {
+                stocks.push({
+                  StockName: stockName.trim(),
+                  StockCode: stockCode.trim(),
+                  ZSName: zsName,
+                  TDType: (tdType || '首板').toString()
+                });
+              } else {
+                console.log(`[API] 跳过无效股票数据: 代码="${stockCode}", 名称="${stockName}", 板块="${zsName}"`);
+              }
             });
           }
         });
@@ -526,7 +581,7 @@ import { NextRequest, NextResponse } from 'next/server';
     // 2. 检查数据库缓存（如果提供了baseDate）
     if (baseDate) {
       try {
-        const dbCachedData = await stockDatabase.getCachedStockPerformance(stockCode, baseDate, tradingDays);
+        const dbCachedData = await sqliteDatabase.getCachedStockPerformance(stockCode, baseDate, tradingDays);
         if (dbCachedData) {
           // 存储到内存缓存以提高后续访问速度
           stockCache.set(stockCode, tradingDays, dbCachedData);
@@ -543,7 +598,21 @@ import { NextRequest, NextResponse } from 'next/server';
 
       const performance: Record<string, number> = {};
 
-      // 逐个日期获取数据，包含智能重试
+      // 优化：尝试批量获取所有日期数据
+      try {
+        console.log(`[批量优化] 尝试批量获取${stockCode}的所有交易日数据`);
+        const batchResult = await getBatchStockDaily([stockCode], tradingDays);
+        const stockBatchData = batchResult.get(stockCode);
+
+        if (stockBatchData && Object.keys(stockBatchData).length === tradingDays.length) {
+          console.log(`[批量优化] ${stockCode}批量数据获取成功`);
+          return stockBatchData;
+        }
+      } catch (batchError) {
+        console.log(`[批量优化] ${stockCode}批量获取失败，降级到逐个获取: ${batchError}`);
+      }
+
+      // 降级：逐个日期获取数据，包含智能重试
       for (let i = 0; i < tradingDays.length; i++) {
         const day = tradingDays[i];
 
@@ -554,7 +623,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
           // 适当延时避免过快请求
           if (i < tradingDays.length - 1) {
-            await delay(200); // 200ms间隔
+            await delay(100); // 减少延时到100ms提升速度
           }
 
         } catch (error) {
@@ -591,7 +660,7 @@ import { NextRequest, NextResponse } from 'next/server';
       // 如果提供了baseDate，也缓存到数据库
       if (baseDate) {
         try {
-          await stockDatabase.cacheStockPerformance(stockCode, baseDate, performance);
+          await sqliteDatabase.cacheStockPerformance(stockCode, baseDate, performance);
         } catch (dbError) {
           console.log(`[数据库] 缓存股票表现数据失败: ${dbError}`);
         }
@@ -771,17 +840,17 @@ import { NextRequest, NextResponse } from 'next/server';
 
     // 检查数据库缓存
     try {
-      const dbCachedResult = await stockDatabase.get7DaysCache(cacheKey);
+      const dbCachedResult = await sqliteDatabase.get7DaysCache(cacheKey);
       if (dbCachedResult) {
         console.log(`[API] 使用7天数据库缓存数据`);
 
         // 存储到内存缓存
-        stockCache.set7DaysCache(cacheKey, dbCachedResult.data);
+        stockCache.set7DaysCache(cacheKey, dbCachedResult);
 
         return NextResponse.json({
           success: true,
-          data: dbCachedResult.data,
-          dates: dbCachedResult.dates,
+          data: dbCachedResult,
+          dates: sevenDays,
           cached: true
         });
       }
@@ -876,7 +945,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
     // 也缓存到数据库
     try {
-      await stockDatabase.cache7DaysData(cacheKey, result, sevenDays);
+      await sqliteDatabase.cache7DaysData(cacheKey, result);
       console.log(`[数据库] 7天数据已缓存到数据库`);
     } catch (dbError) {
       console.log(`[数据库] 7天数据缓存失败: ${dbError}`);
