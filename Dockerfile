@@ -1,42 +1,58 @@
-# Stock Tracker v4.0 - Next.js Application
 FROM node:18-alpine
 
-# 设置工作目录
 WORKDIR /app
 
-# 设置环境变量
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
-# 复制package文件
-COPY package*.json ./
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Shanghai
 
+# 创建简化的package.json
+RUN echo '{ \
+  "name": "stock-tracker", \
+  "version": "1.0.0", \
+  "scripts": { \
+    "dev": "next dev", \
+    "build": "next build", \
+    "start": "next start" \
+  }, \
+  "dependencies": { \
+    "next": "14.2.32", \
+    "react": "18.2.0", \
+    "react-dom": "18.2.0", \
+    "typescript": "5.0.0", \
+    "@types/node": "20.0.0", \
+    "@types/react": "18.2.0", \
+    "@types/react-dom": "18.2.0", \
+    "axios": "1.6.0", \
+    "date-fns": "2.30.0", \
+    "lucide-react": "0.290.0", \
+    "recharts": "3.2.1", \
+    "tailwindcss": "3.3.0", \
+    "autoprefixer": "10.4.0", \
+    "postcss": "8.4.0" \
+  } \
+}' > package.json
+
+<<<<<<< Updated upstream
 # 安装生产依赖
 RUN npm ci --only=production && npm cache clean --force
+=======
+RUN npm install --only=production && npm cache clean --force
+>>>>>>> Stashed changes
 
-# 复制源代码
 COPY . .
-
-# 构建应用
 RUN npm run build
 
-# 创建非root用户
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 -G nodejs && \
+    chown -R nextjs:nodejs /app
 
-# 创建必要的目录并设置权限
-RUN mkdir -p data log backup && \
-    chown -R nextjs:nodejs data log backup
-
-# 切换到非root用户
 USER nextjs
-
-# 暴露端口
 EXPOSE 3000
 
-# 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/api/health || exit 1
-
-# 启动应用
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/stocks || exit 1
 CMD ["npm", "start"]

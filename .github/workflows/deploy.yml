@@ -1,151 +1,133 @@
-name: 自动部署到生产服务器
+name: GitHub自动同步到宝塔服务器
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-    types: [ closed ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
 
     steps:
     - name: 检出代码
       uses: actions/checkout@v4
 
-    - name: 设置Node.js环境
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-
-    - name: 安装依赖
-      run: npm ci
-
-    - name: 构建项目
-      run: npm run build
-
-    - name: 运行测试（如果有）
-      run: |
-        if [ -f "package.json" ] && grep -q '"test"' package.json; then
-          npm test || echo "测试失败，但继续部署"
-        else
-          echo "未找到测试脚本，跳过测试"
-        fi
-
-    - name: 部署到生产服务器
+    - name: 部署到宝塔服务器
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SERVER_SSH_KEY }}
-        port: ${{ secrets.SERVER_PORT }}
+        port: 22
         script: |
-          echo "=========================================="
-          echo "开始自动部署 - $(date)"
-          echo "提交信息: ${{ github.event.head_commit.message }}"
-          echo "提交SHA: ${{ github.sha }}"
-          echo "=========================================="
+          echo "=== GitHub自动同步部署开始 ==="
+          echo "时间: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "提交: ${{ github.sha }}"
+          echo "仓库: ${{ github.repository }}"
 
-          # 设置部署变量
-          PROJECT_DIR="/www/wwwroot/stock-tracker"
-          BACKUP_DIR="/www/backups/stock-tracker"
-          LOG_FILE="/www/wwwroot/stock-tracker/logs/deploy.log"
+          # 配置变量
+          REPO_URL="https://github.com/${{ github.repository }}.git"
+          DEPLOY_PATH="/www/wwwroot/stock-tracker"
+          CONTAINER_NAME="stock-tracker-app"
+          IMAGE_NAME="stock-tracker:latest"
 
-          # 创建必要目录
-          mkdir -p $BACKUP_DIR
-          mkdir -p $(dirname $LOG_FILE)
+          # 创建日志目录
+          mkdir -p ${DEPLOY_PATH}/log
+          echo "$(date) - GitHub Actions自动部署开始 - ${{ github.sha }}" >> ${DEPLOY_PATH}/log/deploy.log
 
-          # 记录部署开始
-          echo "[$(date)] 开始部署 - 提交: ${{ github.sha }}" >> $LOG_FILE
+          # 停止旧容器
+          echo "步骤1: 停止旧容器..."
+          docker stop ${CONTAINER_NAME} 2>/dev/null || echo "容器未运行"
+          docker rm ${CONTAINER_NAME} 2>/dev/null || echo "容器不存在"
 
-          # 检查项目目录
-          if [ ! -d "$PROJECT_DIR" ]; then
-            echo "错误: 项目目录不存在: $PROJECT_DIR" >> $LOG_FILE
+          # 同步GitHub代码
+          echo "步骤2: 同步GitHub代码..."
+          if [ -d "${DEPLOY_PATH}/.git" ]; then
+            echo "更新现有仓库..."
+            cd ${DEPLOY_PATH}
+            git fetch origin
+            git reset --hard origin/main
+            git pull origin main
+          else
+            echo "克隆新仓库..."
+            rm -rf ${DEPLOY_PATH}
+            git clone ${REPO_URL} ${DEPLOY_PATH}
+          fi
+
+          echo "当前版本: $(cd ${DEPLOY_PATH} && git log --oneline -1)"
+
+          # 构建Docker镜像
+          echo "步骤3: 构建Docker镜像..."
+          cd ${DEPLOY_PATH}
+          docker build -t ${IMAGE_NAME} . 2>&1 | tee log/build-$(date +%Y%m%d_%H%M%S).log
+
+          if [ $? -ne 0 ]; then
+            echo "❌ Docker镜像构建失败" | tee -a log/deploy.log
             exit 1
           fi
 
-          cd $PROJECT_DIR
+          # 设置数据目录权限
+          echo "步骤4: 设置数据目录..."
+          mkdir -p ${DEPLOY_PATH}/data
+          chmod 755 ${DEPLOY_PATH}/data
+          chown -R 1001:1001 ${DEPLOY_PATH}/data
 
-          # 创建备份
-          echo "创建备份..." >> $LOG_FILE
-          BACKUP_NAME="backup-$(date +%Y%m%d-%H%M%S)"
-          cp -r . "$BACKUP_DIR/$BACKUP_NAME"
+          # 启动新容器
+          echo "步骤5: 启动新Docker容器..."
+          docker run -d \
+            --name ${CONTAINER_NAME} \
+            --restart always \
+            -p 3000:3000 \
+            -v ${DEPLOY_PATH}/data:/app/data \
+            -e NODE_ENV=production \
+            -e PORT=3000 \
+            -e HOSTNAME=0.0.0.0 \
+            -e TUSHARE_TOKEN=2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211 \
+            -e NEXT_PUBLIC_API_URL=http://bk.yushuo.click \
+            -e NEXT_PUBLIC_API_BASE_URL=http://bk.yushuo.click/api \
+            -e NEXTAUTH_SECRET=stock-tracker-secret-key-2024 \
+            -e NEXTAUTH_URL=http://bk.yushuo.click \
+            ${IMAGE_NAME}
 
-          # 保留最近5个备份
-          ls -dt $BACKUP_DIR/backup-* | tail -n +6 | xargs rm -rf
-
-          # 停止应用（如果使用PM2）
-          echo "停止应用..." >> $LOG_FILE
-          pm2 stop stock-tracker || echo "PM2应用未运行或不存在"
-
-          # 拉取最新代码
-          echo "拉取最新代码..." >> $LOG_FILE
-          git fetch origin main
-          git reset --hard origin/main
-
-          # 安装/更新依赖
-          echo "安装依赖..." >> $LOG_FILE
-          npm ci --production
-
-          # 构建项目
-          echo "构建项目..." >> $LOG_FILE
-          npm run build
-
-          # 检查数据库连接
-          echo "检查数据库连接..." >> $LOG_FILE
-          mysql -u stock_user -pStockPass123! stock_db -e "SELECT 1;" > /dev/null 2>&1
           if [ $? -ne 0 ]; then
-            echo "警告: 数据库连接失败" >> $LOG_FILE
-          else
-            echo "数据库连接正常" >> $LOG_FILE
+            echo "❌ 容器启动失败" | tee -a log/deploy.log
+            docker logs ${CONTAINER_NAME} | tee -a log/deploy.log
+            exit 1
           fi
 
-          # 启动应用
-          echo "启动应用..." >> $LOG_FILE
-          pm2 start ecosystem.config.js || npm run start &
-
-          # 等待应用启动
-          sleep 10
+          # 等待服务启动
+          echo "步骤6: 等待服务启动..."
+          sleep 20
 
           # 健康检查
-          echo "执行健康检查..." >> $LOG_FILE
-          for i in {1..5}; do
-            if curl -f http://localhost:3000 > /dev/null 2>&1; then
-              echo "健康检查通过" >> $LOG_FILE
+          echo "步骤7: 执行健康检查..."
+          for i in {1..15}; do
+            if curl -s -f http://127.0.0.1:3000 >/dev/null 2>&1; then
+              echo "✅ 应用启动成功！"
               break
-            else
-              echo "健康检查失败，重试 $i/5" >> $LOG_FILE
-              sleep 5
             fi
-
-            if [ $i -eq 5 ]; then
-              echo "健康检查最终失败，回滚到备份" >> $LOG_FILE
-              pm2 stop stock-tracker || true
-              rm -rf ./*
-              cp -r "$BACKUP_DIR/$BACKUP_NAME/"* .
-              pm2 start ecosystem.config.js || npm run start &
-              exit 1
-            fi
+            echo "等待应用启动... ($i/15)"
+            sleep 3
           done
 
-          # 清理构建缓存
-          echo "清理缓存..." >> $LOG_FILE
-          npm run clean || true
+          # 测试API接口
+          echo "步骤8: 测试API接口..."
+          curl -I http://127.0.0.1:3000/api/stocks 2>&1 | tee log/api-test-$(date +%Y%m%d_%H%M%S).log
 
-          # 重启Nginx（确保配置生效）
-          echo "重启Nginx..." >> $LOG_FILE
-          systemctl reload nginx || service nginx reload
+          # 重载Nginx
+          echo "步骤9: 重载Nginx配置..."
+          nginx -t && nginx -s reload
 
-          echo "[$(date)] 部署成功完成" >> $LOG_FILE
-          echo "=========================================="
-          echo "部署成功完成！"
-          echo "应用地址: http://bk.yushuo.click"
-          echo "API测试: http://bk.yushuo.click/api/stocks"
-          echo "=========================================="
+          # 记录部署完成
+          echo "$(date) - GitHub Actions部署完成 - ${{ github.sha }}" >> ${DEPLOY_PATH}/log/deploy.log
+
+          echo ""
+          echo "=== 部署完成 ==="
+          echo "🌍 访问地址: http://bk.yushuo.click"
+          echo "🔗 API测试: http://bk.yushuo.click/api/stocks"
+          echo "📊 容器状态:"
+          docker ps | grep ${CONTAINER_NAME}
+          echo ""
 
     - name: 通知部署结果
       if: always()

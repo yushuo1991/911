@@ -5,9 +5,46 @@ node_modules
 README.md
 .env.local
 .env.local.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Vercel
 .vercel
-.DS_Store
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Local development
+.env.development.local
+.env.test.local
+
+# Cache
+.npm
+.eslintcache
+
+# Logs
+logs
 *.log
 log/*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 .claude
-tsconfig.tsbuildinfo
+
+# Backup files
+backup/
+*.backup
+*.bak
+
+# Test coverage
+coverage/
