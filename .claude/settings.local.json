@@ -42,7 +42,8 @@
       "Bash(scriptsserver-fix-diagnostic.bat)",
       "Bash(npm run type-check:*)",
       "Bash(if exist \"nul\" del \"nul\")",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
