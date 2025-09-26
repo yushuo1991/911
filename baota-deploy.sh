@@ -106,7 +106,7 @@ TUSHARE_TOKEN=2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211
 # 应用配置
 NODE_ENV=production
 NEXT_PUBLIC_APP_VERSION=4.2
-NEXTAUTH_URL=https://stock-tracker.${DOMAIN}
+NEXTAUTH_URL=https://bk.${DOMAIN}
 
 # SQLite 数据库配置
 DB_TYPE=sqlite
@@ -177,7 +177,7 @@ echo ""
 echo "[8/8] 配置Nginx反向代理..."
 
 # 创建Nginx配置
-NGINX_CONFIG="/www/server/panel/vhost/nginx/stock-tracker.${DOMAIN}.conf"
+NGINX_CONFIG="/www/server/panel/vhost/nginx/bk.${DOMAIN}.conf"
 
 if [ -f "${NGINX_CONFIG}" ]; then
     cp "${NGINX_CONFIG}" "${NGINX_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)"
@@ -187,11 +187,11 @@ cat > "${NGINX_CONFIG}" << EOF
 server {
     listen 80;
     listen 443 ssl http2;
-    server_name stock-tracker.${DOMAIN};
+    server_name bk.${DOMAIN};
 
     # SSL配置（如果已配置SSL证书）
-    ssl_certificate /www/server/panel/vhost/cert/stock-tracker.${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /www/server/panel/vhost/cert/stock-tracker.${DOMAIN}/privkey.pem;
+    ssl_certificate /www/server/panel/vhost/cert/bk.${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /www/server/panel/vhost/cert/bk.${DOMAIN}/privkey.pem;
 
     # 股票追踪系统根路径
     location / {
@@ -254,7 +254,7 @@ echo ""
 echo "📊 部署信息:"
 echo "   • 项目名称: ${PROJECT_NAME} v4.2"
 echo "   • 项目路径: ${PROJECT_PATH}"
-echo "   • 访问地址: https://stock-tracker.${DOMAIN}"
+echo "   • 访问地址: https://bk.${DOMAIN}"
 echo "   • PM2进程: ${PM2_APP_NAME}"
 echo "   • 端口: 3002"
 echo ""
@@ -270,5 +270,5 @@ echo "   • 数据库: ${PROJECT_PATH}/data/stock_tracker.db"
 echo "   • 应用日志: ${PROJECT_PATH}/log/"
 echo "   • 备份目录: ${BACKUP_PATH}"
 echo ""
-echo "🌐 请在浏览器中访问 https://stock-tracker.${DOMAIN} 验证部署结果"
+echo "🌐 请在浏览器中访问 https://bk.${DOMAIN} 验证部署结果"
 echo "=========================================="

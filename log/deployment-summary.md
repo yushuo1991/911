@@ -136,7 +136,7 @@ pm2 restart stock-tracker-v42
 
 ## 📞 技术支持
 
-- **访问地址**: https://stock-tracker.yushuo.click
+- **访问地址**: https://bk.yushuo.click
 - **项目仓库**: https://github.com/shishen168/stock-tracker
 - **部署日志**: 保存在 `log/` 目录下
 - **问题反馈**: GitHub Issues

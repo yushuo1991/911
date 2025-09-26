@@ -54,7 +54,7 @@ sudo ./baota-deploy.sh
 ```
 
 ### 步骤4: 验证部署结果
-部署完成后，访问: `https://stock-tracker.yushuo.click`
+部署完成后，访问: `https://bk.yushuo.click`
 
 ---
 
@@ -96,7 +96,7 @@ cat > .env.local << EOF
 TUSHARE_TOKEN=2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211
 NODE_ENV=production
 NEXT_PUBLIC_APP_VERSION=4.2
-NEXTAUTH_URL=https://stock-tracker.yushuo.click
+NEXTAUTH_URL=https://bk.yushuo.click
 DB_TYPE=sqlite
 SQLITE_PATH=./data/stock_tracker.db
 SCHEDULER_TOKEN=$(openssl rand -hex 32)
@@ -308,7 +308,7 @@ npm run build
 ```
 
 ### 常见问题2: 页面无法访问
-**症状**: 访问stock-tracker.yushuo.click返回502或404
+**症状**: 访问bk.yushuo.click返回502或404
 **排查步骤**:
 1. 检查PM2进程: `pm2 status`
 2. 检查端口监听: `netstat -tlnp | grep :3002`
@@ -320,7 +320,7 @@ npm run build
 **排查步骤**:
 1. 检查API Token有效性
 2. 查看应用错误日志: `pm2 logs stock-tracker-v42 --err`
-3. 测试API接口: `curl https://stock-tracker.yushuo.click/api/stocks`
+3. 测试API接口: `curl https://bk.yushuo.click/api/stocks`
 
 ---
 
@@ -353,4 +353,4 @@ pm2 restart stock-tracker-v42
 
 ---
 
-**部署完成后，请访问 https://stock-tracker.yushuo.click 验证系统正常运行**
+**部署完成后，请访问 https://bk.yushuo.click 验证系统正常运行**

@@ -199,7 +199,7 @@ fi
 echo ""
 echo "   2. 检查应用状态:"
 echo "      pm2 status"
-echo "      curl https://yushuo.click/cc"
+echo "      curl https://bk.yushuo.click"
 echo ""
 echo "📋 同步日志已保存到: $LOG_FILE"
 echo "=========================================="

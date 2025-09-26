@@ -115,7 +115,7 @@ ls -la *.sh
 pm2 status
 
 # 检查应用访问
-curl -I https://stock-tracker.yushuo.click
+curl -I https://bk.yushuo.click
 ```
 
 ---
@@ -215,7 +215,7 @@ pm2 restart stock-tracker-v42
 - [ ] 关键文件存在且完整
 - [ ] 部署脚本具有执行权限
 - [ ] PM2进程运行正常
-- [ ] 网站https://stock-tracker.yushuo.click可正常访问
+- [ ] 网站https://bk.yushuo.click可正常访问
 - [ ] 应用功能测试通过
 - [ ] 日志记录正常
 
