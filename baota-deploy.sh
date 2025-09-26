@@ -28,20 +28,50 @@ PM2_APP_NAME="${PROJECT_NAME}-v42"
 
 echo "[1/8] 环境检查..."
 
+# 检测系统类型
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS=$NAME
+    VERSION=$VERSION_ID
+    echo "🖥️  检测到系统: $OS $VERSION"
+else
+    echo "❌ 错误: 无法检测系统类型"
+    exit 1
+fi
+
 # 检查宝塔面板是否安装
 if [ ! -d "/www/server/panel" ]; then
     echo "❌ 错误: 未检测到宝塔面板"
-    echo "   请先安装宝塔面板: curl -sSO https://download.bt.cn/install/install_panel.sh && bash install_panel.sh"
+    if echo "$OS" | grep -qE "(Ubuntu|Debian)"; then
+        echo "   Ubuntu/Debian系统安装宝塔面板:"
+        echo "   wget -O install.sh http://download.bt.cn/install/install-ubuntu_6.0.sh && bash install.sh"
+    else
+        echo "   CentOS/RHEL系统安装宝塔面板:"
+        echo "   yum install -y wget && wget -O install.sh http://download.bt.cn/install/install_6.0.sh && bash install.sh"
+    fi
     exit 1
 fi
 
 # 检查Node.js
 if ! command -v node &> /dev/null; then
     echo "🔧 安装Node.js ${NODE_VERSION}..."
-    curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
-    yum install -y nodejs
+
+    if echo "$OS" | grep -qE "(Ubuntu|Debian)"; then
+        # Ubuntu/Debian系统
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        apt-get install -y nodejs
+    elif echo "$OS" | grep -qE "(CentOS|Red Hat|Rocky|AlmaLinux)"; then
+        # CentOS/RHEL系统
+        curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+        yum install -y nodejs
+    else
+        echo "❌ 不支持的系统类型: $OS"
+        echo "   请手动安装Node.js 18+"
+        exit 1
+    fi
 else
-    echo "✅ Node.js 已安装: $(node --version)"
+    NODE_VERSION_CURRENT=$(node --version)
+    echo "✅ Node.js 已安装: $NODE_VERSION_CURRENT"
 fi
 
 # 检查PM2
