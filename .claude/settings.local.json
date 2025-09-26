@@ -43,7 +43,8 @@
       "Bash(if exist \"data\\stock_tracker.db\" del \"data\\stock_tracker.db\")",
       "Bash(if exist:*)",
       "Bash(docker:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(if not exist log mkdir log)"
     ],
     "deny": [],
     "ask": []
