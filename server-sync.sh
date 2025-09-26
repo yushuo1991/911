@@ -75,36 +75,68 @@ cd "$PROJECT_DIR"
 if [ -d ".git" ]; then
     log "更新现有Git仓库..."
 
-    # 保存本地修改（如果有）
-    git stash push -m "Auto stash before sync $(date)" 2>/dev/null || true
+    # 检查Git仓库完整性
+    if git fsck --quiet 2>/dev/null; then
+        # 保存本地修改（如果有）
+        git stash push -m "Auto stash before sync $(date)" 2>/dev/null || true
 
-    # 获取最新代码
-    git fetch origin
-
-    # 检查目标版本是否存在
-    if git rev-parse "$TARGET_VERSION" >/dev/null 2>&1; then
-        log "切换到版本: $TARGET_VERSION"
-        git checkout "$TARGET_VERSION"
-        git reset --hard "$TARGET_VERSION"
+        # 获取最新代码
+        if git fetch origin 2>/dev/null; then
+            # 检查目标版本是否存在
+            if git rev-parse "$TARGET_VERSION" >/dev/null 2>&1; then
+                log "切换到版本: $TARGET_VERSION"
+                git checkout "$TARGET_VERSION"
+                git reset --hard "$TARGET_VERSION"
+            else
+                log "版本 $TARGET_VERSION 不存在，切换到main分支最新代码"
+                git checkout main
+                git reset --hard origin/main
+            fi
+        else
+            log "Git fetch失败，仓库可能损坏，将重新克隆..."
+            rm -rf .git
+        fi
     else
-        log "版本 $TARGET_VERSION 不存在，切换到main分支最新代码"
-        git checkout main
-        git reset --hard origin/main
+        log "检测到Git仓库损坏，将重新克隆..."
+        rm -rf .git
     fi
+fi
 
-else
+if [ ! -d ".git" ]; then
     log "克隆新的Git仓库..."
-    # 清空目录并克隆
-    rm -rf ./*
-    git clone "$REPO_URL" .
 
-    # 切换到目标版本
-    if git rev-parse "$TARGET_VERSION" >/dev/null 2>&1; then
-        log "切换到版本: $TARGET_VERSION"
-        git checkout "$TARGET_VERSION"
+    # 清空目录并重新初始化
+    rm -rf ./*
+    rm -rf .git* 2>/dev/null || true
+
+    # 初始化Git仓库
+    git init
+    git remote add origin "$REPO_URL"
+
+    # 尝试浅克隆减少网络传输
+    if git fetch --depth=1 origin main 2>/dev/null; then
+        log "浅克隆成功"
+        git checkout -b main origin/main
+
+        # 尝试获取目标版本
+        if git fetch --depth=50 origin "+refs/tags/$TARGET_VERSION:refs/tags/$TARGET_VERSION" 2>/dev/null; then
+            git checkout "$TARGET_VERSION"
+            log "切换到版本: $TARGET_VERSION"
+        else
+            log "使用main分支最新代码"
+        fi
     else
-        log "使用main分支最新代码"
-        git checkout main
+        log "浅克隆失败，尝试完整克隆..."
+        git fetch origin
+        git checkout -b main origin/main
+
+        # 切换到目标版本
+        if git rev-parse "$TARGET_VERSION" >/dev/null 2>&1; then
+            log "切换到版本: $TARGET_VERSION"
+            git checkout "$TARGET_VERSION"
+        else
+            log "使用main分支最新代码"
+        fi
     fi
 fi
 
