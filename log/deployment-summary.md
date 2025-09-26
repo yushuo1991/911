@@ -66,14 +66,14 @@ chmod +x server-env-check.sh
 - **API模块**: Tushare数据接口，影响股票数据更新
 
 ### 解决的问题
-1. **子路径部署**: 配置Nginx支持 `yushuo.click/cc` 访问
+1. **子路径部署**: 配置Nginx支持子域名访问
 2. **进程管理**: PM2确保应用自动重启和监控
 3. **静态资源**: 优化Next.js静态文件缓存策略
 4. **SSL支持**: 自动适配HTTPS证书配置
 
 ## 📁 部署后的目录结构
 ```
-/www/wwwroot/yushuo.click/cc/
+/www/wwwroot/stock-tracker/
 ├── .next/                 # Next.js构建输出
 ├── src/                   # 源代码
 ├── data/                  # SQLite数据库
@@ -97,7 +97,7 @@ chmod +x server-env-check.sh
 - 确保Nginx运行正常
 
 ### 3. 文件管理
-- 项目目录: `/www/wwwroot/yushuo.click/cc`
+- 项目目录: `/www/wwwroot/stock-tracker`
 - 可通过面板直接编辑配置文件
 - 支持在线查看日志文件
 
@@ -127,7 +127,7 @@ pm2 monit
 ## 🔄 更新流程
 
 ```bash
-cd /www/wwwroot/yushuo.click/cc
+cd /www/wwwroot/stock-tracker
 git pull origin main
 npm install
 npm run build
@@ -136,7 +136,7 @@ pm2 restart stock-tracker-v42
 
 ## 📞 技术支持
 
-- **访问地址**: https://yushuo.click/cc
+- **访问地址**: https://stock-tracker.yushuo.click
 - **项目仓库**: https://github.com/shishen168/stock-tracker
 - **部署日志**: 保存在 `log/` 目录下
 - **问题反馈**: GitHub Issues

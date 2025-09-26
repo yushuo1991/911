@@ -21,7 +21,7 @@ fi
 # 定义变量
 PROJECT_NAME="stock-tracker"
 DOMAIN="yushuo.click"
-PROJECT_PATH="/www/wwwroot/${DOMAIN}/cc"
+PROJECT_PATH="/www/wwwroot/stock-tracker"
 BACKUP_PATH="/www/backup/$(date +%Y%m%d_%H%M%S)_${PROJECT_NAME}"
 NODE_VERSION="18"
 PM2_APP_NAME="${PROJECT_NAME}-v42"
@@ -106,7 +106,7 @@ TUSHARE_TOKEN=2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211
 # 应用配置
 NODE_ENV=production
 NEXT_PUBLIC_APP_VERSION=4.2
-NEXTAUTH_URL=https://${DOMAIN}/cc
+NEXTAUTH_URL=https://stock-tracker.${DOMAIN}
 
 # SQLite 数据库配置
 DB_TYPE=sqlite
@@ -177,7 +177,7 @@ echo ""
 echo "[8/8] 配置Nginx反向代理..."
 
 # 创建Nginx配置
-NGINX_CONFIG="/www/server/panel/vhost/nginx/${DOMAIN}.conf"
+NGINX_CONFIG="/www/server/panel/vhost/nginx/stock-tracker.${DOMAIN}.conf"
 
 if [ -f "${NGINX_CONFIG}" ]; then
     cp "${NGINX_CONFIG}" "${NGINX_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)"
@@ -187,21 +187,14 @@ cat > "${NGINX_CONFIG}" << EOF
 server {
     listen 80;
     listen 443 ssl http2;
-    server_name ${DOMAIN};
+    server_name stock-tracker.${DOMAIN};
 
     # SSL配置（如果已配置SSL证书）
-    ssl_certificate /www/server/panel/vhost/cert/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /www/server/panel/vhost/cert/${DOMAIN}/privkey.pem;
+    ssl_certificate /www/server/panel/vhost/cert/stock-tracker.${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /www/server/panel/vhost/cert/stock-tracker.${DOMAIN}/privkey.pem;
 
-    # 根目录默认页面
+    # 股票追踪系统根路径
     location / {
-        root /www/wwwroot/${DOMAIN};
-        index index.html index.htm;
-        try_files \$uri \$uri/ =404;
-    }
-
-    # 股票追踪系统代理
-    location /cc/ {
         proxy_pass http://127.0.0.1:3002/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -216,7 +209,7 @@ server {
     }
 
     # API接口代理
-    location /cc/api/ {
+    location /api/ {
         proxy_pass http://127.0.0.1:3002/api/;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
@@ -227,7 +220,7 @@ server {
     }
 
     # 静态资源代理
-    location /cc/_next/ {
+    location /_next/ {
         proxy_pass http://127.0.0.1:3002/_next/;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
@@ -236,8 +229,8 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    access_log /www/wwwroot/${DOMAIN}/log/nginx_access.log;
-    error_log /www/wwwroot/${DOMAIN}/log/nginx_error.log;
+    access_log /www/wwwroot/stock-tracker/log/nginx_access.log;
+    error_log /www/wwwroot/stock-tracker/log/nginx_error.log;
 }
 EOF
 
@@ -261,7 +254,7 @@ echo ""
 echo "📊 部署信息:"
 echo "   • 项目名称: ${PROJECT_NAME} v4.2"
 echo "   • 项目路径: ${PROJECT_PATH}"
-echo "   • 访问地址: https://${DOMAIN}/cc"
+echo "   • 访问地址: https://stock-tracker.${DOMAIN}"
 echo "   • PM2进程: ${PM2_APP_NAME}"
 echo "   • 端口: 3002"
 echo ""
@@ -277,5 +270,5 @@ echo "   • 数据库: ${PROJECT_PATH}/data/stock_tracker.db"
 echo "   • 应用日志: ${PROJECT_PATH}/log/"
 echo "   • 备份目录: ${BACKUP_PATH}"
 echo ""
-echo "🌐 请在浏览器中访问 https://${DOMAIN}/cc 验证部署结果"
+echo "🌐 请在浏览器中访问 https://stock-tracker.${DOMAIN} 验证部署结果"
 echo "=========================================="

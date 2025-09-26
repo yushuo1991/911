@@ -1,203 +1,205 @@
 #!/bin/bash
-# 服务器端GitHub同步脚本
-# 需要在宝塔服务器上执行
 
-echo "=== 服务器GitHub同步脚本 ==="
-echo "时间: $(date '+%Y-%m-%d %H:%M:%S')"
-echo "服务器: 107.173.154.147"
+# 服务器代码同步脚本 - v4.3版本
+# 创建时间: 2025-09-26
+# 用途: 从GitHub同步最新代码到服务器
+
+set -e
+
+echo "=========================================="
+echo "股票追踪系统 - 服务器代码同步脚本"
+echo "=========================================="
+echo ""
 
 # 配置变量
-REPO_URL="https://github.com/your-username/stock-tracker.git"  # 请替换为实际仓库地址
-DEPLOY_PATH="/www/wwwroot/stock-tracker"
-CONTAINER_NAME="stock-tracker-app"
-IMAGE_NAME="stock-tracker:latest"
+PROJECT_DIR="/www/wwwroot/stock-tracker"
+BACKUP_DIR="/www/backup/$(date +%Y%m%d_%H%M%S)_sync_backup"
+LOG_FILE="/tmp/sync_$(date +%Y%m%d_%H%M%S).log"
+REPO_URL="https://github.com/yushuo1991/911.git"
+TARGET_VERSION="v4.3"
+
+# 日志函数
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "开始代码同步，日志文件: $LOG_FILE"
+echo ""
+
+# 检查是否为root用户
+if [ "$EUID" -ne 0 ]; then
+    log "错误: 请使用root用户运行此脚本"
+    echo "运行命令: sudo ./server-sync.sh"
+    exit 1
+fi
+
+echo "[1/6] 环境检查..."
 
 # 检查Git是否安装
 if ! command -v git &> /dev/null; then
-    echo "安装Git..."
-    yum install -y git || apt-get update && apt-get install -y git
-fi
-
-# 初始化Git仓库（首次运行）
-init_repo() {
-    echo "初始化Git仓库..."
-    cd /www/wwwroot/
-
-    if [ -d "stock-tracker" ]; then
-        echo "备份现有目录..."
-        mv stock-tracker stock-tracker-backup-$(date +%Y%m%d_%H%M%S)
-    fi
-
-    git clone ${REPO_URL} stock-tracker
-    cd stock-tracker
-    echo "✅ Git仓库初始化完成"
-}
-
-# 同步最新代码
-sync_code() {
-    echo "同步最新代码..."
-    cd ${DEPLOY_PATH}
-
-    if [ ! -d ".git" ]; then
-        echo "Git仓库不存在，重新初始化..."
-        cd ..
-        rm -rf stock-tracker
-        git clone ${REPO_URL} stock-tracker
-        cd stock-tracker
+    log "安装Git..."
+    if command -v yum &> /dev/null; then
+        yum install -y git
+    elif command -v apt &> /dev/null; then
+        apt update && apt install -y git
     else
-        git fetch origin
-        git reset --hard origin/main
-        git pull origin main
-    fi
-
-    echo "当前版本: $(git log --oneline -1)"
-    echo "✅ 代码同步完成"
-}
-
-# 部署应用
-deploy_app() {
-    echo "部署应用..."
-    cd ${DEPLOY_PATH}
-
-    # 停止旧容器
-    docker stop ${CONTAINER_NAME} 2>/dev/null || true
-    docker rm ${CONTAINER_NAME} 2>/dev/null || true
-
-    # 构建镜像
-    echo "构建Docker镜像..."
-    docker build -t ${IMAGE_NAME} . 2>&1 | tee log/build-$(date +%Y%m%d_%H%M%S).log
-
-    if [ $? -ne 0 ]; then
-        echo "❌ 镜像构建失败"
-        return 1
-    fi
-
-    # 设置数据目录
-    mkdir -p data
-    chmod 755 data
-    chown -R 1001:1001 data
-
-    # 启动容器
-    docker run -d \
-        --name ${CONTAINER_NAME} \
-        --restart always \
-        -p 3000:3000 \
-        -v ${DEPLOY_PATH}/data:/app/data \
-        -e NODE_ENV=production \
-        -e PORT=3000 \
-        -e HOSTNAME=0.0.0.0 \
-        -e TUSHARE_TOKEN=2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211 \
-        -e NEXT_PUBLIC_API_URL=http://bk.yushuo.click \
-        -e NEXT_PUBLIC_API_BASE_URL=http://bk.yushuo.click/api \
-        -e NEXTAUTH_SECRET=stock-tracker-secret-key-2024 \
-        -e NEXTAUTH_URL=http://bk.yushuo.click \
-        ${IMAGE_NAME}
-
-    if [ $? -eq 0 ]; then
-        echo "✅ 容器启动成功"
-
-        # 等待服务启动
-        echo "等待服务启动..."
-        sleep 15
-
-        # 测试连接
-        for i in {1..10}; do
-            if curl -s -f http://127.0.0.1:3000 >/dev/null 2>&1; then
-                echo "✅ 服务运行正常"
-                break
-            fi
-            echo "等待中... ($i/10)"
-            sleep 3
-        done
-
-        # 重载Nginx
-        nginx -t && nginx -s reload
-
-        return 0
-    else
-        echo "❌ 容器启动失败"
-        docker logs ${CONTAINER_NAME}
-        return 1
-    fi
-}
-
-# 主流程
-main() {
-    # 创建日志目录
-    mkdir -p ${DEPLOY_PATH}/log
-
-    # 记录开始时间
-    echo "$(date) - 手动同步开始" >> ${DEPLOY_PATH}/log/sync.log
-
-    # 检查是否首次运行
-    if [ ! -d "${DEPLOY_PATH}" ]; then
-        init_repo
-    else
-        sync_code
-    fi
-
-    # 部署应用
-    if deploy_app; then
-        echo "$(date) - 同步部署成功" >> ${DEPLOY_PATH}/log/sync.log
-        echo ""
-        echo "🎉 同步部署成功！"
-        echo "🌍 访问地址: http://bk.yushuo.click"
-        echo "🔗 API测试: http://bk.yushuo.click/api/stocks"
-        echo ""
-        echo "容器状态:"
-        docker ps | grep ${CONTAINER_NAME}
-    else
-        echo "$(date) - 同步部署失败" >> ${DEPLOY_PATH}/log/sync.log
-        echo "❌ 同步部署失败，请检查日志"
+        log "错误: 无法安装Git，请手动安装"
         exit 1
     fi
-}
+fi
 
-# 帮助信息
-usage() {
-    echo "用法: $0 [选项]"
-    echo "选项:"
-    echo "  init    - 初始化Git仓库"
-    echo "  sync    - 同步代码"
-    echo "  deploy  - 部署应用"
-    echo "  status  - 查看状态"
-    echo "  logs    - 查看日志"
-    echo ""
-    echo "示例:"
-    echo "  $0          # 完整同步部署"
-    echo "  $0 sync     # 仅同步代码"
-    echo "  $0 status   # 查看容器状态"
-}
+# 检查项目目录
+if [ ! -d "$PROJECT_DIR" ]; then
+    log "创建项目目录: $PROJECT_DIR"
+    mkdir -p "$PROJECT_DIR"
+fi
 
-# 处理命令行参数
-case "${1:-}" in
-    init)
-        init_repo
-        ;;
-    sync)
-        sync_code
-        ;;
-    deploy)
-        deploy_app
-        ;;
-    status)
-        echo "容器状态:"
-        docker ps | grep ${CONTAINER_NAME}
-        echo ""
-        echo "服务测试:"
-        curl -I http://127.0.0.1:3000 2>/dev/null || echo "服务无响应"
-        ;;
-    logs)
-        echo "最近的同步日志:"
-        tail -20 ${DEPLOY_PATH}/log/sync.log 2>/dev/null || echo "无日志文件"
-        echo ""
-        echo "容器日志:"
-        docker logs --tail=20 ${CONTAINER_NAME} 2>/dev/null || echo "无容器日志"
-        ;;
-    help|--help|-h)
-        usage
-        ;;
-    *)
-        main
-        ;;
-esac
+echo ""
+echo "[2/6] 备份现有项目..."
+
+# 备份现有项目（如果存在）
+if [ -d "$PROJECT_DIR/.git" ]; then
+    log "发现现有项目，创建备份..."
+    mkdir -p "$BACKUP_DIR"
+    cp -r "$PROJECT_DIR" "$BACKUP_DIR/"
+    log "备份完成: $BACKUP_DIR"
+else
+    log "未发现现有项目，跳过备份"
+fi
+
+echo ""
+echo "[3/6] 从GitHub同步代码..."
+
+cd "$PROJECT_DIR"
+
+if [ -d ".git" ]; then
+    log "更新现有Git仓库..."
+
+    # 保存本地修改（如果有）
+    git stash push -m "Auto stash before sync $(date)" 2>/dev/null || true
+
+    # 获取最新代码
+    git fetch origin
+
+    # 检查目标版本是否存在
+    if git rev-parse "$TARGET_VERSION" >/dev/null 2>&1; then
+        log "切换到版本: $TARGET_VERSION"
+        git checkout "$TARGET_VERSION"
+        git reset --hard "$TARGET_VERSION"
+    else
+        log "版本 $TARGET_VERSION 不存在，切换到main分支最新代码"
+        git checkout main
+        git reset --hard origin/main
+    fi
+
+else
+    log "克隆新的Git仓库..."
+    # 清空目录并克隆
+    rm -rf ./*
+    git clone "$REPO_URL" .
+
+    # 切换到目标版本
+    if git rev-parse "$TARGET_VERSION" >/dev/null 2>&1; then
+        log "切换到版本: $TARGET_VERSION"
+        git checkout "$TARGET_VERSION"
+    else
+        log "使用main分支最新代码"
+        git checkout main
+    fi
+fi
+
+# 获取当前版本信息
+CURRENT_COMMIT=$(git rev-parse --short HEAD)
+CURRENT_MESSAGE=$(git log -1 --pretty=format:"%s")
+log "当前版本: $CURRENT_COMMIT - $CURRENT_MESSAGE"
+
+echo ""
+echo "[4/6] 检查项目文件..."
+
+# 检查关键文件是否存在
+CRITICAL_FILES=("package.json" "src/app/page.tsx" "src/components/StockTracker.tsx")
+for file in "${CRITICAL_FILES[@]}"; do
+    if [ -f "$file" ]; then
+        log "✓ 文件存在: $file"
+    else
+        log "✗ 文件缺失: $file"
+    fi
+done
+
+# 检查部署脚本
+if [ -f "baota-deploy.sh" ]; then
+    log "✓ 部署脚本已同步: baota-deploy.sh"
+    chmod +x baota-deploy.sh
+else
+    log "⚠ 部署脚本未找到，可能需要手动部署"
+fi
+
+if [ -f "server-env-check.sh" ]; then
+    log "✓ 环境检测脚本已同步: server-env-check.sh"
+    chmod +x server-env-check.sh
+else
+    log "⚠ 环境检测脚本未找到"
+fi
+
+echo ""
+echo "[5/6] 更新文件权限..."
+
+# 设置正确的文件权限
+chown -R www:www "$PROJECT_DIR" 2>/dev/null || chown -R nginx:nginx "$PROJECT_DIR" 2>/dev/null || true
+
+# 设置脚本执行权限
+find "$PROJECT_DIR" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+
+# 创建必要目录
+mkdir -p "$PROJECT_DIR/data"
+mkdir -p "$PROJECT_DIR/log"
+
+log "文件权限更新完成"
+
+echo ""
+echo "[6/6] 同步验证..."
+
+# 验证同步结果
+if [ -f "package.json" ]; then
+    PROJECT_VERSION=$(grep '"version"' package.json | cut -d'"' -f4)
+    log "项目版本: $PROJECT_VERSION"
+fi
+
+# 检查目录大小
+DIR_SIZE=$(du -sh "$PROJECT_DIR" | cut -f1)
+log "项目目录大小: $DIR_SIZE"
+
+# 统计文件数量
+FILE_COUNT=$(find "$PROJECT_DIR" -type f | wc -l)
+log "文件总数: $FILE_COUNT"
+
+echo ""
+echo "=========================================="
+echo "🎉 代码同步完成！"
+echo "=========================================="
+echo ""
+echo "📊 同步信息:"
+echo "   • 项目路径: $PROJECT_DIR"
+echo "   • 同步版本: $TARGET_VERSION ($CURRENT_COMMIT)"
+echo "   • 备份路径: $BACKUP_DIR"
+echo "   • 同步日志: $LOG_FILE"
+echo ""
+echo "🔧 下一步操作："
+if [ -f "$PROJECT_DIR/baota-deploy.sh" ]; then
+    echo "   1. 运行部署脚本:"
+    echo "      cd $PROJECT_DIR"
+    echo "      ./baota-deploy.sh"
+else
+    echo "   1. 手动部署应用:"
+    echo "      cd $PROJECT_DIR"
+    echo "      npm install"
+    echo "      npm run build"
+    echo "      pm2 restart stock-tracker-v42"
+fi
+echo ""
+echo "   2. 检查应用状态:"
+echo "      pm2 status"
+echo "      curl https://yushuo.click/cc"
+echo ""
+echo "📋 同步日志已保存到: $LOG_FILE"
+echo "=========================================="

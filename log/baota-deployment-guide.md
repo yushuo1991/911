@@ -54,7 +54,7 @@ sudo ./baota-deploy.sh
 ```
 
 ### 步骤4: 验证部署结果
-部署完成后，访问: `https://yushuo.click/cc`
+部署完成后，访问: `https://stock-tracker.yushuo.click`
 
 ---
 
@@ -79,8 +79,8 @@ npm install -g pm2
 
 #### 创建项目目录
 ```bash
-mkdir -p /www/wwwroot/yushuo.click/cc
-cd /www/wwwroot/yushuo.click/cc
+mkdir -p /www/wwwroot/stock-tracker
+cd /www/wwwroot/stock-tracker
 ```
 
 #### 克隆项目代码
@@ -96,7 +96,7 @@ cat > .env.local << EOF
 TUSHARE_TOKEN=2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211
 NODE_ENV=production
 NEXT_PUBLIC_APP_VERSION=4.2
-NEXTAUTH_URL=https://yushuo.click/cc
+NEXTAUTH_URL=https://stock-tracker.yushuo.click
 DB_TYPE=sqlite
 SQLITE_PATH=./data/stock_tracker.db
 SCHEDULER_TOKEN=$(openssl rand -hex 32)
@@ -122,7 +122,7 @@ module.exports = {
     name: 'stock-tracker-v42',
     script: 'npm',
     args: 'start',
-    cwd: '/www/wwwroot/yushuo.click/cc',
+    cwd: '/www/wwwroot/stock-tracker',
     instances: 1,
     exec_mode: 'fork',
     env: {
@@ -272,13 +272,13 @@ pm2 monit
 netstat -tlnp | grep :3002
 
 # 查看磁盘使用
-df -h /www/wwwroot/yushuo.click/cc
+df -h /www/wwwroot/stock-tracker
 ```
 
 ### 3. 日志管理
 ```bash
 # 应用日志位置
-tail -f /www/wwwroot/yushuo.click/cc/log/app.log
+tail -f /www/wwwroot/stock-tracker/log/app.log
 
 # Nginx日志
 tail -f /www/wwwroot/yushuo.click/log/nginx_access.log
@@ -288,10 +288,10 @@ tail -f /www/wwwroot/yushuo.click/log/nginx_error.log
 ### 4. 数据库维护
 ```bash
 # 检查数据库文件
-ls -la /www/wwwroot/yushuo.click/cc/data/stock_tracker.db
+ls -la /www/wwwroot/stock-tracker/data/stock_tracker.db
 
 # 数据库大小监控
-du -h /www/wwwroot/yushuo.click/cc/data/
+du -h /www/wwwroot/stock-tracker/data/
 ```
 
 ---
@@ -303,12 +303,12 @@ du -h /www/wwwroot/yushuo.click/cc/data/
 **排查步骤**:
 ```bash
 pm2 logs stock-tracker-v42 --err
-cd /www/wwwroot/yushuo.click/cc
+cd /www/wwwroot/stock-tracker
 npm run build
 ```
 
 ### 常见问题2: 页面无法访问
-**症状**: 访问yushuo.click/cc返回502或404
+**症状**: 访问stock-tracker.yushuo.click返回502或404
 **排查步骤**:
 1. 检查PM2进程: `pm2 status`
 2. 检查端口监听: `netstat -tlnp | grep :3002`
@@ -320,7 +320,7 @@ npm run build
 **排查步骤**:
 1. 检查API Token有效性
 2. 查看应用错误日志: `pm2 logs stock-tracker-v42 --err`
-3. 测试API接口: `curl https://yushuo.click/cc/api/stocks`
+3. 测试API接口: `curl https://stock-tracker.yushuo.click/api/stocks`
 
 ---
 
@@ -328,7 +328,7 @@ npm run build
 
 ### 更新到新版本
 ```bash
-cd /www/wwwroot/yushuo.click/cc
+cd /www/wwwroot/stock-tracker
 git pull origin main
 npm install
 npm run build
@@ -349,8 +349,8 @@ pm2 restart stock-tracker-v42
 
 - **项目仓库**: https://github.com/shishen168/stock-tracker
 - **问题反馈**: 通过GitHub Issues
-- **部署日志**: 保存在 `/www/wwwroot/yushuo.click/cc/log/` 目录下
+- **部署日志**: 保存在 `/www/wwwroot/stock-tracker/log/` 目录下
 
 ---
 
-**部署完成后，请访问 https://yushuo.click/cc 验证系统正常运行**
+**部署完成后，请访问 https://stock-tracker.yushuo.click 验证系统正常运行**
