@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
   import { generateTradingDays, generateMockPerformance, sortStocksByBoard, calculateStats } from '@/lib/utils';
   import { stockDatabase } from '@/lib/database';
 
-  const TUSHARE_TOKEN = '2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211';
+  const TUSHARE_TOKEN = process.env.TUSHARE_TOKEN || '';
 
   // 智能缓存系统
   interface CacheEntry {
