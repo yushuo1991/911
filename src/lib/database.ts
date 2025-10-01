@@ -3,6 +3,29 @@ import mysql from 'mysql2/promise';
 // 检查是否禁用数据库
 const isDatabaseDisabled = process.env.DB_DISABLE === 'true';
 
+/**
+ * 将Date对象或字符串转换为YYYY-MM-DD格式
+ * 修复：MySQL DATE字段返回Date对象，作为key时会调用toString()导致格式错误
+ */
+function formatDateToISO(date: Date | string): string {
+  if (typeof date === 'string') {
+    // 如果已经是YYYY-MM-DD格式，直接返回
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+    // 如果是YYYYMMDD格式，转换为YYYY-MM-DD
+    if (/^\d{8}$/.test(date)) {
+      return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
+    }
+    // 其他字符串格式，尝试转换为Date对象
+    date = new Date(date);
+  }
+
+  // Date对象转YYYY-MM-DD
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // 数据库配置
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
@@ -239,7 +262,9 @@ export class StockDatabase {
       if (Array.isArray(rows) && rows.length === tradingDays.length) {
         const performance: Record<string, number> = {};
         (rows as any[]).forEach(row => {
-          performance[row.performance_date] = parseFloat(row.pct_change);
+          // 修复：将MySQL返回的Date对象转换为YYYY-MM-DD格式再作为key
+          const dateKey = formatDateToISO(row.performance_date);
+          performance[dateKey] = parseFloat(row.pct_change);
         });
 
         console.log(`[数据库] 从数据库获取到 ${stockCode} 的表现数据`);

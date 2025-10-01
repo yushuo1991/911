@@ -151,9 +151,8 @@ export function generateTradingDays(startDate: string, days: number = 5): string
 
     // 跳过周末
     if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-      const dateStr = currentDate.getFullYear().toString() +
-        (currentDate.getMonth() + 1).toString().padStart(2, '0') +
-        currentDate.getDate().toString().padStart(2, '0');
+      // 修复：使用ISO格式(YYYY-MM-DD)以匹配API dates数组和前端查询
+      const dateStr = currentDate.toISOString().split('T')[0];
       tradingDays.push(dateStr);
       console.log(`[日期生成] 添加交易日: ${dateStr}`);
     }
