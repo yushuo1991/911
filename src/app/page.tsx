@@ -542,7 +542,9 @@ export default function Home() {
                       <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">股票</th>
                       <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">板数</th>
                       {(() => {
-                        const followUpDates = Object.keys(selectedSectorData.followUpData[selectedSectorData.stocks[0]?.code] || {}).sort().slice(0, 5);
+                        // 使用dates数组确保日期正确排序
+                        const currentDateIndex = dates.indexOf(selectedSectorData.date);
+                        const followUpDates = currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
                         return followUpDates.map((followDate, index) => {
                           const formattedDate = formatDate(followDate).slice(5);
                           return (
@@ -557,7 +559,9 @@ export default function Home() {
                     <tr className="border-b bg-blue-50">
                       <th colSpan={3} className="px-2 py-1 text-right text-2xs text-blue-700">板块平均:</th>
                       {(() => {
-                        const followUpDates = Object.keys(selectedSectorData.followUpData[selectedSectorData.stocks[0]?.code] || {}).sort().slice(0, 5);
+                        // 使用dates数组确保日期正确排序
+                        const currentDateIndex = dates.indexOf(selectedSectorData.date);
+                        const followUpDates = currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
                         return followUpDates.map((followDate) => {
                           let totalPremium = 0;
                           let validCount = 0;
@@ -602,7 +606,9 @@ export default function Home() {
                         return totalReturn > 10;
                       })
                       .map((stock, index) => {
-                        const followUpDates = Object.keys(selectedSectorData.followUpData[stock.code] || {}).sort();
+                        // 使用dates数组确保日期正确排序
+                        const currentDateIndex = dates.indexOf(selectedSectorData.date);
+                        const followUpDates = currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
                         const totalReturn = Object.values(selectedSectorData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
                         return (
                           <tr key={stock.code} className="border-b hover:bg-primary-50 transition">
@@ -1136,24 +1142,39 @@ export default function Home() {
                 </thead>
                 <tbody>
                   <tr>
-                    {selected7DayLadderData.dailyBreakdown.map((day) => {
-                      // 按板数降序排序（高板在上）
-                      const sortedStocks = [...day.stocks].sort((a, b) => {
-                        // 这里暂时按名称排序，实际应该按板数排序
-                        return a.name.localeCompare(b.name);
+                    {selected7DayLadderData.dailyBreakdown.map((day, dayIndex) => {
+                      // 推断连板数：检查前几天该股票是否也在该板块涨停
+                      const stocksWithBoardCount = day.stocks.map(stock => {
+                        let boardCount = 1; // 至少是首板
+
+                        // 向前检查，从前一天开始
+                        for (let i = dayIndex - 1; i >= 0; i--) {
+                          const prevDay = selected7DayLadderData.dailyBreakdown[i];
+                          const prevDayHasStock = prevDay.stocks.some(s => s.code === stock.code);
+                          if (prevDayHasStock) {
+                            boardCount++;
+                          } else {
+                            break; // 连续性断了
+                          }
+                        }
+
+                        return { ...stock, boardCount };
                       });
+
+                      // 按板数降序排序（高板在上）
+                      const sortedStocks = stocksWithBoardCount.sort((a, b) => b.boardCount - a.boardCount);
 
                       return (
                         <td
                           key={day.date}
-                          className="border border-gray-300 px-2 py-2 align-top cursor-pointer hover:bg-blue-50 transition-colors"
-                          onClick={() => handleDateColumnClick(day.date, day.stocks, selected7DayLadderData.sectorName)}
+                          className="border border-gray-300 px-2 py-2 align-top"
                         >
                           <div className="space-y-1">
                             {sortedStocks.map((stock, stockIndex) => (
                               <div
                                 key={stock.code}
-                                className="flex items-center justify-between text-2xs bg-white border border-gray-200 rounded px-1.5 py-0.5 hover:border-blue-300 hover:bg-blue-50"
+                                className="flex items-center justify-between text-2xs bg-white border border-gray-200 rounded px-1.5 py-0.5 hover:border-blue-300 hover:bg-blue-50 cursor-pointer"
+                                onClick={() => handleDateColumnClick(day.date, [stock], selected7DayLadderData.sectorName)}
                               >
                                 <button
                                   className="text-blue-600 hover:text-blue-800 font-medium hover:underline truncate flex-1 text-left"
@@ -1164,7 +1185,13 @@ export default function Home() {
                                 >
                                   {stock.name.length > 6 ? stock.name.slice(0, 6) : stock.name}
                                 </button>
-                                <span className="text-[10px] text-gray-500 ml-1">1板</span>
+                                <span className={`text-[10px] ml-1 font-medium ${
+                                  stock.boardCount >= 3 ? 'text-red-600' :
+                                  stock.boardCount === 2 ? 'text-orange-600' :
+                                  'text-gray-500'
+                                }`}>
+                                  {stock.boardCount}板
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -1210,7 +1237,9 @@ export default function Home() {
                     <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">#</th>
                     <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">股票</th>
                     {(() => {
-                      const followUpDates = Object.keys(selectedDateColumnData.followUpData[selectedDateColumnData.stocks[0]?.code] || {}).sort().slice(0, 5);
+                      // 使用dates数组确保日期正确排序
+                      const currentDateIndex = dates.indexOf(selectedDateColumnData.date);
+                      const followUpDates = currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
                       return followUpDates.map((followDate) => {
                         const formattedDate = formatDate(followDate).slice(5);
                         return (
@@ -1225,7 +1254,9 @@ export default function Home() {
                 </thead>
                 <tbody>
                   {getSortedStocksForSector(selectedDateColumnData.stocks, selectedDateColumnData.followUpData).map((stock, index) => {
-                    const followUpDates = Object.keys(selectedDateColumnData.followUpData[stock.code] || {}).sort();
+                    // 使用dates数组确保日期正确排序
+                    const currentDateIndex = dates.indexOf(selectedDateColumnData.date);
+                    const followUpDates = currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
                     const totalReturn = Object.values(selectedDateColumnData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
                     return (
                       <tr key={stock.code} className="border-b hover:bg-primary-50 transition">
