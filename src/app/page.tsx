@@ -571,7 +571,7 @@ export default function Home() {
                           const avgPremium = validCount > 0 ? totalPremium / validCount : 0;
                           return (
                             <th key={followDate} className="px-2 py-1 text-center">
-                              <span className={`px-1.5 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(avgPremium)}`}>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getPerformanceClass(avgPremium)}`}>
                                 {avgPremium.toFixed(1)}%
                               </span>
                             </th>
@@ -623,14 +623,14 @@ export default function Home() {
                               const performance = selectedSectorData.followUpData[stock.code]?.[followDate] || 0;
                               return (
                                 <td key={followDate || `day-${dayIndex}`} className="px-2 py-1.5 text-center">
-                                  <span className={`px-1.5 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(performance)}`}>
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getPerformanceClass(performance)}`}>
                                     {performance.toFixed(1)}%
                                   </span>
                                 </td>
                               );
                             })}
                             <td className="px-2 py-1.5 text-center">
-                              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getPerformanceClass(totalReturn)}`}>
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${getPerformanceClass(totalReturn)}`}>
                                 {totalReturn.toFixed(1)}%
                               </span>
                             </td>
@@ -811,6 +811,7 @@ export default function Home() {
                         </th>
                       );
                     })}
+                    <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">总和</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -832,6 +833,11 @@ export default function Home() {
                           </span>
                         </td>
                       ))}
+                      <td className="px-2 py-1.5 text-center">
+                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getPerformanceClass(sector.total5DayPremium || 0)}`}>
+                          {(sector.total5DayPremium || 0).toFixed(1)}%
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -883,18 +889,13 @@ export default function Home() {
             </div>
 
             {/* 按板块分组显示 - 并排网格布局 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[70vh] overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 max-h-[70vh] overflow-y-auto">
               {selectedStockCountData.sectorData
                 .filter(sector => showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true)
                 .map((sector, sectorIndex) => {
-                  // 获取该板块的5日期范围
-                  const allFollowUpDates = new Set<string>();
-                  sector.stocks.forEach(stock => {
-                    Object.keys(stock.followUpData).forEach(date => {
-                      allFollowUpDates.add(date);
-                    });
-                  });
-                  const followUpDates = Array.from(allFollowUpDates).sort().slice(0, 5);
+                  // 获取该板块的5日期范围 - 修复：使用dates数组确保顺序正确
+                  const currentDateIndex = dates.indexOf(selectedStockCountData.date);
+                  const followUpDates = currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
 
                   return (
                     <div key={sector.sectorName} className="bg-gray-50 rounded-lg p-1.5 border border-gray-200">
@@ -911,19 +912,19 @@ export default function Home() {
 
                       {/* 超紧凑表格显示 */}
                       <div className="overflow-x-auto">
-                        <table className="w-full text-[10px]">
+                        <table className="w-full">
                           <thead className="bg-white">
                             <tr className="border-b">
-                              <th className="px-1 py-0.5 text-left font-semibold text-gray-700">名称</th>
+                              <th className="px-1 py-0.5 text-left font-semibold text-gray-700 text-[10px]">名称</th>
                               {followUpDates.map((date, index) => {
                                 const formattedDate = formatDate(date).slice(5);
                                 return (
-                                  <th key={date} className="px-0.5 py-0.5 text-center font-semibold text-gray-700">
+                                  <th key={date} className="px-0.5 py-0.5 text-center font-semibold text-gray-700 text-[10px]">
                                     {formattedDate}
                                   </th>
                                 );
                               })}
-                              <th className="px-1 py-0.5 text-center font-semibold text-gray-700">计</th>
+                              <th className="px-1 py-0.5 text-center font-semibold text-gray-700 text-[10px]">计</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -931,7 +932,7 @@ export default function Home() {
                               <tr key={stock.code} className={`border-b ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
                                 <td className="px-1 py-0.5">
                                   <div
-                                    className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline truncate"
+                                    className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline truncate text-[10px]"
                                     onClick={() => handleStockClick(stock.name, stock.code)}
                                     title={`${stock.name} (${stock.code})`}
                                   >
@@ -942,14 +943,14 @@ export default function Home() {
                                   const performance = stock.followUpData[date] || 0;
                                   return (
                                     <td key={date} className="px-0.5 py-0.5 text-center">
-                                      <div className={`px-0.5 rounded text-[9px] font-medium ${getPerformanceClass(performance)}`}>
+                                      <div className={`px-0.5 rounded text-[8px] font-medium ${getPerformanceClass(performance)}`}>
                                         {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
                                       </div>
                                     </td>
                                   );
                                 })}
                                 <td className="px-1 py-0.5 text-center">
-                                  <div className={`px-1 py-0.5 rounded text-[10px] font-semibold ${getPerformanceClass(stock.totalReturn)}`}>
+                                  <div className={`px-1 py-0.5 rounded text-[9px] font-semibold ${getPerformanceClass(stock.totalReturn)}`}>
                                     {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(1)}` : stock.totalReturn.toFixed(1)}
                                   </div>
                                 </td>
@@ -1013,7 +1014,11 @@ export default function Home() {
 
             <div className="space-y-3">
               {getSectorStrengthRanking.map((sector, index) => (
-                <div key={sector.name} className="bg-white rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors">
+                <div
+                  key={sector.name}
+                  className="bg-white rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors cursor-pointer"
+                  onClick={() => handleRankingBadgeClick(sector.name)}
+                >
                   <div className="p-3">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-3">
