@@ -377,16 +377,60 @@ export default function Home() {
     return rankedSectors;
   }, [sevenDaysData, dates]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">正在获取7天数据...</p>
-          <p className="text-gray-500 text-sm mt-2">这可能需要几分钟时间</p>
+  // 骨架屏组件 - 修复用户看不到功能的问题
+  const SkeletonScreen = () => (
+    <div className="min-h-screen bg-gray-50 p-3">
+      {/* Loading Toast */}
+      <div className="fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2">
+        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+        <span className="text-sm">正在加载7天数据...</span>
+      </div>
+
+      {/* 页面标题和控制骨架 */}
+      <div className="max-w-full mx-auto mb-4">
+        <div className="flex justify-between items-center bg-white rounded-lg shadow-sm p-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="h-6 w-40 bg-gray-200 rounded animate-pulse"></div>
+            {/* Top 5徽章占位 */}
+            <div className="flex items-center gap-1.5">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-6 w-16 bg-gray-200 rounded animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-32 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-8 w-20 bg-gray-200 rounded animate-pulse"></div>
+          </div>
         </div>
       </div>
-    );
+
+      {/* 7天网格骨架 */}
+      <div className="grid grid-cols-7 gap-2">
+        {[...Array(7)].map((_, dayIndex) => (
+          <div key={dayIndex} className="space-y-2">
+            {/* 日期头骨架 */}
+            <div className="bg-white rounded-lg shadow-sm p-2">
+              <div className="h-4 bg-gray-200 rounded mb-2 animate-pulse"></div>
+              <div className="h-3 bg-gray-100 rounded animate-pulse"></div>
+            </div>
+            {/* 板块卡片骨架 */}
+            {[...Array(3)].map((_, cardIndex) => (
+              <div key={cardIndex} className="bg-white rounded-lg shadow-sm p-2 space-y-1">
+                <div className="h-3 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-3 bg-gray-100 rounded w-2/3 animate-pulse"></div>
+                <div className="h-3 bg-gray-100 rounded w-1/2 animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // 如果正在加载，显示骨架屏而不是完全阻塞UI
+  if (loading) {
+    return <SkeletonScreen />;
   }
 
   return (
