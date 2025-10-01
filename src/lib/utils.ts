@@ -283,7 +283,9 @@ export function isValidDate(dateString: string): boolean {
 }
 
 export function getTodayString(): string {
-  return new Date().toISOString().split('T')[0];
+  const date = new Date();
+  date.setDate(date.getDate() - 1); // 使用昨天日期，避免当天或假期无数据
+  return date.toISOString().split('T')[0];
 }
 
 export function calculateDailyAverage(stocks: StockPerformance[], day: string): number {

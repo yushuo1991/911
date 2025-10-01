@@ -526,7 +526,12 @@ export default function Home() {
                     data={transformSectorStocksToChartData(
                       selectedSectorData.stocks,
                       selectedSectorData.followUpData,
-                      10
+                      10,
+                      (() => {
+                        // 计算后续5天的日期数组，确保图表日期顺序正确
+                        const currentDateIndex = dates.indexOf(selectedSectorData.date);
+                        return currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
+                      })()
                     )}
                     config={{ height: 256, maxStocks: 10 }}
                   />

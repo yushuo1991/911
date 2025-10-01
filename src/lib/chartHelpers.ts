@@ -6,12 +6,14 @@ import { StockPerformance } from '@/types/stock';
  * @param stocks - 板块内的个股列表
  * @param followUpData - 后续表现数据 (股票代码 -> 日期 -> 溢价)
  * @param maxStocks - 最多显示的个股数量（按累计溢价排序）
+ * @param dates - 可选的日期数组，用于确保正确的日期排序
  * @returns 图表数据数组
  */
 export function transformSectorStocksToChartData(
   stocks: StockPerformance[],
   followUpData: Record<string, Record<string, number>>,
-  maxStocks: number = 10
+  maxStocks: number = 10,
+  dates?: string[]
 ): StockPremiumData[] {
   // 计算每只股票的累计溢价并排序
   const stocksWithTotal = stocks.map(stock => {
@@ -19,12 +21,25 @@ export function transformSectorStocksToChartData(
     const totalReturn = Object.values(stockFollowUp).reduce((sum, val) => sum + val, 0);
 
     // 将日期和溢价转换为数组格式
-    const premiums = Object.entries(stockFollowUp)
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-      .map(([date, premium]) => ({
-        date,
-        premium: Math.round(premium * 100) / 100, // 保留2位小数
-      }));
+    // 如果提供了dates数组，使用它来确保正确的日期顺序
+    let premiums;
+    if (dates && dates.length > 0) {
+      // 使用dates数组的顺序
+      premiums = dates
+        .filter(date => stockFollowUp[date] !== undefined)
+        .map(date => ({
+          date,
+          premium: Math.round(stockFollowUp[date] * 100) / 100, // 保留2位小数
+        }));
+    } else {
+      // 降级方案：使用字符串排序
+      premiums = Object.entries(stockFollowUp)
+        .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+        .map(([date, premium]) => ({
+          date,
+          premium: Math.round(premium * 100) / 100, // 保留2位小数
+        }));
+    }
 
     return {
       stockCode: stock.code,
