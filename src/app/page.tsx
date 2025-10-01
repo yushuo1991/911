@@ -38,6 +38,11 @@ export default function Home() {
   const [showOnly5PlusInStockCountModal, setShowOnly5PlusInStockCountModal] = useState(true);
   const [show7DayLadderModal, setShow7DayLadderModal] = useState(false);
   const [selected7DayLadderData, setSelected7DayLadderData] = useState<{sectorName: string, dailyBreakdown: {date: string, stocks: StockPerformance[]}[]} | null>(null);
+  // 新增：日期列详情弹窗状态
+  const [showDateColumnDetail, setShowDateColumnDetail] = useState(false);
+  const [selectedDateColumnData, setSelectedDateColumnData] = useState<{date: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>} | null>(null);
+  // 新增：板块弹窗筛选状态
+  const [showOnly10PlusInSectorModal, setShowOnly10PlusInSectorModal] = useState(false);
 
   // 生成最近7个交易日
   const generate7TradingDays = (endDate: string): string[] => {
@@ -93,7 +98,7 @@ export default function Home() {
     setShowSectorModal(true);
   };
 
-  // 处理日期点击 - 新逻辑：显示各板块名称和后续5天平均溢价
+  // 处理日期点击 - 重构版：显示当天各板块的平均溢价，按5天总和排序，取前5名
   const handleDateClick = (date: string) => {
     const dayData = sevenDaysData?.[date];
     if (!dayData || !dates) return;
@@ -102,14 +107,19 @@ export default function Home() {
     const currentDateIndex = dates.indexOf(date);
     if (currentDateIndex === -1) return;
 
-    // 获取后续5天（不包括当前日期）
+    // 获取次日起5个交易日
     const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
+    if (next5Days.length === 0) {
+      console.warn('[handleDateClick] 没有后续交易日数据');
+      return;
+    }
 
     // 按板块组织数据，计算每个板块在后续5天的平均溢价
-    const sectorData: { sectorName: string; avgPremiumByDay: Record<string, number>; stockCount: number; }[] = [];
+    const sectorData: { sectorName: string; avgPremiumByDay: Record<string, number>; stockCount: number; total5DayPremium: number; }[] = [];
 
     Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
       const avgPremiumByDay: Record<string, number> = {};
+      let total5DayPremium = 0;
 
       // 对于后续的每一天，计算该板块的平均溢价
       next5Days.forEach(futureDate => {
@@ -124,23 +134,25 @@ export default function Home() {
           }
         });
 
-        avgPremiumByDay[futureDate] = validStockCount > 0 ? totalPremium / validStockCount : 0;
+        const avgPremium = validStockCount > 0 ? totalPremium / validStockCount : 0;
+        avgPremiumByDay[futureDate] = avgPremium;
+        total5DayPremium += avgPremium;
       });
 
       sectorData.push({
         sectorName,
         avgPremiumByDay,
-        stockCount: stocks.length
+        stockCount: stocks.length,
+        total5DayPremium
       });
     });
 
-    // 按第一天的平均溢价排序
-    if (next5Days.length > 0) {
-      const firstDay = next5Days[0];
-      sectorData.sort((a, b) => (b.avgPremiumByDay[firstDay] || 0) - (a.avgPremiumByDay[firstDay] || 0));
-    }
+    // 按5天总和降序排序，取前5名
+    const top5Sectors = sectorData
+      .sort((a, b) => b.total5DayPremium - a.total5DayPremium)
+      .slice(0, 5);
 
-    setSelectedDateData({ date, sectorData });
+    setSelectedDateData({ date, sectorData: top5Sectors });
     setShowDateModal(true);
   };
 
@@ -280,6 +292,43 @@ export default function Home() {
     setSelected7DayLadderData(null);
   };
 
+  const closeDateColumnDetail = () => {
+    setShowDateColumnDetail(false);
+    setSelectedDateColumnData(null);
+  };
+
+  // 处理日期列点击 - 显示该日期个股的后续5天溢价详情
+  const handleDateColumnClick = (date: string, stocks: StockPerformance[], sectorName: string) => {
+    const dayData = sevenDaysData?.[date];
+    if (!dayData || !dates) return;
+
+    // 获取该日期在dates数组中的索引
+    const currentDateIndex = dates.indexOf(date);
+    if (currentDateIndex === -1) return;
+
+    // 获取后续5天
+    const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
+
+    // 构建followUpData
+    const followUpData: Record<string, Record<string, number>> = {};
+    stocks.forEach(stock => {
+      const stockFollowUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
+      followUpData[stock.code] = {};
+      next5Days.forEach(futureDate => {
+        if (stockFollowUpData[futureDate] !== undefined) {
+          followUpData[stock.code][futureDate] = stockFollowUpData[futureDate];
+        }
+      });
+    });
+
+    setSelectedDateColumnData({
+      date,
+      stocks,
+      followUpData
+    });
+    setShowDateColumnDetail(true);
+  };
+
   // 处理7天数据，按日期生成板块汇总
   const processedTimelineData = useMemo(() => {
     if (!sevenDaysData || !dates) return {};
@@ -383,7 +432,7 @@ export default function Home() {
       {/* Loading Toast */}
       <div className="fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2">
         <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-        <span className="text-sm">正在加载7天数据...</span>
+        <span className="text-xs">正在加载7天数据...</span>
       </div>
 
       {/* 页面标题和控制骨架 */}
@@ -451,8 +500,20 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="mb-2 text-xs text-gray-600">
-              共 {selectedSectorData.stocks.length} 只个股，按5日累计溢价排序
+            <div className="mb-2 flex justify-between items-center">
+              <div className="text-2xs text-gray-600">
+                共 {selectedSectorData.stocks.length} 只个股，按5日累计溢价排序
+              </div>
+              <button
+                onClick={() => setShowOnly10PlusInSectorModal(!showOnly10PlusInSectorModal)}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  showOnly10PlusInSectorModal
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-gray-100 text-gray-700 border border-gray-300'
+                }`}
+              >
+                {showOnly10PlusInSectorModal ? '显示全部个股' : '显示涨幅>10%'}
+              </button>
             </div>
 
             {/* 分屏布局：左侧图表40%，右侧表格60% */}
@@ -479,48 +540,103 @@ export default function Home() {
                     <tr>
                       <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">#</th>
                       <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">股票</th>
-                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">T+1</th>
-                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">T+2</th>
-                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">T+3</th>
-                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">T+4</th>
-                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">T+5</th>
+                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">板数</th>
+                      {(() => {
+                        const followUpDates = Object.keys(selectedSectorData.followUpData[selectedSectorData.stocks[0]?.code] || {}).sort().slice(0, 5);
+                        return followUpDates.map((followDate, index) => {
+                          const formattedDate = formatDate(followDate).slice(5);
+                          return (
+                            <th key={followDate} className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">
+                              {formattedDate}
+                            </th>
+                          );
+                        });
+                      })()}
                       <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">累计</th>
+                    </tr>
+                    <tr className="border-b bg-blue-50">
+                      <th colSpan={3} className="px-2 py-1 text-right text-2xs text-blue-700">板块平均:</th>
+                      {(() => {
+                        const followUpDates = Object.keys(selectedSectorData.followUpData[selectedSectorData.stocks[0]?.code] || {}).sort().slice(0, 5);
+                        return followUpDates.map((followDate) => {
+                          let totalPremium = 0;
+                          let validCount = 0;
+                          selectedSectorData.stocks.forEach(stock => {
+                            const performance = selectedSectorData.followUpData[stock.code]?.[followDate];
+                            if (performance !== undefined) {
+                              totalPremium += performance;
+                              validCount++;
+                            }
+                          });
+                          const avgPremium = validCount > 0 ? totalPremium / validCount : 0;
+                          return (
+                            <th key={followDate} className="px-2 py-1 text-center">
+                              <span className={`px-1.5 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(avgPremium)}`}>
+                                {avgPremium.toFixed(1)}%
+                              </span>
+                            </th>
+                          );
+                        });
+                      })()}
+                      <th className="px-2 py-1 text-center">
+                        <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-blue-100 text-blue-700">
+                          {(() => {
+                            let totalAll = 0;
+                            let countAll = 0;
+                            selectedSectorData.stocks.forEach(stock => {
+                              const stockTotal = Object.values(selectedSectorData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
+                              totalAll += stockTotal;
+                              countAll++;
+                            });
+                            return countAll > 0 ? (totalAll / countAll).toFixed(1) : '0.0';
+                          })()}%
+                        </span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {getSortedStocksForSector(selectedSectorData.stocks, selectedSectorData.followUpData).map((stock, index) => {
-                      const followUpDates = Object.keys(selectedSectorData.followUpData[stock.code] || {}).sort();
-                      const totalReturn = Object.values(selectedSectorData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
-                      return (
-                        <tr key={stock.code} className="border-b hover:bg-primary-50 transition">
-                          <td className="px-2 py-1.5 text-2xs text-gray-400">#{index + 1}</td>
-                          <td className="px-2 py-1.5">
-                            <button
-                              className="text-primary-600 hover:text-primary-700 font-medium hover:underline text-xs"
-                              onClick={() => handleStockClick(stock.name, stock.code)}
-                            >
-                              {stock.name}
-                            </button>
-                            <span className="text-2xs text-gray-400 ml-1">({stock.code})</span>
-                          </td>
-                          {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
-                            const performance = selectedSectorData.followUpData[stock.code]?.[followDate] || 0;
-                            return (
-                              <td key={followDate || `day-${dayIndex}`} className="px-2 py-1.5 text-center">
-                                <span className={`px-1.5 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(performance)}`}>
-                                  {performance.toFixed(1)}%
-                                </span>
-                              </td>
-                            );
-                          })}
-                          <td className="px-2 py-1.5 text-center">
-                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getPerformanceClass(totalReturn)}`}>
-                              {totalReturn.toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {getSortedStocksForSector(selectedSectorData.stocks, selectedSectorData.followUpData)
+                      .filter(stock => {
+                        if (!showOnly10PlusInSectorModal) return true;
+                        const totalReturn = Object.values(selectedSectorData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
+                        return totalReturn > 10;
+                      })
+                      .map((stock, index) => {
+                        const followUpDates = Object.keys(selectedSectorData.followUpData[stock.code] || {}).sort();
+                        const totalReturn = Object.values(selectedSectorData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
+                        return (
+                          <tr key={stock.code} className="border-b hover:bg-primary-50 transition">
+                            <td className="px-2 py-1.5 text-2xs text-gray-400">#{index + 1}</td>
+                            <td className="px-2 py-1.5">
+                              <button
+                                className="text-primary-600 hover:text-primary-700 font-medium hover:underline text-xs"
+                                onClick={() => handleStockClick(stock.name, stock.code)}
+                              >
+                                {stock.name}
+                              </button>
+                              <span className="text-2xs text-gray-400 ml-1">({stock.code})</span>
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              <span className="text-2xs text-gray-600">1板</span>
+                            </td>
+                            {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
+                              const performance = selectedSectorData.followUpData[stock.code]?.[followDate] || 0;
+                              return (
+                                <td key={followDate || `day-${dayIndex}`} className="px-2 py-1.5 text-center">
+                                  <span className={`px-1.5 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(performance)}`}>
+                                    {performance.toFixed(1)}%
+                                  </span>
+                                </td>
+                              );
+                            })}
+                            <td className="px-2 py-1.5 text-center">
+                              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getPerformanceClass(totalReturn)}`}>
+                                {totalReturn.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -670,7 +786,7 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="mb-3 text-xs text-gray-600">
+            <div className="mb-3 text-2xs text-gray-600">
               共 {selectedDateData.sectorData.length} 个板块，按第一天平均溢价排序
             </div>
 
@@ -749,7 +865,7 @@ export default function Home() {
             </div>
 
             <div className="mb-3 flex justify-between items-center">
-              <div className="text-xs text-gray-600">
+              <div className="text-2xs text-gray-600">
                 共 {selectedStockCountData.sectorData
                   .filter(sector => showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true)
                   .reduce((total, sector) => total + sector.stocks.length, 0)} 只涨停个股，按板块分组显示
@@ -766,8 +882,8 @@ export default function Home() {
               </button>
             </div>
 
-            {/* 按板块分组显示 */}
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+            {/* 按板块分组显示 - 并排网格布局 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[70vh] overflow-y-auto">
               {selectedStockCountData.sectorData
                 .filter(sector => showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true)
                 .map((sector, sectorIndex) => {
@@ -781,68 +897,60 @@ export default function Home() {
                   const followUpDates = Array.from(allFollowUpDates).sort().slice(0, 5);
 
                   return (
-                    <div key={sector.sectorName} className="bg-gray-50 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-semibold text-gray-800">
-                          📈 {sector.sectorName} ({sector.stocks.length}只)
+                    <div key={sector.sectorName} className="bg-gray-50 rounded-lg p-1.5 border border-gray-200">
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="text-2xs font-semibold text-gray-800">
+                          📈 {sector.sectorName} ({sector.stocks.length})
                         </h4>
-                        <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        <div className={`px-1 py-0.5 rounded text-[10px] font-medium ${
                           getPerformanceClass(sector.avgPremium)
                         }`}>
-                          平均: {sector.avgPremium.toFixed(1)}%
+                          {sector.avgPremium.toFixed(1)}%
                         </div>
                       </div>
 
-                      {/* 紧凑的表格显示 */}
+                      {/* 超紧凑表格显示 */}
                       <div className="overflow-x-auto">
-                        <table className="w-full text-2xs">
+                        <table className="w-full text-[10px]">
                           <thead className="bg-white">
                             <tr className="border-b">
-                              <th className="px-1.5 py-1 text-left font-semibold text-gray-700 min-w-[100px]">名称</th>
+                              <th className="px-1 py-0.5 text-left font-semibold text-gray-700">名称</th>
                               {followUpDates.map((date, index) => {
-                                let formattedDate = '';
-                                try {
-                                  const formatted = formatDate(date);
-                                  formattedDate = formatted ? formatted.slice(5).replace('-', '') : `${date.slice(-2)}`;
-                                } catch (error) {
-                                  console.warn('[涨停数弹窗] 日期格式化失败:', date, error);
-                                  formattedDate = `${date.slice(-2)}`;
-                                }
+                                const formattedDate = formatDate(date).slice(5);
                                 return (
-                                  <th key={date} className="px-1 py-1 text-center font-semibold text-gray-700 min-w-[40px]">
+                                  <th key={date} className="px-0.5 py-0.5 text-center font-semibold text-gray-700">
                                     {formattedDate}
                                   </th>
                                 );
                               })}
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-700 min-w-[50px]">累计</th>
+                              <th className="px-1 py-0.5 text-center font-semibold text-gray-700">计</th>
                             </tr>
                           </thead>
                           <tbody>
                             {sector.stocks.map((stock, stockIndex) => (
                               <tr key={stock.code} className={`border-b ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
-                                <td className="px-1.5 py-1">
+                                <td className="px-1 py-0.5">
                                   <div
                                     className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline truncate"
                                     onClick={() => handleStockClick(stock.name, stock.code)}
                                     title={`${stock.name} (${stock.code})`}
                                   >
-                                    {stock.name.length > 6 ? stock.name.slice(0, 6) : stock.name}
-                                    <span className="text-gray-400 text-[10px] ml-1">{stock.code}</span>
+                                    {stock.name.length > 4 ? stock.name.slice(0, 4) : stock.name}
                                   </div>
                                 </td>
                                 {followUpDates.map(date => {
                                   const performance = stock.followUpData[date] || 0;
                                   return (
-                                    <td key={date} className="px-1 py-1 text-center">
-                                      <div className={`px-1 py-0.5 rounded text-[10px] font-medium ${getPerformanceClass(performance)}`}>
+                                    <td key={date} className="px-0.5 py-0.5 text-center">
+                                      <div className={`px-0.5 rounded text-[9px] font-medium ${getPerformanceClass(performance)}`}>
                                         {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
                                       </div>
                                     </td>
                                   );
                                 })}
-                                <td className="px-1.5 py-1 text-center">
-                                  <div className={`px-1.5 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(stock.totalReturn)}`}>
-                                    {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(1)}%` : `${stock.totalReturn.toFixed(1)}%`}
+                                <td className="px-1 py-0.5 text-center">
+                                  <div className={`px-1 py-0.5 rounded text-[10px] font-semibold ${getPerformanceClass(stock.totalReturn)}`}>
+                                    {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(1)}` : stock.totalReturn.toFixed(1)}
                                   </div>
                                 </td>
                               </tr>
@@ -977,10 +1085,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* 7天涨停阶梯弹窗 - 新增 */}
+      {/* 7天涨停阶梯弹窗 - 横向日期表格布局 */}
       {show7DayLadderModal && selected7DayLadderData && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-4 max-w-4xl max-h-[90vh] overflow-auto shadow-2xl">
+          <div className="bg-white rounded-xl p-4 max-w-[95vw] max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">
                 🪜 {selected7DayLadderData.sectorName} - 7天涨停个股阶梯
@@ -993,47 +1101,159 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="mb-3 text-xs text-gray-600">
-              按时间顺序显示该板块每天的涨停个股
+            <div className="mb-3 text-2xs text-gray-600">
+              点击任意日期列查看该日个股后续5天溢价详情
             </div>
 
-            <div className="space-y-3">
-              {selected7DayLadderData.dailyBreakdown.map((day, index) => (
-                <div key={day.date} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        index === 0 ? 'bg-red-100 text-red-700' :
-                        index === 1 ? 'bg-orange-100 text-orange-700' :
-                        'bg-blue-100 text-blue-700'
-                      }`}>
-                        {index + 1}
-                      </span>
-                      <h4 className="text-sm font-semibold text-gray-900">
-                        {formatDate(day.date)} ({new Date(day.date).toLocaleDateString('zh-CN', { weekday: 'short' })})
-                      </h4>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      day.stocks.length >= 10 ? 'bg-red-100 text-red-700' :
-                      day.stocks.length >= 5 ? 'bg-orange-100 text-orange-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      {day.stocks.length} 只涨停
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {day.stocks.map(stock => (
-                      <button
-                        key={stock.code}
-                        onClick={() => handleStockClick(stock.name, stock.code)}
-                        className="px-2 py-0.5 rounded text-xs bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-blue-600 hover:text-blue-800"
-                      >
-                        {stock.name}
-                      </button>
+            {/* 横向日期表格 */}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    {selected7DayLadderData.dailyBreakdown.map((day, index) => (
+                      <th key={day.date} className="border border-gray-300 px-2 py-2 min-w-[120px]">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {formatDate(day.date).slice(5)}
+                        </div>
+                        <div className="text-2xs text-gray-500 mt-0.5">
+                          {new Date(day.date).toLocaleDateString('zh-CN', { weekday: 'short' })}
+                        </div>
+                        <div className={`mt-1 text-xs font-medium ${
+                          day.stocks.length >= 10 ? 'text-red-600' :
+                          day.stocks.length >= 5 ? 'text-orange-600' :
+                          'text-blue-600'
+                        }`}>
+                          ({day.stocks.length}只)
+                        </div>
+                      </th>
                     ))}
-                  </div>
-                </div>
-              ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {selected7DayLadderData.dailyBreakdown.map((day) => {
+                      // 按板数降序排序（高板在上）
+                      const sortedStocks = [...day.stocks].sort((a, b) => {
+                        // 这里暂时按名称排序，实际应该按板数排序
+                        return a.name.localeCompare(b.name);
+                      });
+
+                      return (
+                        <td
+                          key={day.date}
+                          className="border border-gray-300 px-2 py-2 align-top cursor-pointer hover:bg-blue-50 transition-colors"
+                          onClick={() => handleDateColumnClick(day.date, day.stocks, selected7DayLadderData.sectorName)}
+                        >
+                          <div className="space-y-1">
+                            {sortedStocks.map((stock, stockIndex) => (
+                              <div
+                                key={stock.code}
+                                className="flex items-center justify-between text-2xs bg-white border border-gray-200 rounded px-1.5 py-0.5 hover:border-blue-300 hover:bg-blue-50"
+                              >
+                                <button
+                                  className="text-blue-600 hover:text-blue-800 font-medium hover:underline truncate flex-1 text-left"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleStockClick(stock.name, stock.code);
+                                  }}
+                                >
+                                  {stock.name.length > 6 ? stock.name.slice(0, 6) : stock.name}
+                                </button>
+                                <span className="text-[10px] text-gray-500 ml-1">1板</span>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 text-2xs text-gray-500 text-center">
+              💡 提示：点击日期列可查看该日个股后续5天溢价详情 | 点击个股名称可查看K线图
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 日期列详情弹窗 - 显示该日个股后续5天溢价 */}
+      {showDateColumnDetail && selectedDateColumnData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60]">
+          <div className="bg-white rounded-xl p-4 max-w-5xl max-h-[90vh] overflow-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900">
+                📊 {formatDate(selectedDateColumnData.date)} - 个股后续5天溢价详情
+              </h3>
+              <button
+                onClick={closeDateColumnDetail}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-2 text-2xs text-gray-600">
+              共 {selectedDateColumnData.stocks.length} 只个股，按5日累计溢价排序
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-white border-b-2">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">#</th>
+                    <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">股票</th>
+                    {(() => {
+                      const followUpDates = Object.keys(selectedDateColumnData.followUpData[selectedDateColumnData.stocks[0]?.code] || {}).sort().slice(0, 5);
+                      return followUpDates.map((followDate) => {
+                        const formattedDate = formatDate(followDate).slice(5);
+                        return (
+                          <th key={followDate} className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">
+                            {formattedDate}
+                          </th>
+                        );
+                      });
+                    })()}
+                    <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">累计</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getSortedStocksForSector(selectedDateColumnData.stocks, selectedDateColumnData.followUpData).map((stock, index) => {
+                    const followUpDates = Object.keys(selectedDateColumnData.followUpData[stock.code] || {}).sort();
+                    const totalReturn = Object.values(selectedDateColumnData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
+                    return (
+                      <tr key={stock.code} className="border-b hover:bg-primary-50 transition">
+                        <td className="px-2 py-1.5 text-2xs text-gray-400">#{index + 1}</td>
+                        <td className="px-2 py-1.5">
+                          <button
+                            className="text-primary-600 hover:text-primary-700 font-medium hover:underline text-xs"
+                            onClick={() => handleStockClick(stock.name, stock.code)}
+                          >
+                            {stock.name}
+                          </button>
+                          <span className="text-2xs text-gray-400 ml-1">({stock.code})</span>
+                        </td>
+                        {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
+                          const performance = selectedDateColumnData.followUpData[stock.code]?.[followDate] || 0;
+                          return (
+                            <td key={followDate || `day-${dayIndex}`} className="px-2 py-1.5 text-center">
+                              <span className={`px-1.5 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(performance)}`}>
+                                {performance.toFixed(1)}%
+                              </span>
+                            </td>
+                          );
+                        })}
+                        <td className="px-2 py-1.5 text-center">
+                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getPerformanceClass(totalReturn)}`}>
+                            {totalReturn.toFixed(1)}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -1065,7 +1285,7 @@ export default function Home() {
                   target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OTk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPktcdTdFRkZcdTU2RkVcdTUyMDBcdThGN0RcdTUxMTZcdTUwNjdcdTU5MzQ8L3RleHQ+Cjwvc3ZnPg==';
                 }}
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-2xs text-gray-500 mt-2">
                 数据来源: 新浪财经 | 点击空白区域关闭
               </p>
             </div>
@@ -1330,6 +1550,12 @@ export default function Home() {
         <div
           className="fixed inset-0 z-40"
           onClick={close7DayLadderModal}
+        />
+      )}
+      {showDateColumnDetail && (
+        <div
+          className="fixed inset-0 z-[55]"
+          onClick={closeDateColumnDetail}
         />
       )}
     </div>
