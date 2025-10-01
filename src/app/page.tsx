@@ -623,7 +623,13 @@ export default function Home() {
                               <span className="text-2xs text-gray-400 ml-1">({stock.code})</span>
                             </td>
                             <td className="px-2 py-1.5 text-center">
-                              <span className="text-2xs text-gray-600">1板</span>
+                              <span className={`text-2xs font-medium ${
+                                stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'text-red-600' :
+                                stock.td_type.includes('2') ? 'text-orange-600' :
+                                'text-gray-600'
+                              }`}>
+                                {stock.td_type.replace('连板', '板')}
+                              </span>
                             </td>
                             {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
                               const performance = selectedSectorData.followUpData[stock.code]?.[followDate] || 0;

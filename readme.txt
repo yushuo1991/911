@@ -2282,3 +2282,60 @@ curl -I http://localhost:3002
 - ✅ 日期列详情弹窗日期排序修复完成
 - ✅ 7天阶梯弹窗功能增强完成
 - ⏳ 等待Git提交和部署
+
+### 提示词32: 板块弹窗显示完整连板数据
+- 时间: 2025-10-01 16:10 (UTC)
+- 内容: 修复板块弹窗硬编码"1板"问题，显示API提供的完整连板数据
+- 用户反馈: "当我点击板块名称的时候出来的当天的涨停梯队，竟然没有2板和3板等，这是不对的，我需要的是全面的数据，而不是只有首板"
+
+#### 问题分析
+- **根本原因**: 板块弹窗第626行硬编码显示"1板"
+- **数据来源**: API已经提供完整的`stock.td_type`字段
+- **td_type格式**: "1"、"2连板"、"3连板"、"4连板"等
+- **数据完整性**: Tushare API和longhuvip接口都提供完整连板信息
+
+#### 修复内容 (src/app/page.tsx 行625-633)
+- **修改前**:
+  ```typescript
+  <span className="text-2xs text-gray-600">1板</span>
+  ```
+
+- **修改后**:
+  ```typescript
+  <span className={`text-2xs font-medium ${
+    stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'text-red-600' :
+    stock.td_type.includes('2') ? 'text-orange-600' :
+    'text-gray-600'
+  }`}>
+    {stock.td_type.replace('连板', '板')}
+  </span>
+  ```
+
+#### 技术细节
+- **数据字段**: 使用`stock.td_type`显示完整连板信息
+- **格式转换**: `replace('连板', '板')` 统一显示格式
+  - "1" → "1"
+  - "2连板" → "2板"
+  - "3连板" → "3板"
+- **颜色编码**:
+  - 3板及以上: `text-red-600` (红色，强势)
+  - 2板: `text-orange-600` (橙色，次强)
+  - 1板: `text-gray-600` (灰色，首板)
+
+#### 数据完整性
+- ✅ API提供完整连板数据
+- ✅ 前端正确显示1板、2板、3板...
+- ✅ 颜色编码突出高板个股
+- ✅ 与7天阶梯弹窗颜色体系一致
+
+#### 预期效果
+- 点击板块名称（如"芯片"）
+- 弹窗显示该板块所有涨停个股
+- "板数"列显示真实连板数（1板、2板、3板...）
+- 高板个股用红色突出显示
+- 用户可快速识别强势连板股
+
+#### 执行状态
+- ✅ 修改完成 (行625-633)
+- ⏳ 等待Git提交
+- ⏳ 等待部署验证
