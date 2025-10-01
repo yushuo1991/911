@@ -1128,7 +1128,11 @@ export default function Home() {
                 <thead>
                   <tr className="bg-gray-100">
                     {selected7DayLadderData.dailyBreakdown.map((day, index) => (
-                      <th key={day.date} className="border border-gray-300 px-2 py-2 min-w-[120px]">
+                      <th
+                        key={day.date}
+                        className="border border-gray-300 px-2 py-2 min-w-[120px] cursor-pointer hover:bg-blue-50 transition-colors"
+                        onClick={() => handleDateColumnClick(day.date, day.stocks, selected7DayLadderData.sectorName)}
+                      >
                         <div className="text-sm font-semibold text-gray-900">
                           {formatDate(day.date).slice(5)}
                         </div>
@@ -1179,15 +1183,11 @@ export default function Home() {
                             {sortedStocks.map((stock, stockIndex) => (
                               <div
                                 key={stock.code}
-                                className="flex items-center justify-between text-2xs bg-white border border-gray-200 rounded px-1.5 py-0.5 hover:border-blue-300 hover:bg-blue-50 cursor-pointer"
-                                onClick={() => handleDateColumnClick(day.date, [stock], selected7DayLadderData.sectorName)}
+                                className="flex items-center justify-between text-2xs bg-white border border-gray-200 rounded px-1.5 py-0.5 hover:border-blue-300 hover:bg-blue-50"
                               >
                                 <button
                                   className="text-blue-600 hover:text-blue-800 font-medium hover:underline truncate flex-1 text-left"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleStockClick(stock.name, stock.code);
-                                  }}
+                                  onClick={() => handleStockClick(stock.name, stock.code)}
                                 >
                                   {stock.name.length > 6 ? stock.name.slice(0, 6) : stock.name}
                                 </button>
@@ -1210,7 +1210,7 @@ export default function Home() {
             </div>
 
             <div className="mt-3 text-2xs text-gray-500 text-center">
-              💡 提示：点击日期列可查看该日个股后续5天溢价详情 | 点击个股名称可查看K线图
+              💡 提示：点击日期表头可查看该日所有个股后续5天溢价详情 | 点击个股名称可查看K线图
             </div>
           </div>
         </div>

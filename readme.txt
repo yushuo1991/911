@@ -2337,5 +2337,70 @@ curl -I http://localhost:3002
 
 #### 执行状态
 - ✅ 修改完成 (行625-633)
+- ✅ Git提交完成 (v4.4.3)
+- ✅ 部署成功
+
+### 提示词33: 7天阶梯弹窗日期表头可点击
+- 时间: 2025-10-01 18:20 (UTC)
+- 内容: 排行榜中的板块，点击日期不会显示随后5天的溢价，应当向右展开对应个股的随后5天溢价情况
+- 用户反馈: 点击7天阶梯弹窗中的日期列，应该显示该日所有个股后续5天溢价详情
+
+#### 问题分析
+- **根本原因**: 日期表头（th元素）没有点击事件
+- **影响范围**: 7天涨停阶梯弹窗（show7DayLadderModal）
+- **位置**: src/app/page.tsx 行1131-1149
+
+#### 修复内容 (src/app/page.tsx)
+
+**1. 表头添加点击事件** (行1131-1149):
+```typescript
+// 修改前: 表头不可点击
+<th key={day.date} className="border border-gray-300 px-2 py-2 min-w-[120px]">
+
+// 修改后: 表头可点击，显示该日所有个股
+<th
+  key={day.date}
+  className="border border-gray-300 px-2 py-2 min-w-[120px] cursor-pointer hover:bg-blue-50 transition-colors"
+  onClick={() => handleDateColumnClick(day.date, day.stocks, selected7DayLadderData.sectorName)}
+>
+```
+
+**2. 移除个股卡片冲突点击** (行1184-1201):
+```typescript
+// 修改前: 个股div有onClick，与按钮冲突
+<div
+  className="... cursor-pointer"
+  onClick={() => handleDateColumnClick(day.date, [stock], sectorName)}
+>
+
+// 修改后: 移除div的onClick，只保留按钮的K线图点击
+<div className="... hover:bg-blue-50">
+  <button onClick={() => handleStockClick(stock.name, stock.code)}>
+```
+
+**3. 更新提示文字** (行1213):
+```typescript
+// 修改前: "点击日期列可查看..."
+// 修改后: "点击日期表头可查看该日所有个股后续5天溢价详情"
+💡 提示：点击日期表头可查看该日所有个股后续5天溢价详情 | 点击个股名称可查看K线图
+```
+
+#### 技术细节
+- **日期表头点击**: 传递 `day.stocks`（该日所有个股）到 `handleDateColumnClick`
+- **个股按钮点击**: 直接调用 `handleStockClick` 查看K线图
+- **视觉反馈**: 表头hover时显示 `bg-blue-50` 背景色
+- **交互优化**: cursor-pointer 提示可点击
+
+#### 预期效果
+- 点击日期表头（如"09-24"）
+- 弹出嵌套弹窗显示该日该板块所有涨停个股
+- 表格展示个股后续5天溢价详情
+- 按5日累计溢价排序
+- 点击个股名称查看K线图
+
+#### 执行状态
+- ✅ 表头点击事件添加完成
+- ✅ 个股卡片点击冲突移除
+- ✅ 提示文字更新
 - ⏳ 等待Git提交
 - ⏳ 等待部署验证
