@@ -960,14 +960,14 @@ export default function Home() {
                                   const performance = stock.followUpData[date] || 0;
                                   return (
                                     <td key={date} className="px-0.5 py-0.5 text-center">
-                                      <div className={`px-0.5 rounded text-[8px] font-medium ${getPerformanceClass(performance)}`}>
+                                      <div className={`px-0.5 rounded text-[10px] font-medium ${getPerformanceClass(performance)}`}>
                                         {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
                                       </div>
                                     </td>
                                   );
                                 })}
                                 <td className="px-1 py-0.5 text-center">
-                                  <div className={`px-1 py-0.5 rounded text-[9px] font-semibold ${getPerformanceClass(stock.totalReturn)}`}>
+                                  <div className={`px-1 py-0.5 rounded text-[10px] font-semibold ${getPerformanceClass(stock.totalReturn)}`}>
                                     {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(1)}` : stock.totalReturn.toFixed(1)}
                                   </div>
                                 </td>
