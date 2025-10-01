@@ -3087,3 +3087,63 @@ curl -I http://localhost:3002
   - 等待用户浏览器验证 ⏳
 
 🎉🎉🎉 v4.5.1日期格式修复版本部署圆满完成！🎉🎉🎉
+
+### 提示词41: Tushare API日期格式转换修复
+- 时间: 2025-10-01 15:30 (UTC)
+- 内容: 页面中所有的数据都是空的，诊断发现Tushare API需要YYYYMMDD格式，但传入的是YYYY-MM-DD格式
+- 问题根源: **Tushare API日期格式要求不匹配**
+  - 我们的系统使用ISO 8601格式: "2025-10-01" (YYYY-MM-DD)
+  - Tushare API要求格式: "20251001" (YYYYMMDD)
+  - 导致API调用失败，返回空数据
+- 修复内容:
+  ✅ **修复1: getTushareStockDaily函数** (route.ts 行438-440)
+     - 添加日期格式转换: `const tradeDateFormatted = tradeDate.replace(/-/g, '');`
+     - 使用转换后的格式调用Tushare API
+     - 添加日志输出原始格式和Tushare格式
+  ✅ **修复2: getBatchStockDaily函数** (route.ts 行354-355, 398-402)
+     - 请求前转换: `tradeDates.map(d => d.replace(/-/g, ''))`
+     - 响应后转换回ISO格式: `${tradeDateTushare.slice(0,4)}-${tradeDateTushare.slice(4,6)}-${tradeDateTushare.slice(6,8)}`
+     - 确保数据key格式与前端查询一致
+- 技术细节:
+  - Tushare API接口: https://api.tushare.pro
+  - API方法: daily (日线行情)
+  - 请求参数: ts_code (股票代码), trade_date (交易日期YYYYMMDD)
+  - 返回字段: ts_code, trade_date, pct_chg (涨跌幅)
+- 数据流修复:
+  ```
+  修复前:
+  generateTradingDays → "2025-10-01"
+  Tushare API请求 → "2025-10-01" ❌ 格式错误
+  Tushare API返回 → 空数据/错误
+  前端查询 → undefined → 0.0%
+
+  修复后:
+  generateTradingDays → "2025-10-01"
+  格式转换 → "20251001" ✅
+  Tushare API请求 → "20251001" ✅ 格式正确
+  Tushare API返回 → 真实涨跌幅数据
+  格式转换回 → "2025-10-01"
+  前端查询 → 正确溢价值 → 正确显示
+  ```
+- 影响范围:
+  - 所有调用Tushare API获取涨跌幅数据的功能
+  - 个股后续5天溢价数据
+  - 批量股票数据获取
+  - 数据库缓存的performance数据
+- 代码改动:
+  - 修改文件: src/app/api/stocks/route.ts
+  - 新增代码: 5行（日期格式转换）
+  - 修改函数: getTushareStockDaily, getBatchStockDaily
+- 预期效果:
+  - ✅ Tushare API成功返回真实涨跌幅数据
+  - ✅ 页面显示实际溢价百分比（不再是0.0%）
+  - ✅ 所有6种模态框正常显示数据
+  - ✅ 图表显示真实趋势线
+- 学习要点:
+  1. **外部API集成**: 需要严格遵守第三方API的格式要求
+  2. **日期格式转换**: 在API边界处进行格式转换
+  3. **双向转换**: 请求前转换（ISO→Tushare），响应后转换（Tushare→ISO）
+  4. **数据一致性**: 确保整个系统内部使用统一的日期格式
+  5. **调试技巧**: 通过日志输出确认格式转换正确
+- 部署状态: ⏳ 准备提交和部署
+- 日期: 2025-10-01

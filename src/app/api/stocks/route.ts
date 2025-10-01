@@ -351,6 +351,9 @@ import { NextRequest, NextResponse } from 'next/server';
       // 构建批量查询参数 - 查询所有股票的所有日期
       const tsCodes = stockCodes.map(code => convertStockCodeForTushare(code));
 
+      // 修复：转换日期格式 YYYY-MM-DD -> YYYYMMDD
+      const tradeDatesFormatted = tradeDates.map(d => d.replace(/-/g, ''));
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
 
@@ -364,8 +367,8 @@ import { NextRequest, NextResponse } from 'next/server';
           token: TUSHARE_TOKEN,
           params: {
             ts_code: tsCodes.join(','),
-            start_date: Math.min(...tradeDates.map(d => parseInt(d))).toString(),
-            end_date: Math.max(...tradeDates.map(d => parseInt(d))).toString()
+            start_date: Math.min(...tradeDatesFormatted.map(d => parseInt(d))).toString(),
+            end_date: Math.max(...tradeDatesFormatted.map(d => parseInt(d))).toString()
           },
           fields: 'ts_code,trade_date,pct_chg'
         }),
@@ -392,16 +395,19 @@ import { NextRequest, NextResponse } from 'next/server';
         // 解析数据
         data.data.items.forEach((item: any[]) => {
           const tsCode = item[0];
-          const tradeDate = item[1];
+          const tradeDateTushare = item[1]; // YYYYMMDD格式
           const pctChg = parseFloat(item[2]) || 0;
+
+          // 转换回YYYY-MM-DD格式以匹配tradeDates
+          const tradeDateISO = `${tradeDateTushare.slice(0,4)}-${tradeDateTushare.slice(4,6)}-${tradeDateTushare.slice(6,8)}`;
 
           // 转换回原始股票代码
           const originalCode = stockCodes.find(code =>
             convertStockCodeForTushare(code) === tsCode
           );
 
-          if (originalCode && tradeDates.includes(tradeDate)) {
-            result.get(originalCode)![tradeDate] = pctChg;
+          if (originalCode && tradeDates.includes(tradeDateISO)) {
+            result.get(originalCode)![tradeDateISO] = pctChg;
           }
         });
 
@@ -435,7 +441,9 @@ import { NextRequest, NextResponse } from 'next/server';
       await rateController.checkAndWait();
 
       const tsCode = convertStockCodeForTushare(stockCode);
-      console.log(`[单个API] 请求数据: ${tsCode} on ${tradeDate} (重试${retryCount})`);
+      // 修复：Tushare API需要YYYYMMDD格式，转换YYYY-MM-DD -> YYYYMMDD
+      const tradeDateFormatted = tradeDate.replace(/-/g, '');
+      console.log(`[单个API] 请求数据: ${tsCode} on ${tradeDate} (Tushare格式: ${tradeDateFormatted}) (重试${retryCount})`);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -450,7 +458,7 @@ import { NextRequest, NextResponse } from 'next/server';
           token: TUSHARE_TOKEN,
           params: {
             ts_code: tsCode,
-            trade_date: tradeDate
+            trade_date: tradeDateFormatted
           },
           fields: 'ts_code,trade_date,pct_chg'
         }),
