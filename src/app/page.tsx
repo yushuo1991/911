@@ -28,7 +28,7 @@ export default function Home() {
   const [showSectorModal, setShowSectorModal] = useState(false);
   const [selectedSectorData, setSelectedSectorData] = useState<{name: string, date: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>} | null>(null);
   const [showDateModal, setShowDateModal] = useState(false);
-  const [selectedDateData, setSelectedDateData] = useState<{date: string, sectorData: { sectorName: string; avgPremiumByDay: Record<string, number>; stockCount: number; }[]} | null>(null);
+  const [selectedDateData, setSelectedDateData] = useState<{date: string, sectorData: { sectorName: string; avgPremiumByDay: Record<string, number>; stockCount: number; total5DayPremium: number; }[]} | null>(null);
   const [showSectorRankingModal, setShowSectorRankingModal] = useState(false);
   const [showOnly5PlusInDateModal, setShowOnly5PlusInDateModal] = useState(true);
   const [showWeekdayModal, setShowWeekdayModal] = useState(false);
