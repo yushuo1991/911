@@ -45,3 +45,45 @@
   - 代码修改完成 ✅
   - 修复报告生成 ✅
   - readme.txt更新 ✅
+
+### 提示词46: v4.7版本 - 涨停数弹窗优化
+- 时间: 2025-10-02
+- 需求: 当我点击涨停个数的时候，"其他""ST板块"默认不显示，只有点击"显示全部板块"，才显示在最后面
+- 实现位置: src/app/page.tsx
+- 修改内容:
+  1. ✅ 涨停数弹窗filter逻辑优化（行933-940）
+     - 默认过滤掉"其他"和"ST板块"
+     - showOnly5PlusInStockCountModal为false时隐藏这两个板块
+     - showOnly5PlusInStockCountModal为true时显示所有板块
+  2. ✅ 统计数字同步更新（行914-923）
+     - 过滤逻辑与显示逻辑保持一致
+     - 确保统计数字准确反映显示的板块和股票数量
+- 修改代码:
+  ```typescript
+  .filter(sector => {
+    // 需求：默认过滤掉"其他"和"ST板块"
+    if (!showOnly5PlusInStockCountModal && (sector.sectorName === '其他' || sector.sectorName === 'ST板块')) {
+      return false;
+    }
+    // 原有的5家以上过滤
+    return showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true;
+  })
+  ```
+- 用户体验:
+  - ✅ 默认界面更清爽，隐藏噪音板块
+  - ✅ 点击"显示全部板块"后可以看到完整数据
+  - ✅ "其他"和"ST板块"自动排在最后
+- 版本信息:
+  - Git提交: 767b576
+  - Git标签: v4.7
+  - 部署方式: docker compose up -d --build
+- 备份信息:
+  - v4.6版本已备份（Git标签: v4.6, 提交: a3afca2）
+  - 恢复文档: RESTORE-v4.6-GUIDE.md
+  - 恢复命令: git checkout v4.6 && docker compose up -d --build
+- 执行状态: ✅ 完成
+  - 代码修改完成 ✅
+  - 本地构建测试通过 ✅
+  - Git提交并推送 ✅
+  - Git标签v4.7已创建 ✅
+  - readme.txt更新 ✅
