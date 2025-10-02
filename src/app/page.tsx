@@ -1031,7 +1031,7 @@ export default function Home() {
                                   </span>
                                 </td>
                                 {followUpDates.map(date => {
-                                  const performance = stock.followUpData[date] || 0;
+                                  const performance = stock.followUpData?.[date] || 0;
                                   return (
                                     <td key={date} className="px-0.5 py-0.5 text-center w-[24px] h-[15px]">
                                       <div className={`px-0 py-0 rounded-sm text-[6px] font-medium inline-block ${getPerformanceClass(performance)}`}>
@@ -1041,8 +1041,8 @@ export default function Home() {
                                   );
                                 })}
                                 <td className="px-0.5 py-0.5 text-center w-[24px] h-[15px]">
-                                  <div className={`px-0 py-0 rounded-sm text-[6px] font-semibold inline-block ${getPerformanceClass(stock.totalReturn)}`}>
-                                    {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(1)}` : stock.totalReturn.toFixed(1)}
+                                  <div className={`px-0 py-0 rounded-sm text-[6px] font-semibold inline-block ${getPerformanceClass(stock.totalReturn || 0)}`}>
+                                    {(stock.totalReturn || 0) > 0 ? `+${(stock.totalReturn || 0).toFixed(1)}` : (stock.totalReturn || 0).toFixed(1)}
                                   </div>
                                 </td>
                               </tr>
