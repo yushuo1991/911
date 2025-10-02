@@ -1027,7 +1027,7 @@ export default function Home() {
                                     stock.td_type.includes('2') ? 'text-orange-600' :
                                     'text-gray-600'
                                   }`}>
-                                    {stock.td_type.replace('连板', '').replace('板', '')}
+                                    {stock.td_type.replace('首板', '1').replace('首', '1').replace('连板', '').replace('板', '')}
                                   </span>
                                 </td>
                                 {followUpDates.map(date => {
