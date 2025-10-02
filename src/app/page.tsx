@@ -965,72 +965,70 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* 极致压缩表格 - 固定列宽，完整显示 */}
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse">
-                          <thead className="bg-blue-50">
-                            <tr className="border-b border-blue-100">
-                              <th className="px-0.5 py-0.5 text-left text-[8px] font-semibold text-gray-700 min-w-[45px]">名称</th>
-                              <th className="px-0.5 py-0.5 text-center text-[8px] font-semibold text-gray-700 w-[28px]">状态</th>
-                              {followUpDates.map((date, index) => {
-                                const formattedDate = formatDate(date).slice(5);
+                      {/* 极致压缩表格 - 无横向滚动，完整显示 */}
+                      <table className="w-full border-collapse table-fixed">
+                        <thead className="bg-blue-50">
+                          <tr className="border-b border-blue-100">
+                            <th className="px-0.5 py-0.5 text-left text-[7px] font-semibold text-gray-700 w-[18%]">名称</th>
+                            <th className="px-0.5 py-0.5 text-center text-[7px] font-semibold text-gray-700 w-[10%]">状态</th>
+                            {followUpDates.map((date, index) => {
+                              const formattedDate = formatDate(date).slice(5);
+                              return (
+                                <th key={date} className="px-0.5 py-0.5 text-center text-[7px] font-semibold text-gray-700 w-[12%]">
+                                  {formattedDate}
+                                </th>
+                              );
+                            })}
+                            <th className="px-0.5 py-0.5 text-center text-[7px] font-semibold text-gray-700 w-[10%]">5日</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            // 构建正确格式的 followUpData
+                            const followUpDataMap: Record<string, Record<string, number>> = {};
+                            sector.stocks.forEach(stock => {
+                              followUpDataMap[stock.code] = stock.followUpData;
+                            });
+                            return getSortedStocksForSector(sector.stocks, followUpDataMap, sectorModalSortMode);
+                          })().map((stock, stockIndex) => (
+                            <tr key={stock.code} className={`border-b border-gray-50 ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50 transition-colors`}>
+                              <td className="px-0.5 py-0.5">
+                                <div
+                                  className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline text-[7px] whitespace-nowrap truncate"
+                                  onClick={() => handleStockClick(stock.name, stock.code)}
+                                  title={`${stock.name} (${stock.code})`}
+                                >
+                                  {stock.name}
+                                </div>
+                              </td>
+                              <td className="px-0.5 py-0.5 text-center">
+                                <span className={`inline-block px-0.5 rounded text-[7px] font-bold whitespace-nowrap ${
+                                  stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'bg-red-100 text-red-700' :
+                                  stock.td_type.includes('2') ? 'bg-orange-100 text-orange-700' :
+                                  'bg-gray-200 text-gray-700'
+                                }`}>
+                                  {stock.td_type.replace('首板', '1').replace('首', '1').replace('连板', '').replace('板', '')}
+                                </span>
+                              </td>
+                              {followUpDates.map(date => {
+                                const performance = stock.followUpData?.[date] || 0;
                                 return (
-                                  <th key={date} className="px-0.5 py-0.5 text-center text-[8px] font-semibold text-gray-700 w-[38px]">
-                                    {formattedDate}
-                                  </th>
+                                  <td key={date} className="px-0.5 py-0.5 text-center">
+                                    <span className={`inline-block px-0.5 rounded text-[7px] font-medium whitespace-nowrap ${getPerformanceClass(performance)}`}>
+                                      {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
+                                    </span>
+                                  </td>
                                 );
                               })}
-                              <th className="px-0.5 py-0.5 text-center text-[8px] font-semibold text-gray-700 w-[38px]">5日</th>
+                              <td className="px-0.5 py-0.5 text-center">
+                                <span className={`inline-block px-0.5 rounded text-[7px] font-bold whitespace-nowrap ${getPerformanceClass(stock.totalReturn || 0)}`}>
+                                  {(stock.totalReturn || 0) > 0 ? `+${(stock.totalReturn || 0).toFixed(1)}` : (stock.totalReturn || 0).toFixed(1)}
+                                </span>
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {(() => {
-                              // 构建正确格式的 followUpData
-                              const followUpDataMap: Record<string, Record<string, number>> = {};
-                              sector.stocks.forEach(stock => {
-                                followUpDataMap[stock.code] = stock.followUpData;
-                              });
-                              return getSortedStocksForSector(sector.stocks, followUpDataMap, sectorModalSortMode);
-                            })().map((stock, stockIndex) => (
-                              <tr key={stock.code} className={`border-b border-gray-50 ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50 transition-colors`}>
-                                <td className="px-0.5 py-0.5">
-                                  <div
-                                    className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline text-[8px] whitespace-nowrap truncate"
-                                    onClick={() => handleStockClick(stock.name, stock.code)}
-                                    title={`${stock.name} (${stock.code})`}
-                                  >
-                                    {stock.name}
-                                  </div>
-                                </td>
-                                <td className="px-0.5 py-0.5 text-center">
-                                  <span className={`inline-block px-0.5 py-0.5 rounded text-[7px] font-bold whitespace-nowrap ${
-                                    stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'bg-red-100 text-red-700' :
-                                    stock.td_type.includes('2') ? 'bg-orange-100 text-orange-700' :
-                                    'bg-gray-200 text-gray-700'
-                                  }`}>
-                                    {stock.td_type.replace('首板', '1').replace('首', '1').replace('连板', '').replace('板', '')}
-                                  </span>
-                                </td>
-                                {followUpDates.map(date => {
-                                  const performance = stock.followUpData?.[date] || 0;
-                                  return (
-                                    <td key={date} className="px-0.5 py-0.5 text-center">
-                                      <span className={`inline-block px-0.5 py-0.5 rounded text-[8px] font-medium whitespace-nowrap ${getPerformanceClass(performance)}`}>
-                                        {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
-                                      </span>
-                                    </td>
-                                  );
-                                })}
-                                <td className="px-0.5 py-0.5 text-center">
-                                  <span className={`inline-block px-0.5 py-0.5 rounded text-[8px] font-bold whitespace-nowrap ${getPerformanceClass(stock.totalReturn || 0)}`}>
-                                    {(stock.totalReturn || 0) > 0 ? `+${(stock.totalReturn || 0).toFixed(1)}` : (stock.totalReturn || 0).toFixed(1)}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   );
                 })
