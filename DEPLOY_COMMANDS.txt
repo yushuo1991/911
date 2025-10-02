@@ -1,0 +1,14 @@
+# 部署命令汇总
+
+## 1. 本地打包
+tar -czf stock-tracker-v4.1.tar.gz --exclude=node_modules --exclude=.next --exclude=.git --exclude=log .
+
+## 2. 上传到服务器
+scp stock-tracker-v4.1.tar.gz root@yushuo.click:/opt/
+
+## 3. 服务器执行
+ssh root@yushuo.click
+mkdir -p /opt/stock-tracker && cd /opt/stock-tracker
+tar -xzf /opt/stock-tracker-v4.1.tar.gz
+chmod +x deploy.sh
+./deploy.sh

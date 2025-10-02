@@ -1,0 +1,32 @@
+# 服务器部署命令（正确版本 - 使用 docker compose）
+
+# 1. 进入项目目录
+cd /www/wwwroot/stock-tracker
+
+# 2. 拉取最新代码（已完成，显示Already up to date）
+git pull origin main
+
+# 3. 停止容器
+docker compose down
+
+# 4. 重新构建（清除缓存）
+docker compose build --no-cache
+
+# 5. 启动服务
+docker compose up -d
+
+# 6. 等待服务启动
+sleep 30
+
+# 7. 检查容器状态
+docker ps | grep stock-tracker
+
+# 8. 查看日志（可选）
+docker compose logs -f --tail=50
+
+# ============================================
+# 注意事项
+# ============================================
+# 1. 使用 "docker compose" 而不是 "docker-compose"
+# 2. git pull 显示 "Already up to date" 说明代码已是最新
+# 3. 需要重新构建才能应用代码变更

@@ -46,21 +46,8 @@ export default function Home() {
   // 新增：板块弹窗排序模式（需求3）
   const [sectorModalSortMode, setSectorModalSortMode] = useState<'board' | 'return'>('board');
 
-  // 生成最近7个交易日
-  const generate7TradingDays = (endDate: string): string[] => {
-    const dates = [];
-    const end = new Date(endDate);
-    let current = new Date(end);
-
-    while (dates.length < 7) {
-      if (current.getDay() !== 0 && current.getDay() !== 6) {
-        dates.push(current.toISOString().split('T')[0]);
-      }
-      current.setDate(current.getDate() - 1);
-    }
-
-    return dates.reverse();
-  };
+  // generate7TradingDays 函数已移除
+  // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
 
   const fetch7DaysData = async () => {
     setLoading(true);

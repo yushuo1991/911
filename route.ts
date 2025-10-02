@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
   import { Stock, LimitUpApiResponse, StockPerformance, TrackingData } from '@/types/stock';
   import { generateTradingDays, generateMockPerformance, sortStocksByBoard, calculateStats } from '@/lib/utils';
   import { stockDatabase } from '@/lib/database';
-  import { get7TradingDaysFromCalendar } from '@/lib/enhanced-trading-calendar';
 
-  const TUSHARE_TOKEN = process.env.TUSHARE_TOKEN || '';
+  const TUSHARE_TOKEN = '2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211';
 
   // 智能缓存系统
   interface CacheEntry {
@@ -352,9 +351,6 @@ import { NextRequest, NextResponse } from 'next/server';
       // 构建批量查询参数 - 查询所有股票的所有日期
       const tsCodes = stockCodes.map(code => convertStockCodeForTushare(code));
 
-      // 修复：转换日期格式 YYYY-MM-DD -> YYYYMMDD
-      const tradeDatesFormatted = tradeDates.map(d => d.replace(/-/g, ''));
-
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
 
@@ -368,8 +364,8 @@ import { NextRequest, NextResponse } from 'next/server';
           token: TUSHARE_TOKEN,
           params: {
             ts_code: tsCodes.join(','),
-            start_date: Math.min(...tradeDatesFormatted.map(d => parseInt(d))).toString(),
-            end_date: Math.max(...tradeDatesFormatted.map(d => parseInt(d))).toString()
+            start_date: Math.min(...tradeDates.map(d => parseInt(d))).toString(),
+            end_date: Math.max(...tradeDates.map(d => parseInt(d))).toString()
           },
           fields: 'ts_code,trade_date,pct_chg'
         }),
@@ -396,19 +392,16 @@ import { NextRequest, NextResponse } from 'next/server';
         // 解析数据
         data.data.items.forEach((item: any[]) => {
           const tsCode = item[0];
-          const tradeDateTushare = item[1]; // YYYYMMDD格式
+          const tradeDate = item[1];
           const pctChg = parseFloat(item[2]) || 0;
-
-          // 转换回YYYY-MM-DD格式以匹配tradeDates
-          const tradeDateISO = `${tradeDateTushare.slice(0,4)}-${tradeDateTushare.slice(4,6)}-${tradeDateTushare.slice(6,8)}`;
 
           // 转换回原始股票代码
           const originalCode = stockCodes.find(code =>
             convertStockCodeForTushare(code) === tsCode
           );
 
-          if (originalCode && tradeDates.includes(tradeDateISO)) {
-            result.get(originalCode)![tradeDateISO] = pctChg;
+          if (originalCode && tradeDates.includes(tradeDate)) {
+            result.get(originalCode)![tradeDate] = pctChg;
           }
         });
 
@@ -442,9 +435,7 @@ import { NextRequest, NextResponse } from 'next/server';
       await rateController.checkAndWait();
 
       const tsCode = convertStockCodeForTushare(stockCode);
-      // 修复：Tushare API需要YYYYMMDD格式，转换YYYY-MM-DD -> YYYYMMDD
-      const tradeDateFormatted = tradeDate.replace(/-/g, '');
-      console.log(`[单个API] 请求数据: ${tsCode} on ${tradeDate} (Tushare格式: ${tradeDateFormatted}) (重试${retryCount})`);
+      console.log(`[单个API] 请求数据: ${tsCode} on ${tradeDate} (重试${retryCount})`);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -459,7 +450,7 @@ import { NextRequest, NextResponse } from 'next/server';
           token: TUSHARE_TOKEN,
           params: {
             ts_code: tsCode,
-            trade_date: tradeDateFormatted
+            trade_date: tradeDate
           },
           fields: 'ts_code,trade_date,pct_chg'
         }),
@@ -535,7 +526,7 @@ import { NextRequest, NextResponse } from 'next/server';
       }
     }
 
-    // 2. 尝试从Tushare API获取真实数据
+    // 3. 尝试从Tushare API获取真实数据
     try {
       console.log(`[数据获取] 从Tushare API获取${stockCode}的真实数据`);
 
@@ -599,7 +590,7 @@ import { NextRequest, NextResponse } from 'next/server';
       const err = error as any;
       console.log(`[数据获取] ${stockCode}整体获取失败: ${err}，降级到模拟数据`);
 
-      // 3. 最终降级：使用模拟数据
+      // 4. 最终降级：使用模拟数据
       try {
         const mockData = generateMockPerformance(stockCode, tradingDays);
         console.log(`[数据获取] ${stockCode}使用模拟数据`);
@@ -611,7 +602,7 @@ import { NextRequest, NextResponse } from 'next/server';
       } catch (mockError) {
         console.log(`[数据获取] ${stockCode}模拟数据生成失败: ${mockError}`);
 
-        // 4. 兜底：返回0值
+        // 5. 兜底：返回0值
         const zeroData: Record<string, number> = {};
         tradingDays.forEach(day => {
           zeroData[day] = 0;
@@ -684,7 +675,7 @@ import { NextRequest, NextResponse } from 'next/server';
     }
 
     // 获取交易日
-    const tradingDays = generateTradingDays(date, 5);
+    const tradingDays = await generateTradingDays(date, 5);
     console.log(`[API] 生成交易日: ${tradingDays}`);
 
     // 按分类整理数据
@@ -700,7 +691,7 @@ import { NextRequest, NextResponse } from 'next/server';
         code: stock.StockCode,
         td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
         performance,
-        total_return: Math.round(totalReturn * 100) / 100
+        total_return: parseFloat(totalReturn.toFixed(2))
       };
 
       if (!categories[category]) {
@@ -743,9 +734,9 @@ import { NextRequest, NextResponse } from 'next/server';
   async function get7DaysData(endDate: string) {
     console.log(`[API] 开始处理7天数据，结束日期: ${endDate}`);
 
-    // 使用Tushare交易日历获取真实的7个交易日（排除节假日）
-    const sevenDays = await get7TradingDaysFromCalendar(endDate);
-    console.log(`[API] 7天交易日（已排除节假日）: ${sevenDays}`);
+    // 生成最近7个交易日
+    const sevenDays = generate7TradingDays(endDate);
+    console.log(`[API] 7天交易日: ${sevenDays}`);
 
     // 检查7天数据缓存（内存优先）
     const cacheKey = `7days:${sevenDays.join(',')}:${endDate}`;
@@ -802,7 +793,7 @@ import { NextRequest, NextResponse } from 'next/server';
         }
 
         // 获取该天后5个交易日（用于溢价计算）
-        const followUpDays = generateTradingDays(day, 5);
+        const followUpDays = await generateTradingDays(day, 5);
 
         // 按分类整理数据
         const categories: Record<string, StockPerformance[]> = {};
@@ -819,8 +810,8 @@ import { NextRequest, NextResponse } from 'next/server';
             name: stock.StockName,
             code: stock.StockCode,
             td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
-            performance: { [day]: 10.0 }, // 涨停日当天固定为10%
-            total_return: Math.round(totalReturn * 100) / 100
+            performance: followUpPerformance, // ✅ 修复：使用完整的后续5天表现数据
+            total_return: parseFloat(totalReturn.toFixed(2))
           };
 
           if (!categories[category]) {
@@ -882,5 +873,19 @@ import { NextRequest, NextResponse } from 'next/server';
     });
   }
 
-  // generate7TradingDays 函数已移除
-  // 现在使用 get7TradingDaysFromCalendar 从 Tushare 获取真实交易日历（包含节假日信息）
+  // 生成最近7个交易日（工作日，排除周末）
+  function generate7TradingDays(endDate: string): string[] {
+    const dates = [];
+    const end = new Date(endDate);
+    let current = new Date(end);
+
+    while (dates.length < 7) {
+      // 跳过周末
+      if (current.getDay() !== 0 && current.getDay() !== 6) {
+        dates.push(current.toISOString().split('T')[0]);
+      }
+      current.setDate(current.getDate() - 1);
+    }
+
+    return dates.reverse(); // 返回从早到晚的顺序
+  }

@@ -23,11 +23,14 @@ module.exports = {
     'bg-gray-100', 'bg-gray-200', 'bg-gray-300', 'bg-gray-600', 'bg-gray-700', 'bg-gray-900',
     // 样式类
     'font-bold', 'font-semibold', 'font-medium', 'font-normal',
-    'text-xs', 'text-sm', 'rounded', 'rounded-md', 'rounded-lg', 'px-1', 'px-2', 'px-3', 'py-1', 'py-2', 'text-center', 'text-left', 'text-right',
+    'text-2xs', 'text-xs', 'text-sm', 'text-lg', 'text-xl', 'rounded', 'rounded-md', 'rounded-lg', 'px-1', 'px-2', 'px-3', 'py-1', 'py-2', 'text-center', 'text-left', 'text-right',
     'min-w-[45px]', 'inline-block', 'block', 'inline', 'shadow-sm'
   ],
   theme: {
     extend: {
+      fontSize: {
+        '2xs': ['10px', { lineHeight: '14px' }], // 自定义超小字体
+      },
       colors: {
         primary: {
           50: '#f0f9ff',
@@ -49,19 +52,19 @@ module.exports = {
         stock: {
           // 上涨红色系 - 基于 #da4453
           'red-100': '#fdf2f4',  // 最淡红色
-          'red-200': '#fce7ea',  // 淡红色  
+          'red-200': '#fce7ea',  // 淡红色
           'red-300': '#f8b6c1',  // 浅红色
           'red-400': '#f28a9a',  // 中红色
           'red-500': '#ec5f73',  // 深红色
           'red-600': '#da4453',  // 涨停红色
-          
-          // 下跌绿色系 - 基于 #37bc9b 
+
+          // 下跌绿色系 - 基于 #37bc9b
           'green-100': '#f0fdf9', // 最淡绿色
           'green-200': '#dcfcf0', // 淡绿色
           'green-300': '#86efcf', // 浅绿色
-          'green-400': '#5dd5b0', // 中绿色  
+          'green-400': '#5dd5b0', // 中绿色
           'green-500': '#37bc9b', // 大跌绿色
-          
+
           // 跌停深色 - #434a54
           'dark': '#434a54',     // 跌停深灰蓝
         },
