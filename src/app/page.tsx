@@ -969,17 +969,17 @@ export default function Home() {
                       <table className="w-full border-collapse table-fixed">
                         <thead className="bg-blue-50">
                           <tr className="border-b border-blue-100">
-                            <th className="px-0.5 py-0.5 text-left text-[7px] font-semibold text-gray-700 w-[18%]">名称</th>
-                            <th className="px-0.5 py-0.5 text-center text-[7px] font-semibold text-gray-700 w-[10%]">状态</th>
+                            <th className="px-0.5 py-[2px] text-left text-[6px] font-semibold text-gray-700 w-[18%]">名称</th>
+                            <th className="px-0.5 py-[2px] text-center text-[6px] font-semibold text-gray-700 w-[10%]">状态</th>
                             {followUpDates.map((date, index) => {
                               const formattedDate = formatDate(date).slice(5);
                               return (
-                                <th key={date} className="px-0.5 py-0.5 text-center text-[7px] font-semibold text-gray-700 w-[12%]">
+                                <th key={date} className="px-0.5 py-[2px] text-center text-[6px] font-semibold text-gray-700 w-[12%]">
                                   {formattedDate}
                                 </th>
                               );
                             })}
-                            <th className="px-0.5 py-0.5 text-center text-[7px] font-semibold text-gray-700 w-[10%]">5日</th>
+                            <th className="px-0.5 py-[2px] text-center text-[6px] font-semibold text-gray-700 w-[10%]">5日</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -994,7 +994,7 @@ export default function Home() {
                             <tr key={stock.code} className={`border-b border-gray-50 ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50 transition-colors`}>
                               <td className="px-0.5 py-0.5">
                                 <div
-                                  className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline text-[7px] whitespace-nowrap truncate"
+                                  className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline text-[6px] whitespace-nowrap truncate"
                                   onClick={() => handleStockClick(stock.name, stock.code)}
                                   title={`${stock.name} (${stock.code})`}
                                 >
@@ -1002,7 +1002,7 @@ export default function Home() {
                                 </div>
                               </td>
                               <td className="px-0.5 py-0.5 text-center">
-                                <span className={`inline-block px-0.5 rounded text-[7px] font-bold whitespace-nowrap ${
+                                <span className={`inline-block px-[3px] rounded-sm text-[6px] font-bold leading-none whitespace-nowrap ${
                                   stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'bg-red-100 text-red-700' :
                                   stock.td_type.includes('2') ? 'bg-orange-100 text-orange-700' :
                                   'bg-gray-200 text-gray-700'
@@ -1014,14 +1014,14 @@ export default function Home() {
                                 const performance = stock.followUpData?.[date] || 0;
                                 return (
                                   <td key={date} className="px-0.5 py-0.5 text-center">
-                                    <span className={`inline-block px-0.5 rounded text-[7px] font-medium whitespace-nowrap ${getPerformanceClass(performance)}`}>
+                                    <span className={`inline-block px-[2px] rounded-sm text-[6px] font-medium leading-none whitespace-nowrap ${getPerformanceClass(performance)}`}>
                                       {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
                                     </span>
                                   </td>
                                 );
                               })}
                               <td className="px-0.5 py-0.5 text-center">
-                                <span className={`inline-block px-0.5 rounded text-[7px] font-bold whitespace-nowrap ${getPerformanceClass(stock.totalReturn || 0)}`}>
+                                <span className={`inline-block px-[2px] rounded-sm text-[6px] font-bold leading-none whitespace-nowrap ${getPerformanceClass(stock.totalReturn || 0)}`}>
                                   {(stock.totalReturn || 0) > 0 ? `+${(stock.totalReturn || 0).toFixed(1)}` : (stock.totalReturn || 0).toFixed(1)}
                                 </span>
                               </td>
