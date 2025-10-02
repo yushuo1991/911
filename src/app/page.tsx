@@ -149,8 +149,9 @@ export default function Home() {
       });
     });
 
-    // 需求2修改：按当天涨停个股数降序排序，取前5名
+    // 需求2修改：过滤掉"其他"和"ST板块"，按当天涨停个股数降序排序，取前5名
     const top5Sectors = sectorData
+      .filter(sector => sector.sectorName !== '其他' && sector.sectorName !== 'ST板块')
       .sort((a, b) => b.stockCount - a.stockCount)
       .slice(0, 5);
 
@@ -989,6 +990,7 @@ export default function Home() {
                           <thead className="bg-white">
                             <tr className="border-b">
                               <th className="px-1 py-0.5 text-left font-semibold text-gray-700 text-[10px]">名称</th>
+                              <th className="px-0.5 py-0.5 text-center font-semibold text-gray-700 text-[10px] w-[30px]">状态</th>
                               {followUpDates.map((date, index) => {
                                 const formattedDate = formatDate(date).slice(5);
                                 return (
@@ -1001,7 +1003,7 @@ export default function Home() {
                             </tr>
                           </thead>
                           <tbody>
-                            {sector.stocks.map((stock, stockIndex) => (
+                            {getSortedStocksForSector(sector.stocks, sector.stocks.reduce((acc, s) => ({...acc, [s.code]: s.followUpData}), {}), sectorModalSortMode).map((stock, stockIndex) => (
                               <tr key={stock.code} className={`border-b ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
                                 <td className="px-1 py-0.5">
                                   <div
@@ -1011,6 +1013,15 @@ export default function Home() {
                                   >
                                     {stock.name.length > 4 ? stock.name.slice(0, 4) : stock.name}
                                   </div>
+                                </td>
+                                <td className="px-0.5 py-0.5 text-center">
+                                  <span className={`text-[10px] font-medium ${
+                                    stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'text-red-600' :
+                                    stock.td_type.includes('2') ? 'text-orange-600' :
+                                    'text-gray-600'
+                                  }`}>
+                                    {stock.td_type.replace('连板', '板')}
+                                  </span>
                                 </td>
                                 {followUpDates.map(date => {
                                   const performance = stock.followUpData[date] || 0;
