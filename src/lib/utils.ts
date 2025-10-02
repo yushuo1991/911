@@ -63,63 +63,52 @@ export function getCategoryEmoji(category: string): string {
   return CATEGORY_EMOJIS[category] || CATEGORY_EMOJIS['其他'];
 }
 
-export function getPerformanceClass(value: number): string {
-  // 确保value是数字类型
+// 新函数：仅返回颜色类（用于自定义大小的徽章）
+export function getPerformanceColorClass(value: number): string {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
 
-  // 平盘 - 中性灰色
-  if (numValue === 0) {
-    return 'bg-slate-100 text-slate-600 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-  }
+  if (numValue === 0) return 'bg-slate-100 text-slate-600';
 
-  // 上涨区间 - 基于 #da4453 的红色渐变
+  // 上涨区间
   if (numValue > 0) {
-    if (numValue >= 9.5) {
-      // 涨停 - #da4453
-      return 'bg-stock-red-600 text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';
-    } else if (numValue >= 7) {
-      // 大涨 - 深红色
-      return 'bg-stock-red-500 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (numValue >= 5) {
-      // 中大涨 - 中红色
-      return 'bg-stock-red-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (numValue >= 3) {
-      // 中涨 - 浅红色
-      return 'bg-stock-red-300 text-red-900 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (numValue >= 1) {
-      // 小涨 - 淡红色
-      return 'bg-stock-red-200 text-red-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (numValue > 0) {
-      // 微涨 - 最淡红色
-      return 'bg-stock-red-100 text-red-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    }
+    if (numValue >= 9.5) return 'bg-stock-red-600 text-white';
+    else if (numValue >= 7) return 'bg-stock-red-500 text-white';
+    else if (numValue >= 5) return 'bg-stock-red-400 text-white';
+    else if (numValue >= 3) return 'bg-stock-red-300 text-red-900';
+    else if (numValue >= 1) return 'bg-stock-red-200 text-red-800';
+    else return 'bg-stock-red-100 text-red-700';
   }
 
-  // 下跌区间 - 基于 #37bc9b 和 #434a54 的绿色渐变
+  // 下跌区间
   if (numValue < 0) {
-    if (numValue <= -9.5) {
-      // 跌停 - #434a54 深灰蓝色
-      return 'bg-stock-dark text-white font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm';
-    } else if (numValue <= -7) {
-      // 大跌 - #37bc9b 绿色
-      return 'bg-stock-green-500 text-white font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (numValue <= -5) {
-      // 中大跌 - 中绿色
-      return 'bg-stock-green-400 text-white text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (numValue <= -3) {
-      // 中跌 - 浅绿色
-      return 'bg-stock-green-300 text-green-900 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (numValue <= -1) {
-      // 小跌 - 淡绿色
-      return 'bg-stock-green-200 text-green-800 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    } else if (numValue < 0) {
-      // 微跌 - 最淡绿色
-      return 'bg-stock-green-100 text-green-700 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
-    }
+    if (numValue <= -9.5) return 'bg-stock-dark text-white';
+    else if (numValue <= -7) return 'bg-stock-green-500 text-white';
+    else if (numValue <= -5) return 'bg-stock-green-400 text-white';
+    else if (numValue <= -3) return 'bg-stock-green-300 text-green-900';
+    else if (numValue <= -1) return 'bg-stock-green-200 text-green-800';
+    else return 'bg-stock-green-100 text-green-700';
   }
 
-  // 默认情况 - 中性色
-  return 'bg-slate-100 text-slate-600 text-xs font-medium rounded-md px-2 py-1 text-center min-w-[45px] inline-block';
+  return 'bg-slate-100 text-slate-600';
+}
+
+// 原函数：保持向后兼容（返回完整样式）
+export function getPerformanceClass(value: number): string {
+  const colorClass = getPerformanceColorClass(value);
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+
+  // 涨跌停添加阴影
+  if (numValue >= 9.5 || numValue <= -9.5) {
+    return `${colorClass} font-bold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block shadow-sm`;
+  }
+
+  // 大涨大跌加粗
+  if (numValue >= 7 || numValue <= -7) {
+    return `${colorClass} font-semibold text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block`;
+  }
+
+  // 普通情况
+  return `${colorClass} font-medium text-xs rounded-md px-2 py-1 text-center min-w-[45px] inline-block`;
 }
 
 export function formatPercentage(value: number): string {
