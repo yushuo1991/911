@@ -1015,15 +1015,15 @@ export default function Home() {
                                 {followUpDates.map(date => {
                                   const performance = stock.followUpData[date] || 0;
                                   return (
-                                    <td key={date} className="px-0.5 py-0.5 text-center">
-                                      <div className={`px-0 py-0 rounded-sm text-[6px] font-medium ${getPerformanceClass(performance)}`}>
+                                    <td key={date} className="px-0.5 py-0.5 text-center w-[24px] h-[15px]">
+                                      <div className={`px-0 py-0 rounded-sm text-[6px] font-medium inline-block ${getPerformanceClass(performance)}`}>
                                         {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
                                       </div>
                                     </td>
                                   );
                                 })}
-                                <td className="px-0.5 py-0.5 text-center">
-                                  <div className={`px-0 py-0 rounded-sm text-[6px] font-semibold ${getPerformanceClass(stock.totalReturn)}`}>
+                                <td className="px-0.5 py-0.5 text-center w-[24px] h-[15px]">
+                                  <div className={`px-0 py-0 rounded-sm text-[6px] font-semibold inline-block ${getPerformanceClass(stock.totalReturn)}`}>
                                     {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(1)}` : stock.totalReturn.toFixed(1)}
                                   </div>
                                 </td>
