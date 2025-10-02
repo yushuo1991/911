@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { SevenDaysData, DayData, SectorSummary, StockPerformance } from '@/types/stock';
-import { getPerformanceClass, getTodayString, formatDate } from '@/lib/utils';
+import { getPerformanceClass, getTodayString, formatDate, getBoardWeight } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import StockPremiumChart, { StockPremiumData } from '@/components/StockPremiumChart';
 import { transformSectorStocksToChartData } from '@/lib/chartHelpers';
@@ -43,6 +43,8 @@ export default function Home() {
   const [selectedDateColumnData, setSelectedDateColumnData] = useState<{date: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>} | null>(null);
   // 新增：板块弹窗筛选状态
   const [showOnly10PlusInSectorModal, setShowOnly10PlusInSectorModal] = useState(false);
+  // 新增：板块弹窗排序模式（需求3）
+  const [sectorModalSortMode, setSectorModalSortMode] = useState<'board' | 'return'>('board');
 
   // 生成最近7个交易日
   const generate7TradingDays = (endDate: string): string[] => {
@@ -98,7 +100,7 @@ export default function Home() {
     setShowSectorModal(true);
   };
 
-  // 处理日期点击 - 重构版：显示当天各板块的平均溢价，按5天总和排序，取前5名
+  // 处理日期点击 - 需求2：显示当天涨停个股数前5名板块
   const handleDateClick = (date: string) => {
     const dayData = sevenDaysData?.[date];
     if (!dayData || !dates) return;
@@ -147,9 +149,9 @@ export default function Home() {
       });
     });
 
-    // 按5天总和降序排序，取前5名
+    // 需求2修改：按当天涨停个股数降序排序，取前5名
     const top5Sectors = sectorData
-      .sort((a, b) => b.total5DayPremium - a.total5DayPremium)
+      .sort((a, b) => b.stockCount - a.stockCount)
       .slice(0, 5);
 
     setSelectedDateData({ date, sectorData: top5Sectors });
@@ -368,14 +370,26 @@ export default function Home() {
     return result;
   }, [sevenDaysData, dates, onlyLimitUp5Plus]);
 
-  // 获取展开的股票数据（按后续5日累计收益排序）
-  const getSortedStocksForSector = (stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>) => {
+  // 获取展开的股票数据 - 需求3：支持按连板数或累计收益排序
+  const getSortedStocksForSector = (
+    stocks: StockPerformance[],
+    followUpData: Record<string, Record<string, number>>,
+    sortMode: 'board' | 'return' = 'board'
+  ) => {
     return [...stocks].sort((a, b) => {
-      const aFollowUp = followUpData[a.code] || {};
-      const bFollowUp = followUpData[b.code] || {};
-      const aTotalReturn = Object.values(aFollowUp).reduce((sum, val) => sum + val, 0);
-      const bTotalReturn = Object.values(bFollowUp).reduce((sum, val) => sum + val, 0);
-      return bTotalReturn - aTotalReturn; // 降序排列
+      if (sortMode === 'board') {
+        // 按连板数排序（使用getBoardWeight提取数字）
+        const aBoardWeight = getBoardWeight(a.td_type);
+        const bBoardWeight = getBoardWeight(b.td_type);
+        return bBoardWeight - aBoardWeight; // 降序排列，高板在前
+      } else {
+        // 按累计收益排序
+        const aFollowUp = followUpData[a.code] || {};
+        const bFollowUp = followUpData[b.code] || {};
+        const aTotalReturn = Object.values(aFollowUp).reduce((sum, val) => sum + val, 0);
+        const bTotalReturn = Object.values(bFollowUp).reduce((sum, val) => sum + val, 0);
+        return bTotalReturn - aTotalReturn; // 降序排列
+      }
     });
   };
 
@@ -502,18 +516,26 @@ export default function Home() {
 
             <div className="mb-2 flex justify-between items-center">
               <div className="text-2xs text-gray-600">
-                共 {selectedSectorData.stocks.length} 只个股，按5日累计溢价排序
+                共 {selectedSectorData.stocks.length} 只个股，按{sectorModalSortMode === 'board' ? '连板数' : '5日累计溢价'}排序
               </div>
-              <button
-                onClick={() => setShowOnly10PlusInSectorModal(!showOnly10PlusInSectorModal)}
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                  showOnly10PlusInSectorModal
-                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                    : 'bg-gray-100 text-gray-700 border border-gray-300'
-                }`}
-              >
-                {showOnly10PlusInSectorModal ? '显示全部个股' : '显示涨幅>10%'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSectorModalSortMode(sectorModalSortMode === 'board' ? 'return' : 'board')}
+                  className="px-2 py-1 rounded text-xs font-medium transition-colors bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200"
+                >
+                  切换为{sectorModalSortMode === 'board' ? '涨幅排序' : '连板排序'}
+                </button>
+                <button
+                  onClick={() => setShowOnly10PlusInSectorModal(!showOnly10PlusInSectorModal)}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    showOnly10PlusInSectorModal
+                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                      : 'bg-gray-100 text-gray-700 border border-gray-300'
+                  }`}
+                >
+                  {showOnly10PlusInSectorModal ? '显示全部个股' : '显示涨幅>10%'}
+                </button>
+              </div>
             </div>
 
             {/* 分屏布局：左侧图表40%，右侧表格60% */}
@@ -604,7 +626,7 @@ export default function Home() {
                     </tr>
                   </thead>
                   <tbody>
-                    {getSortedStocksForSector(selectedSectorData.stocks, selectedSectorData.followUpData)
+                    {getSortedStocksForSector(selectedSectorData.stocks, selectedSectorData.followUpData, sectorModalSortMode)
                       .filter(stock => {
                         if (!showOnly10PlusInSectorModal) return true;
                         const totalReturn = Object.values(selectedSectorData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
@@ -1158,26 +1180,13 @@ export default function Home() {
                 <tbody>
                   <tr>
                     {selected7DayLadderData.dailyBreakdown.map((day, dayIndex) => {
-                      // 推断连板数：检查前几天该股票是否也在该板块涨停
-                      const stocksWithBoardCount = day.stocks.map(stock => {
-                        let boardCount = 1; // 至少是首板
-
-                        // 向前检查，从前一天开始
-                        for (let i = dayIndex - 1; i >= 0; i--) {
-                          const prevDay = selected7DayLadderData.dailyBreakdown[i];
-                          const prevDayHasStock = prevDay.stocks.some(s => s.code === stock.code);
-                          if (prevDayHasStock) {
-                            boardCount++;
-                          } else {
-                            break; // 连续性断了
-                          }
-                        }
-
-                        return { ...stock, boardCount };
-                      });
-
-                      // 按板数降序排序（高板在上）
-                      const sortedStocks = stocksWithBoardCount.sort((a, b) => b.boardCount - a.boardCount);
+                      // 使用真实API数据中的td_type字段获取连板数
+                      const sortedStocks = day.stocks
+                        .map(stock => ({
+                          ...stock,
+                          boardCount: getBoardWeight(stock.td_type) // 使用真实API数据
+                        }))
+                        .sort((a, b) => b.boardCount - a.boardCount); // 按板数降序排序（高板在上）
 
                       return (
                         <td
@@ -1264,7 +1273,7 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {getSortedStocksForSector(selectedDateColumnData.stocks, selectedDateColumnData.followUpData).map((stock, index) => {
+                  {getSortedStocksForSector(selectedDateColumnData.stocks, selectedDateColumnData.followUpData, sectorModalSortMode).map((stock, index) => {
                     // 使用dates数组确保日期正确排序
                     const currentDateIndex = dates.indexOf(selectedDateColumnData.date);
                     const followUpDates = currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
