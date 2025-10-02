@@ -895,7 +895,7 @@ export default function Home() {
       {/* 涨停数弹窗 - 按板块分组显示个股溢价 */}
       {showStockCountModal && selectedStockCountData && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-4 max-w-[95vw] max-h-[90vh] overflow-auto shadow-2xl">
+          <div className="bg-white rounded-xl p-4 w-auto min-w-[60vw] max-w-[95vw] max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">
                 📊 {(() => {
@@ -1016,14 +1016,14 @@ export default function Home() {
                                   const performance = stock.followUpData[date] || 0;
                                   return (
                                     <td key={date} className="px-0.5 py-0.5 text-center">
-                                      <div className={`px-0.5 rounded text-[10px] font-medium ${getPerformanceClass(performance)}`}>
+                                      <div className={`px-0.5 py-0 rounded text-[9px] font-medium ${getPerformanceClass(performance)}`}>
                                         {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
                                       </div>
                                     </td>
                                   );
                                 })}
-                                <td className="px-1 py-0.5 text-center">
-                                  <div className={`px-1 py-0.5 rounded text-[10px] font-semibold ${getPerformanceClass(stock.totalReturn)}`}>
+                                <td className="px-0.5 py-0.5 text-center">
+                                  <div className={`px-0.5 py-0 rounded text-[9px] font-semibold ${getPerformanceClass(stock.totalReturn)}`}>
                                     {stock.totalReturn > 0 ? `+${stock.totalReturn.toFixed(1)}` : stock.totalReturn.toFixed(1)}
                                   </div>
                                 </td>
