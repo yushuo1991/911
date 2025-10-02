@@ -877,9 +877,9 @@ export default function Home() {
       {/* 涨停数弹窗 - 按板块分组显示个股溢价 */}
       {showStockCountModal && selectedStockCountData && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-3 w-auto min-w-[85vw] max-w-[98vw] max-h-[95vh] overflow-auto shadow-2xl">
-            <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
-              <h3 className="text-sm font-bold text-gray-900">
+          <div className="bg-white rounded-xl p-2 w-auto min-w-[95vw] max-w-[98vw] max-h-[95vh] overflow-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-1.5 pb-1.5 border-b border-gray-200">
+              <h3 className="text-xs font-bold text-gray-900">
                 📊 {(() => {
                   try {
                     return formatDate(selectedStockCountData.date);
@@ -891,14 +891,14 @@ export default function Home() {
               </h3>
               <button
                 onClick={closeStockCountModal}
-                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+                className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <div className="mb-1.5 flex justify-between items-center">
-              <div className="text-[10px] text-gray-600">
+            <div className="mb-1 flex justify-between items-center">
+              <div className="text-[9px] text-gray-600">
                 共 {selectedStockCountData.sectorData
                   .filter(sector => {
                     // ≥5家模式：过滤≥5家的板块，且强制过滤"其他"和"ST板块"
@@ -915,7 +915,7 @@ export default function Home() {
               </div>
               <button
                 onClick={() => setShowOnly5PlusInStockCountModal(!showOnly5PlusInStockCountModal)}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
                   showOnly5PlusInStockCountModal
                     ? 'bg-blue-100 text-blue-700 border border-blue-300'
                     : 'bg-gray-100 text-gray-700 border border-gray-300'
@@ -925,8 +925,8 @@ export default function Home() {
               </button>
             </div>
 
-            {/* 按板块分组显示 - 纵向单列布局，无横向滚动 */}
-            <div className="space-y-1.5 max-h-[80vh] overflow-y-auto">
+            {/* 按板块分组显示 - 3-4列网格布局，极致压缩 */}
+            <div className="grid grid-cols-3 xl:grid-cols-4 gap-1 max-h-[85vh] overflow-y-auto">
               {selectedStockCountData.sectorData
                 .filter(sector => {
                   // ≥5家模式：过滤≥5家的板块，且强制过滤"其他"和"ST板块"
@@ -953,82 +953,95 @@ export default function Home() {
                   const followUpDates = currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
 
                   return (
-                    <div key={sector.sectorName} className="bg-white rounded border border-gray-300 shadow-sm p-1.5">
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="text-[10px] font-semibold text-gray-900">
-                          📈 {sector.sectorName} ({sector.stocks.length})
+                    <div key={sector.sectorName} className="bg-white rounded border border-gray-200 shadow-sm p-1">
+                      <div className="flex items-center justify-between mb-0.5 pb-0.5 border-b border-gray-100">
+                        <h4 className="text-[9px] font-semibold text-gray-900 truncate">
+                          {sector.sectorName} <span className="text-gray-500">({sector.stocks.length})</span>
                         </h4>
-                        <div className={`px-1 py-0.5 rounded text-[9px] font-medium ${
+                        <div className={`px-1 py-0.5 rounded text-[8px] font-medium ${
                           getPerformanceClass(sector.avgPremium)
                         }`}>
                           {sector.avgPremium.toFixed(1)}%
                         </div>
                       </div>
 
-                      {/* 极致压缩表格 - 完整显示，无横向滚动 */}
-                      <table className="w-full border-collapse table-fixed">
-                        <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
-                          <tr className="border-b border-blue-200">
-                            <th className="px-1 py-0.5 text-left font-semibold text-gray-700 text-[9px] w-[12%]">名称</th>
-                            <th className="px-1 py-0.5 text-center font-semibold text-gray-700 text-[9px] w-[8%]">状态</th>
-                            {followUpDates.map((date, index) => {
-                              const formattedDate = formatDate(date).slice(5);
-                              return (
-                                <th key={date} className="px-1 py-0.5 text-center font-semibold text-gray-700 text-[9px] w-[13%]">
-                                  {formattedDate}
-                                </th>
-                              );
-                            })}
-                            <th className="px-1 py-0.5 text-center font-semibold text-gray-700 text-[9px] w-[10%]">5日计</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(() => {
-                            // 构建正确格式的 followUpData
-                            const followUpDataMap: Record<string, Record<string, number>> = {};
-                            sector.stocks.forEach(stock => {
-                              followUpDataMap[stock.code] = stock.followUpData;
-                            });
-                            return getSortedStocksForSector(sector.stocks, followUpDataMap, sectorModalSortMode);
-                          })().map((stock, stockIndex) => (
-                            <tr key={stock.code} className={`border-b border-gray-100 ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
-                              <td className="px-1 py-0.5">
-                                <div
-                                  className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline text-[10px] whitespace-nowrap truncate"
-                                  onClick={() => handleStockClick(stock.name, stock.code)}
-                                  title={`${stock.name} (${stock.code})`}
-                                >
-                                  {stock.name}
-                                </div>
-                              </td>
-                              <td className="px-1 py-0.5 text-center">
-                                <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-semibold whitespace-nowrap ${
-                                  stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'bg-red-100 text-red-700' :
-                                  stock.td_type.includes('2') ? 'bg-orange-100 text-orange-700' :
-                                  'bg-gray-200 text-gray-700'
-                                }`}>
-                                  {stock.td_type.replace('首板', '1').replace('首', '1').replace('连板', '').replace('板', '')}
-                                </span>
-                              </td>
-                              {followUpDates.map(date => {
-                                const performance = stock.followUpData?.[date] || 0;
+                      {/* 极致压缩表格 - 固定列宽，完整显示 */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead className="bg-blue-50">
+                            <tr className="border-b border-blue-100">
+                              <th className="px-0.5 py-0.5 text-left text-[8px] font-semibold text-gray-700 min-w-[45px]">名称</th>
+                              <th className="px-0.5 py-0.5 text-center text-[8px] font-semibold text-gray-700 w-[28px]">状态</th>
+                              {followUpDates.map((date, index) => {
+                                const formattedDate = formatDate(date).slice(5);
                                 return (
-                                  <td key={date} className="px-1 py-0.5 text-center">
-                                    <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-medium whitespace-nowrap ${getPerformanceClass(performance)}`}>
-                                      {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
-                                    </span>
-                                  </td>
+                                  <th key={date} className="px-0.5 py-0.5 text-center text-[8px] font-semibold text-gray-700 w-[38px]">
+                                    {formattedDate}
+                                  </th>
                                 );
                               })}
-                              <td className="px-1 py-0.5 text-center">
-                                <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${getPerformanceClass(stock.totalReturn || 0)}`}>
-                                  {(stock.totalReturn || 0) > 0 ? `+${(stock.totalReturn || 0).toFixed(1)}` : (stock.totalReturn || 0).toFixed(1)}
-                                </span>
-                              </td>
+                              <th className="px-0.5 py-0.5 text-center text-[8px] font-semibold text-gray-700 w-[38px]">5日</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              // 构建正确格式的 followUpData
+                              const followUpDataMap: Record<string, Record<string, number>> = {};
+                              sector.stocks.forEach(stock => {
+                                followUpDataMap[stock.code] = stock.followUpData;
+                              });
+                              return getSortedStocksForSector(sector.stocks, followUpDataMap, sectorModalSortMode);
+                            })().map((stock, stockIndex) => (
+                              <tr key={stock.code} className={`border-b border-gray-50 ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50 transition-colors`}>
+                                <td className="px-0.5 py-0.5">
+                                  <div
+                                    className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline text-[8px] whitespace-nowrap truncate"
+                                    onClick={() => handleStockClick(stock.name, stock.code)}
+                                    title={`${stock.name} (${stock.code})`}
+                                  >
+                                    {stock.name}
+                                  </div>
+                                </td>
+                                <td className="px-0.5 py-0.5 text-center">
+                                  <span className={`inline-block px-0.5 py-0.5 rounded text-[7px] font-bold whitespace-nowrap ${
+                                    stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'bg-red-100 text-red-700' :
+                                    stock.td_type.includes('2') ? 'bg-orange-100 text-orange-700' :
+                                    'bg-gray-200 text-gray-700'
+                                  }`}>
+                                    {stock.td_type.replace('首板', '1').replace('首', '1').replace('连板', '').replace('板', '')}
+                                  </span>
+                                </td>
+                                {followUpDates.map(date => {
+                                  const performance = stock.followUpData?.[date] || 0;
+                                  return (
+                                    <td key={date} className="px-0.5 py-0.5 text-center">
+                                      <span className={`inline-block text-[8px] font-medium whitespace-nowrap ${
+                                        performance > 10 ? 'text-red-600 font-bold' :
+                                        performance > 5 ? 'text-orange-600' :
+                                        performance > 0 ? 'text-green-600' :
+                                        performance < 0 ? 'text-blue-600' : 'text-gray-500'
+                                      }`}>
+                                        {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
+                                      </span>
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-0.5 py-0.5 text-center">
+                                  <span className={`inline-block text-[8px] font-bold whitespace-nowrap ${
+                                    (stock.totalReturn || 0) > 20 ? 'text-red-700' :
+                                    (stock.totalReturn || 0) > 10 ? 'text-red-600' :
+                                    (stock.totalReturn || 0) > 5 ? 'text-orange-600' :
+                                    (stock.totalReturn || 0) > 0 ? 'text-green-600' :
+                                    'text-blue-600'
+                                  }`}>
+                                    {(stock.totalReturn || 0) > 0 ? `+${(stock.totalReturn || 0).toFixed(1)}` : (stock.totalReturn || 0).toFixed(1)}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   );
                 })
