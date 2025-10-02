@@ -990,7 +990,7 @@ export default function Home() {
                           <thead className="bg-white">
                             <tr className="border-b">
                               <th className="px-1 py-0.5 text-left font-semibold text-gray-700 text-[10px]">名称</th>
-                              <th className="px-0.5 py-0.5 text-center font-semibold text-gray-700 text-[10px] w-[30px]">状态</th>
+                              <th className="px-0.5 py-0.5 text-center font-semibold text-gray-700 text-[10px] w-[35px]">状态</th>
                               {followUpDates.map((date, index) => {
                                 const formattedDate = formatDate(date).slice(5);
                                 return (
@@ -999,7 +999,7 @@ export default function Home() {
                                   </th>
                                 );
                               })}
-                              <th className="px-1 py-0.5 text-center font-semibold text-gray-700 text-[10px]">计</th>
+                              <th className="px-0.5 py-0.5 text-center font-semibold text-gray-700 text-[10px] w-[30px]">5日计</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1027,7 +1027,7 @@ export default function Home() {
                                     stock.td_type.includes('2') ? 'text-orange-600' :
                                     'text-gray-600'
                                   }`}>
-                                    {stock.td_type.replace('连板', '板')}
+                                    {stock.td_type.replace('连板', '').replace('板', '')}
                                   </span>
                                 </td>
                                 {followUpDates.map(date => {
