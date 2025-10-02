@@ -727,7 +727,7 @@ export default function Home() {
                             </span>
                           </td>
                           <td className="px-2 py-1.5 text-right">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                               getPerformanceClass(sector.avgPremium)
                             }`}>
                               {sector.avgPremium.toFixed(2)}%
