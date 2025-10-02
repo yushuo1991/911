@@ -965,22 +965,22 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* 超紧凑表格显示 */}
+                      {/* 优化表格显示 - 横向布局，自然精致 */}
                       <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="bg-white">
-                            <tr className="border-b">
-                              <th className="px-1 py-0.5 text-left font-semibold text-gray-700 text-[10px]">名称</th>
-                              <th className="px-0.5 py-0.5 text-center font-semibold text-gray-700 text-[10px] w-[35px]">状态</th>
+                        <table className="w-full border-collapse">
+                          <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                            <tr className="border-b-2 border-gray-300">
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 text-[11px] w-[70px]">名称</th>
+                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 text-[11px] w-[50px]">状态</th>
                               {followUpDates.map((date, index) => {
                                 const formattedDate = formatDate(date).slice(5);
                                 return (
-                                  <th key={date} className="px-0.5 py-0.5 text-center font-semibold text-gray-700 text-[10px]">
+                                  <th key={date} className="px-2 py-1.5 text-center font-semibold text-gray-700 text-[11px] min-w-[55px]">
                                     {formattedDate}
                                   </th>
                                 );
                               })}
-                              <th className="px-0.5 py-0.5 text-center font-semibold text-gray-700 text-[10px] w-[30px]">5日计</th>
+                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 text-[11px] w-[55px]">5日计</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -992,21 +992,21 @@ export default function Home() {
                               });
                               return getSortedStocksForSector(sector.stocks, followUpDataMap, sectorModalSortMode);
                             })().map((stock, stockIndex) => (
-                              <tr key={stock.code} className={`border-b ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
-                                <td className="px-1 py-0.5">
+                              <tr key={stock.code} className={`border-b ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                                <td className="px-2 py-1.5">
                                   <div
-                                    className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline truncate text-[10px]"
+                                    className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline text-[11px] whitespace-nowrap"
                                     onClick={() => handleStockClick(stock.name, stock.code)}
                                     title={`${stock.name} (${stock.code})`}
                                   >
-                                    {stock.name.length > 4 ? stock.name.slice(0, 4) : stock.name}
+                                    {stock.name}
                                   </div>
                                 </td>
-                                <td className="px-0.5 py-0.5 text-center">
-                                  <span className={`text-[10px] font-medium ${
-                                    stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'text-red-600' :
-                                    stock.td_type.includes('2') ? 'text-orange-600' :
-                                    'text-gray-600'
+                                <td className="px-2 py-1.5 text-center">
+                                  <span className={`inline-block min-w-[32px] px-1.5 py-0.5 rounded text-[11px] font-semibold ${
+                                    stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'bg-red-50 text-red-600' :
+                                    stock.td_type.includes('2') ? 'bg-orange-50 text-orange-600' :
+                                    'bg-gray-100 text-gray-600'
                                   }`}>
                                     {stock.td_type.replace('首板', '1').replace('首', '1').replace('连板', '').replace('板', '')}
                                   </span>
@@ -1014,17 +1014,17 @@ export default function Home() {
                                 {followUpDates.map(date => {
                                   const performance = stock.followUpData?.[date] || 0;
                                   return (
-                                    <td key={date} className="px-0.5 py-0.5 text-center w-[24px] h-[15px]">
-                                      <div className={`px-0 py-0 rounded-sm text-[6px] font-medium inline-block ${getPerformanceClass(performance)}`}>
+                                    <td key={date} className="px-2 py-1.5 text-center">
+                                      <span className={`inline-block min-w-[42px] px-1.5 py-0.5 rounded text-[10px] font-medium ${getPerformanceClass(performance)}`}>
                                         {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
-                                      </div>
+                                      </span>
                                     </td>
                                   );
                                 })}
-                                <td className="px-0.5 py-0.5 text-center w-[24px] h-[15px]">
-                                  <div className={`px-0 py-0 rounded-sm text-[6px] font-semibold inline-block ${getPerformanceClass(stock.totalReturn || 0)}`}>
+                                <td className="px-2 py-1.5 text-center">
+                                  <span className={`inline-block min-w-[42px] px-1.5 py-0.5 rounded text-[10px] font-bold ${getPerformanceClass(stock.totalReturn || 0)}`}>
                                     {(stock.totalReturn || 0) > 0 ? `+${(stock.totalReturn || 0).toFixed(1)}` : (stock.totalReturn || 0).toFixed(1)}
-                                  </div>
+                                  </span>
                                 </td>
                               </tr>
                             ))}
