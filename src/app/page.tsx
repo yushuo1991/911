@@ -1015,25 +1015,14 @@ export default function Home() {
                                   const performance = stock.followUpData?.[date] || 0;
                                   return (
                                     <td key={date} className="px-0.5 py-0.5 text-center">
-                                      <span className={`inline-block text-[8px] font-medium whitespace-nowrap ${
-                                        performance > 10 ? 'text-red-600 font-bold' :
-                                        performance > 5 ? 'text-orange-600' :
-                                        performance > 0 ? 'text-green-600' :
-                                        performance < 0 ? 'text-blue-600' : 'text-gray-500'
-                                      }`}>
+                                      <span className={`inline-block px-0.5 py-0.5 rounded text-[8px] font-medium whitespace-nowrap ${getPerformanceClass(performance)}`}>
                                         {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
                                       </span>
                                     </td>
                                   );
                                 })}
                                 <td className="px-0.5 py-0.5 text-center">
-                                  <span className={`inline-block text-[8px] font-bold whitespace-nowrap ${
-                                    (stock.totalReturn || 0) > 20 ? 'text-red-700' :
-                                    (stock.totalReturn || 0) > 10 ? 'text-red-600' :
-                                    (stock.totalReturn || 0) > 5 ? 'text-orange-600' :
-                                    (stock.totalReturn || 0) > 0 ? 'text-green-600' :
-                                    'text-blue-600'
-                                  }`}>
+                                  <span className={`inline-block px-0.5 py-0.5 rounded text-[8px] font-bold whitespace-nowrap ${getPerformanceClass(stock.totalReturn || 0)}`}>
                                     {(stock.totalReturn || 0) > 0 ? `+${(stock.totalReturn || 0).toFixed(1)}` : (stock.totalReturn || 0).toFixed(1)}
                                   </span>
                                 </td>
