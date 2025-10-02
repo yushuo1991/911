@@ -912,7 +912,14 @@ export default function Home() {
             <div className="mb-3 flex justify-between items-center">
               <div className="text-2xs text-gray-600">
                 共 {selectedStockCountData.sectorData
-                  .filter(sector => showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true)
+                  .filter(sector => {
+                    // 需求：默认过滤掉"其他"和"ST板块"
+                    if (!showOnly5PlusInStockCountModal && (sector.sectorName === '其他' || sector.sectorName === 'ST板块')) {
+                      return false;
+                    }
+                    // 原有的5家以上过滤
+                    return showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true;
+                  })
                   .reduce((total, sector) => total + sector.stocks.length, 0)} 只涨停个股，按板块分组显示
               </div>
               <button
@@ -930,7 +937,14 @@ export default function Home() {
             {/* 按板块分组显示 - 并排网格布局 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 max-h-[70vh] overflow-y-auto">
               {selectedStockCountData.sectorData
-                .filter(sector => showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true)
+                .filter(sector => {
+                  // 需求：默认过滤掉"其他"和"ST板块"
+                  if (!showOnly5PlusInStockCountModal && (sector.sectorName === '其他' || sector.sectorName === 'ST板块')) {
+                    return false;
+                  }
+                  // 原有的5家以上过滤
+                  return showOnly5PlusInStockCountModal ? sector.stocks.length >= 5 : true;
+                })
                 .map((sector, sectorIndex) => {
                   // 获取该板块的5日期范围 - 修复：使用dates数组确保顺序正确
                   const currentDateIndex = dates.indexOf(selectedStockCountData.date);
