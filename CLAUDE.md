@@ -3,7 +3,70 @@
 
 # 项目备份记录
 
-## v4.2-stable-20250930 (当前稳定版本)
+## v4.14-stable-20251002 (当前稳定版本 - 10-2定稿) ⭐
+
+### 备份信息
+- **备份时间**: 2025-10-02 21:40
+- **版本标签**: v4.14-stable-20251002
+- **Git提交**: cffc6e8
+- **备注**: 10-2定稿
+- **本地备份**: backup/v4.14-stable-20251002-10-2定稿.tar.gz (992KB)
+- **GitHub标签**: https://github.com/yushuo1991/911/releases/tag/v4.14-stable-20251002
+
+### 核心功能
+- ✅ Tushare交易日历集成（自动过滤节假日）
+- ✅ 全局排序模式控制（连板/涨幅排序）
+- ✅ 涨停数弹窗状态列（显示连板数）
+- ✅ 7天板块节奏分析
+- ✅ 个股后续5天溢价追踪
+- ✅ 板块强度排行榜（Top 5）
+
+### 重要修复
+- 🐛 修复国庆节等节假日错误显示问题（v4.14）
+- 🐛 修复涨停数弹窗缺少状态列问题（v4.12）
+- 🐛 修复排序模式需在弹窗中切换的问题（v4.13）
+- 🐛 修复"首板"显示不统一问题（v4.12.1）
+
+### 技术升级
+- 集成Tushare trade_cal API（真实交易日历）
+- 智能缓存系统（4小时）
+- 频率控制（60次/分钟）
+- 降级策略（API失败时使用周末过滤）
+
+### 性能指标
+- API响应时间: <500ms
+- 缓存命中率: >80%
+- 页面加载: <2s
+- Tushare调用频率: <60次/分钟
+
+### 下载备份到本地
+```bash
+# 方式1: 从本地解压
+cd "C:\Users\yushu\Desktop\stock-tracker - 副本"
+tar -xzf "backup/v4.14-stable-20251002-10-2定稿.tar.gz" -C ../stock-tracker-v4.14
+
+# 方式2: 从GitHub克隆
+git clone --branch v4.14-stable-20251002 https://github.com/yushuo1991/911.git stock-tracker-v4.14
+```
+
+### 恢复到服务器
+```bash
+cd /www/wwwroot/stock-tracker
+git pull origin main
+# 或检出特定标签
+git checkout v4.14-stable-20251002
+docker compose build --no-cache
+docker compose up -d
+```
+
+### 详细文档
+- 完整备份说明: `BACKUP-v4.14-README.md`
+- v4.14修复报告: `log/trading-day-holiday-fix-20251002.md`
+- 状态列诊断: `log/stock-count-modal-status-column-diagnosis-20251002.md`
+
+---
+
+## v4.2-stable-20250930 (历史版本)
 
 ### 备份信息
 - **备份时间**: 2025-09-30 12:10 UTC
