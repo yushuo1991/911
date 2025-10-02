@@ -1,6 +1,6 @@
 'use client';
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 import { formatDate } from '@/lib/utils';
 
 /**
@@ -34,6 +34,7 @@ interface ChartConfig {
   showGrid?: boolean;
   colors?: string[];
   maxStocks?: number;
+  showDailyMax?: boolean; // 新增：是否显示每日最高值标注
 }
 
 /**
@@ -90,6 +91,7 @@ const DEFAULT_CONFIG: ChartConfig = {
   showLegend: true,
   showGrid: true,
   maxStocks: 10,
+  showDailyMax: false,
   colors: [
     '#2563eb', // 蓝色
     '#dc2626', // 红色
@@ -102,6 +104,74 @@ const DEFAULT_CONFIG: ChartConfig = {
     '#65a30d', // lime
     '#7c3aed', // violet
   ],
+};
+
+/**
+ * 计算每日最高值和对应股票
+ */
+function calculateDailyMaxValues(
+  chartData: ChartDataPoint[],
+  stockCodes: string[],
+  stockNames: Record<string, string>
+): { date: string; maxValue: number; maxStockName: string }[] {
+  return chartData.map(dataPoint => {
+    let maxValue = -Infinity;
+    let maxStockCode = '';
+
+    stockCodes.forEach(stockCode => {
+      const value = dataPoint[stockCode];
+      if (typeof value === 'number' && value > maxValue) {
+        maxValue = value;
+        maxStockCode = stockCode;
+      }
+    });
+
+    return {
+      date: dataPoint.date as string,
+      maxValue,
+      maxStockName: stockNames[maxStockCode] || maxStockCode
+    };
+  });
+}
+
+/**
+ * 自定义标签：显示每日最高值股票名称
+ */
+const CustomDot = (props: any) => {
+  const { cx, cy, payload, dataKey, dailyMaxInfo, stockNames } = props;
+
+  if (!dailyMaxInfo) return null;
+
+  // 找到当前日期的最高值信息
+  const maxInfo = dailyMaxInfo.find((info: any) => info.date === payload.date);
+  if (!maxInfo) return null;
+
+  // 检查当前数据点是否是最高值
+  const currentValue = payload[dataKey];
+  const stockName = stockNames[dataKey];
+
+  if (stockName === maxInfo.maxStockName && typeof currentValue === 'number') {
+    return (
+      <g>
+        {/* 绘制原始的点 */}
+        <circle cx={cx} cy={cy} r={4} fill={props.fill} stroke={props.stroke} strokeWidth={2} />
+        {/* 添加文字标注 */}
+        <text
+          x={cx}
+          y={cy - 10}
+          textAnchor="middle"
+          fill="#dc2626"
+          fontSize="10"
+          fontWeight="600"
+          className="select-none"
+        >
+          {stockName}
+        </text>
+      </g>
+    );
+  }
+
+  return <circle cx={cx} cy={cy} r={4} fill={props.fill} stroke={props.stroke} strokeWidth={2} />;
 };
 
 /**
@@ -176,6 +246,11 @@ export default function StockPremiumChart({ data, config = {}, title }: StockPre
   const limitedData = data.slice(0, finalConfig.maxStocks);
   const stockCodes = limitedData.map(s => s.stockCode);
 
+  // 计算每日最高值（如果启用）
+  const dailyMaxInfo = finalConfig.showDailyMax
+    ? calculateDailyMaxValues(chartData, stockCodes, stockNames)
+    : null;
+
   if (chartData.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
@@ -194,7 +269,7 @@ export default function StockPremiumChart({ data, config = {}, title }: StockPre
           <LineChart
             data={chartData}
             margin={{
-              top: 5,
+              top: finalConfig.showDailyMax ? 20 : 5, // 增加上边距为标注预留空间
               right: 30,
               left: 20,
               bottom: 5,
@@ -232,7 +307,13 @@ export default function StockPremiumChart({ data, config = {}, title }: StockPre
                 dataKey={stockCode}
                 stroke={finalConfig.colors![index % finalConfig.colors!.length]}
                 strokeWidth={2}
-                dot={{ fill: finalConfig.colors![index % finalConfig.colors!.length], strokeWidth: 2, r: 4 }}
+                dot={finalConfig.showDailyMax ? (props) => (
+                  <CustomDot
+                    {...props}
+                    dailyMaxInfo={dailyMaxInfo}
+                    stockNames={stockNames}
+                  />
+                ) : { fill: finalConfig.colors![index % finalConfig.colors!.length], strokeWidth: 2, r: 4 }}
                 activeDot={{ r: 6 }}
                 name={stockNames[stockCode]}
                 connectNulls

@@ -546,16 +546,22 @@ export default function Home() {
                 <div className="h-64">
                   <StockPremiumChart
                     data={transformSectorStocksToChartData(
-                      selectedSectorData.stocks,
+                      // 需求：图表联动过滤 - 根据showOnly10PlusInSectorModal过滤股票
+                      getSortedStocksForSector(selectedSectorData.stocks, selectedSectorData.followUpData, sectorModalSortMode)
+                        .filter(stock => {
+                          if (!showOnly10PlusInSectorModal) return true;
+                          const totalReturn = Object.values(selectedSectorData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
+                          return totalReturn > 10;
+                        }),
                       selectedSectorData.followUpData,
-                      10,
+                      50, // 增加maxStocks限制，确保所有过滤后的股票都显示
                       (() => {
                         // 计算后续5天的日期数组，确保图表日期顺序正确
                         const currentDateIndex = dates.indexOf(selectedSectorData.date);
                         return currentDateIndex !== -1 ? dates.slice(currentDateIndex + 1, currentDateIndex + 6) : [];
                       })()
                     )}
-                    config={{ height: 256, maxStocks: 10 }}
+                    config={{ height: 256, maxStocks: 50, showDailyMax: true }}
                   />
                 </div>
               </div>
