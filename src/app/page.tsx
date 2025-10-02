@@ -1285,7 +1285,7 @@ export default function Home() {
       {/* 日期列详情弹窗 - 显示该日个股后续5天溢价 */}
       {showDateColumnDetail && selectedDateColumnData && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60]">
-          <div className="bg-white rounded-xl p-4 w-auto min-w-[70vw] max-w-[95vw] max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-white rounded-xl p-4 w-auto max-w-[85vw] max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">
                 📊 {formatDate(selectedDateColumnData.date)} - 个股后续5天溢价详情
@@ -1306,9 +1306,9 @@ export default function Home() {
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-white border-b-2">
                   <tr>
-                    <th className="px-1.5 py-1.5 text-left text-2xs font-semibold text-gray-700 w-12">#</th>
-                    <th className="px-1.5 py-1.5 text-left text-2xs font-semibold text-gray-700">股票</th>
-                    <th className="px-1.5 py-1.5 text-center text-2xs font-semibold text-gray-700 w-16">状态</th>
+                    <th className="px-1 py-1.5 text-left text-2xs font-semibold text-gray-700 w-8">#</th>
+                    <th className="px-1 py-1.5 text-left text-2xs font-semibold text-gray-700">股票</th>
+                    <th className="px-1 py-1.5 text-center text-2xs font-semibold text-gray-700 w-12">状态</th>
                     {(() => {
                       // 使用dates数组确保日期正确排序
                       const currentDateIndex = dates.indexOf(selectedDateColumnData.date);
@@ -1316,13 +1316,13 @@ export default function Home() {
                       return followUpDates.map((followDate) => {
                         const formattedDate = formatDate(followDate).slice(5);
                         return (
-                          <th key={followDate} className="px-1.5 py-1.5 text-center text-2xs font-semibold text-gray-700 w-20">
+                          <th key={followDate} className="px-1 py-1.5 text-center text-2xs font-semibold text-gray-700 w-16">
                             {formattedDate}
                           </th>
                         );
                       });
                     })()}
-                    <th className="px-1.5 py-1.5 text-center text-2xs font-semibold text-gray-700 w-20">累计</th>
+                    <th className="px-1 py-1.5 text-center text-2xs font-semibold text-gray-700 w-16">累计</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1333,8 +1333,8 @@ export default function Home() {
                     const totalReturn = Object.values(selectedDateColumnData.followUpData[stock.code] || {}).reduce((sum, val) => sum + val, 0);
                     return (
                       <tr key={stock.code} className="border-b hover:bg-primary-50 transition">
-                        <td className="px-1.5 py-1.5 text-2xs text-gray-400">#{index + 1}</td>
-                        <td className="px-1.5 py-1.5">
+                        <td className="px-1 py-1.5 text-2xs text-gray-400">#{index + 1}</td>
+                        <td className="px-1 py-1.5">
                           <button
                             className="text-primary-600 hover:text-primary-700 font-medium hover:underline text-xs"
                             onClick={() => handleStockClick(stock.name, stock.code)}
@@ -1343,7 +1343,7 @@ export default function Home() {
                           </button>
                           <span className="text-2xs text-gray-400 ml-1">({stock.code})</span>
                         </td>
-                        <td className="px-1.5 py-1.5 text-center">
+                        <td className="px-1 py-1.5 text-center">
                           <span className={`text-2xs font-medium ${
                             stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'text-red-600' :
                             stock.td_type.includes('2') ? 'text-orange-600' :
@@ -1355,15 +1355,15 @@ export default function Home() {
                         {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
                           const performance = selectedDateColumnData.followUpData[stock.code]?.[followDate] || 0;
                           return (
-                            <td key={followDate || `day-${dayIndex}`} className="px-1.5 py-1.5 text-center">
-                              <span className={`px-1.5 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(performance)}`}>
+                            <td key={followDate || `day-${dayIndex}`} className="px-1 py-1.5 text-center">
+                              <span className={`px-1 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(performance)}`}>
                                 {performance.toFixed(1)}%
                               </span>
                             </td>
                           );
                         })}
-                        <td className="px-1.5 py-1.5 text-center">
-                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getPerformanceClass(totalReturn)}`}>
+                        <td className="px-1 py-1.5 text-center">
+                          <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${getPerformanceClass(totalReturn)}`}>
                             {totalReturn.toFixed(1)}%
                           </span>
                         </td>
