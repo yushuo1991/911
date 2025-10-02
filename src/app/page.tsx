@@ -35,7 +35,7 @@ export default function Home() {
   const [selectedWeekdayData, setSelectedWeekdayData] = useState<{date: string, sectorData: { sectorName: string; avgPremium: number; stockCount: number; }[], chartData?: { date: string; avgPremium: number; stockCount: number; }[]} | null>(null);
   const [showStockCountModal, setShowStockCountModal] = useState(false);
   const [selectedStockCountData, setSelectedStockCountData] = useState<{date: string, sectorData: { sectorName: string; stocks: any[]; avgPremium: number; }[]} | null>(null);
-  const [showOnly5PlusInStockCountModal, setShowOnly5PlusInStockCountModal] = useState(false);
+  const [showOnly5PlusInStockCountModal, setShowOnly5PlusInStockCountModal] = useState(true);
   const [show7DayLadderModal, setShow7DayLadderModal] = useState(false);
   const [selected7DayLadderData, setSelected7DayLadderData] = useState<{sectorName: string, dailyBreakdown: {date: string, stocks: StockPerformance[]}[]} | null>(null);
   // 新增：日期列详情弹窗状态
@@ -913,14 +913,14 @@ export default function Home() {
               <div className="text-2xs text-gray-600">
                 共 {selectedStockCountData.sectorData
                   .filter(sector => {
-                    // 需求：默认隐藏"其他"和"ST板块"，点击"显示全部板块"后才显示
-                    if (!showOnly5PlusInStockCountModal) {
-                      // 默认模式：过滤掉"其他"和"ST板块"
+                    // ≥5家模式：过滤≥5家的板块，且强制过滤"其他"和"ST板块"
+                    if (showOnly5PlusInStockCountModal) {
                       if (sector.sectorName === '其他' || sector.sectorName === 'ST板块') {
-                        return false;
+                        return false; // 强制过滤
                       }
+                      return sector.stocks.length >= 5;
                     }
-                    // showOnly5PlusInStockCountModal为true时显示所有板块
+                    // 显示全部模式：显示所有板块（包括"其他"和"ST板块"）
                     return true;
                   })
                   .reduce((total, sector) => total + sector.stocks.length, 0)} 只涨停个股，按板块分组显示
@@ -933,7 +933,7 @@ export default function Home() {
                     : 'bg-gray-100 text-gray-700 border border-gray-300'
                 }`}
               >
-                {showOnly5PlusInStockCountModal ? '隐藏其他/ST板块' : '显示全部板块'}
+                {showOnly5PlusInStockCountModal ? '显示全部板块' : '只显示≥5家板块'}
               </button>
             </div>
 
@@ -941,15 +941,23 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 max-h-[70vh] overflow-y-auto">
               {selectedStockCountData.sectorData
                 .filter(sector => {
-                  // 需求：默认隐藏"其他"和"ST板块"，点击"显示全部板块"后才显示
-                  if (!showOnly5PlusInStockCountModal) {
-                    // 默认模式：过滤掉"其他"和"ST板块"
+                  // ≥5家模式：过滤≥5家的板块，且强制过滤"其他"和"ST板块"
+                  if (showOnly5PlusInStockCountModal) {
                     if (sector.sectorName === '其他' || sector.sectorName === 'ST板块') {
-                      return false;
+                      return false; // 强制过滤
                     }
+                    return sector.stocks.length >= 5;
                   }
-                  // showOnly5PlusInStockCountModal为true时显示所有板块
+                  // 显示全部模式：显示所有板块（包括"其他"和"ST板块"）
                   return true;
+                })
+                .sort((a, b) => {
+                  // 排序逻辑：其他和ST板块排在最后
+                  const aIsSpecial = a.sectorName === '其他' || a.sectorName === 'ST板块';
+                  const bIsSpecial = b.sectorName === '其他' || b.sectorName === 'ST板块';
+                  if (aIsSpecial && !bIsSpecial) return 1;  // a排后面
+                  if (!aIsSpecial && bIsSpecial) return -1; // b排后面
+                  return 0; // 保持原有顺序
                 })
                 .map((sector, sectorIndex) => {
                   // 获取该板块的5日期范围 - 修复：使用dates数组确保顺序正确
