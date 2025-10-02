@@ -521,12 +521,6 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setSectorModalSortMode(sectorModalSortMode === 'board' ? 'return' : 'board')}
-                  className="px-2 py-1 rounded text-xs font-medium transition-colors bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200"
-                >
-                  切换为{sectorModalSortMode === 'board' ? '涨幅排序' : '连板排序'}
-                </button>
-                <button
                   onClick={() => setShowOnly10PlusInSectorModal(!showOnly10PlusInSectorModal)}
                   className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                     showOnly10PlusInSectorModal
@@ -1442,6 +1436,14 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* 全局排序模式切换 */}
+            <button
+              onClick={() => setSectorModalSortMode(sectorModalSortMode === 'board' ? 'return' : 'board')}
+              className="px-2 py-1 rounded text-xs font-medium transition-colors bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200"
+            >
+              {sectorModalSortMode === 'board' ? '🔢 连板排序' : '📈 涨幅排序'}
+            </button>
+
             {/* 板块筛选开关 */}
             <label className="flex items-center gap-1.5 text-xs">
               <input
