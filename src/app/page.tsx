@@ -1003,7 +1003,14 @@ export default function Home() {
                             </tr>
                           </thead>
                           <tbody>
-                            {getSortedStocksForSector(sector.stocks, sector.stocks.reduce((acc, s) => ({...acc, [s.code]: s.followUpData}), {}), sectorModalSortMode).map((stock, stockIndex) => (
+                            {(() => {
+                              // 构建正确格式的 followUpData
+                              const followUpDataMap: Record<string, Record<string, number>> = {};
+                              sector.stocks.forEach(stock => {
+                                followUpDataMap[stock.code] = stock.followUpData;
+                              });
+                              return getSortedStocksForSector(sector.stocks, followUpDataMap, sectorModalSortMode);
+                            })().map((stock, stockIndex) => (
                               <tr key={stock.code} className={`border-b ${stockIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
                                 <td className="px-1 py-0.5">
                                   <div
