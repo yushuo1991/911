@@ -1,32 +1,83 @@
-# 服务器部署命令（正确版本 - 使用 docker compose）
+╔══════════════════════════════════════════════════════════════╗
+║         📡 服务器部署命令 - 快速执行版                       ║
+╚══════════════════════════════════════════════════════════════╝
 
-# 1. 进入项目目录
+执行环境: 服务器 racknerd-96560d3 (宝塔终端或SSH)
+执行位置: /www/wwwroot/stock-tracker
+目标: 将v4.14、v4.15、v4.16部署到生产环境
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法一：使用自动化脚本（推荐）
+
+# 步骤1: 进入项目目录并拉取最新代码（包含部署脚本）
 cd /www/wwwroot/stock-tracker
-
-# 2. 拉取最新代码（已完成，显示Already up to date）
 git pull origin main
 
-# 3. 停止容器
-docker compose down
+# 步骤2: 赋予脚本执行权限
+chmod +x deploy-v4.16-to-server.sh
 
-# 4. 重新构建（清除缓存）
-docker compose build --no-cache
+# 步骤3: 执行部署脚本
+./deploy-v4.16-to-server.sh
 
-# 5. 启动服务
-docker compose up -d
+# 脚本会自动完成所有部署步骤，约5-10分钟
 
-# 6. 等待服务启动
-sleep 30
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# 7. 检查容器状态
-docker ps | grep stock-tracker
+🚀 方法二：手动命令部署（一键复制）
 
-# 8. 查看日志（可选）
-docker compose logs -f --tail=50
+复制下面整段命令，粘贴到宝塔终端执行:
 
-# ============================================
-# 注意事项
-# ============================================
-# 1. 使用 "docker compose" 而不是 "docker-compose"
-# 2. git pull 显示 "Already up to date" 说明代码已是最新
-# 3. 需要重新构建才能应用代码变更
+cd /www/wwwroot/stock-tracker && \
+echo "🔄 拉取最新代码..." && \
+git pull origin main && \
+echo "✅ 代码已更新到:" && \
+git log --oneline -1 && \
+echo "" && \
+echo "🛑 停止旧容器..." && \
+docker compose down && \
+echo "" && \
+echo "🔨 重新构建镜像（无缓存）..." && \
+docker compose build --no-cache && \
+echo "" && \
+echo "🚀 启动新容器..." && \
+docker compose up -d && \
+echo "" && \
+echo "⏳ 等待15秒让应用启动..." && \
+sleep 15 && \
+echo "" && \
+echo "🔍 检查容器状态:" && \
+docker ps | grep stock-tracker && \
+echo "" && \
+echo "🏥 检查应用健康:" && \
+curl -I http://localhost:3002 && \
+echo "" && \
+echo "✅ 部署完成！访问 http://bk.yushuo.click 验证（记得Ctrl+Shift+R强制刷新）"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 部署完成后验证
+
+# 检查Git版本（应显示aecb711或更新）
+git log --oneline -3
+
+# 检查应用HTTP响应
+curl -I http://localhost:3002
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 浏览器验证（最重要！）
+
+1. 访问: http://bk.yushuo.click
+2. 按 Ctrl+Shift+R 强制刷新（清除浏览器缓存）
+3. 检查首页顶部7天日期，不应包含10月1日 ✅
+4. 点击任意日期的"涨停家数"（如"8只涨停"）
+5. 观察弹窗变化:
+   ✅ 弹窗更宽（约70%屏幕宽度，不是60%）
+   ✅ 板块卡片3列显示（不是4列）
+   ✅ 表格列宽更宽（名称90px、状态60px、日期70px）
+   ✅ 字体更大（12px）
+   ✅ 蓝色渐变表头（不是灰色）
+
+Created: 2025-10-03
+Purpose: 快速部署v4.14-v4.16到生产服务器

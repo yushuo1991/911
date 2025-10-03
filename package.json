@@ -1,6 +1,6 @@
 {
   "name": "stock-tracker-vercel",
-  "version": "1.0.0",
+  "version": "4.20.0",
   "description": "涨停板跟踪系统 - Vercel部署版",
   "private": true,
   "scripts": {
