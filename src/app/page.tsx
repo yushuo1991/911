@@ -965,7 +965,7 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* v4.8.4修复：恢复文字可读性+压缩溢价徽章 */}
+                      {/* v4.8.5微调：溢价徽章稍微放大，与日期弹窗一致 */}
                       <table className="w-full border-collapse table-fixed">
                         <thead className="bg-blue-50">
                           <tr className="border-b border-blue-100">
@@ -1002,7 +1002,7 @@ export default function Home() {
                                 </div>
                               </td>
                               <td className="px-0.5 py-0.5 text-center">
-                                <span className={`inline-block px-[3px] py-0 rounded-sm text-[8px] font-bold leading-tight whitespace-nowrap ${
+                                <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${
                                   stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'bg-red-100 text-red-700' :
                                   stock.td_type.includes('2') ? 'bg-orange-100 text-orange-700' :
                                   'bg-gray-200 text-gray-700'
@@ -1014,14 +1014,14 @@ export default function Home() {
                                 const performance = stock.followUpData?.[date] || 0;
                                 return (
                                   <td key={date} className="px-0.5 py-0.5 text-center">
-                                    <span className={`inline-block px-[3px] py-0 rounded-sm text-[8px] font-medium leading-tight whitespace-nowrap ${getPerformanceColorClass(performance)}`}>
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-medium whitespace-nowrap ${getPerformanceColorClass(performance)}`}>
                                       {performance > 0 ? `+${performance.toFixed(1)}` : performance.toFixed(1)}
                                     </span>
                                   </td>
                                 );
                               })}
                               <td className="px-0.5 py-0.5 text-center">
-                                <span className={`inline-block px-[3px] py-0 rounded-sm text-[8px] font-bold leading-tight whitespace-nowrap ${getPerformanceColorClass(stock.totalReturn || 0)}`}>
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${getPerformanceColorClass(stock.totalReturn || 0)}`}>
                                   {(stock.totalReturn || 0) > 0 ? `+${(stock.totalReturn || 0).toFixed(1)}` : (stock.totalReturn || 0).toFixed(1)}
                                 </span>
                               </td>
