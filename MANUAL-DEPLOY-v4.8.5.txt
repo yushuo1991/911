@@ -1,0 +1,145 @@
+╔══════════════════════════════════════════════════════════════╗
+║         🚀 v4.8.5 手动部署指南（避免sed转义问题）           ║
+╚══════════════════════════════════════════════════════════════╝
+
+sed命令失败是因为正则表达式中的 [3px] 需要转义
+推荐使用以下手动方法之一：
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法一：使用Perl替换（最可靠）
+
+复制整段到服务器执行:
+
+cd /www/wwwroot/stock-tracker && \
+cp src/app/page.tsx src/app/page.tsx.backup-v4.8.4 && \
+perl -i -pe 's/px-\[3px\] py-0 rounded-sm text-\[8px\] font-bold leading-tight/px-1 py-0.5 rounded text-[9px] font-bold/g' src/app/page.tsx && \
+perl -i -pe 's/px-\[3px\] py-0 rounded-sm text-\[8px\] font-medium leading-tight whitespace-nowrap/px-1.5 py-0.5 rounded text-[9px] font-medium whitespace-nowrap/g' src/app/page.tsx && \
+echo "✅ 代码修改完成" && \
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}') && \
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx && \
+docker restart $CONTAINER_ID && \
+sleep 15 && \
+echo "✅ v4.8.5部署完成！访问 http://bk.yushuo.click 验证"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法二：使用bash脚本
+
+1. 上传脚本到服务器:
+cd /www/wwwroot/stock-tracker
+cat > deploy-v4.8.5.sh << 'SCRIPT_END'
+#!/bin/bash
+cd /www/wwwroot/stock-tracker
+cp src/app/page.tsx src/app/page.tsx.backup-v4.8.4
+perl -i -pe 's/px-\[3px\] py-0 rounded-sm text-\[8px\] font-bold leading-tight/px-1 py-0.5 rounded text-[9px] font-bold/g' src/app/page.tsx
+perl -i -pe 's/px-\[3px\] py-0 rounded-sm text-\[8px\] font-medium leading-tight whitespace-nowrap/px-1.5 py-0.5 rounded text-[9px] font-medium whitespace-nowrap/g' src/app/page.tsx
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}')
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx
+docker restart $CONTAINER_ID
+sleep 15
+echo "✅ v4.8.5部署完成！"
+SCRIPT_END
+
+2. 赋予执行权限并运行:
+chmod +x deploy-v4.8.5.sh
+./deploy-v4.8.5.sh
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法三：手动vim编辑（最精确）
+
+1. 备份文件:
+cd /www/wwwroot/stock-tracker
+cp src/app/page.tsx src/app/page.tsx.backup-v4.8.4
+
+2. 编辑文件:
+vim src/app/page.tsx
+
+3. 在vim中查找并替换（第一处 - 状态徽章）:
+/px-\[3px\] py-0 rounded-sm text-\[8px\] font-bold leading-tight
+按 n 找到匹配行
+按 cw 删除到空格
+输入: px-1 py-0.5 rounded text-[9px] font-bold
+按 ESC 保存
+
+4. 在vim中查找并替换（第二处 - 溢价徽章）:
+/px-\[3px\] py-0 rounded-sm text-\[8px\] font-medium leading-tight
+按 n 找到匹配行
+按 cw 删除到空格
+输入: px-1.5 py-0.5 rounded text-[9px] font-medium
+按 ESC 保存
+
+5. 保存退出:
+:wq
+
+6. 复制到容器并重启:
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}')
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx
+docker restart $CONTAINER_ID
+sleep 15
+echo "✅ v4.8.5部署完成！"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法四：完整重建（最稳妥，但耗时）
+
+先用方法一或方法三修改代码，然后:
+
+cd /www/wwwroot/stock-tracker && \
+docker compose down && \
+docker compose build && \
+docker compose up -d && \
+sleep 20 && \
+docker ps | grep stock-tracker && \
+curl -I http://localhost:3002
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 验证部署成功
+
+1. 访问 http://bk.yushuo.click
+2. 按 Ctrl+Shift+R 强制刷新
+3. 点击任意涨停数（如"73只涨停"）
+4. 检查变化:
+
+修改前 (v4.8.4):
+- 溢价徽章: text-[8px] px-[3px] py-0 rounded-sm leading-tight
+- 状态徽章: text-[8px] px-[3px] py-0 rounded-sm leading-tight
+
+修改后 (v4.8.5):
+- 溢价徽章: text-[9px] px-1.5 py-0.5 rounded（稍微放大）
+- 状态徽章: text-[9px] px-1 py-0.5 rounded
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 需要修改的具体位置
+
+文件: src/app/page.tsx
+
+第一处（约1005行 - 状态徽章）:
+<span className={`inline-block px-[3px] py-0 rounded-sm text-[8px] font-bold leading-tight ...
+                               ↓ 改为 ↓
+<span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ...
+
+第二处（约1017行 - 溢价徽章）:
+<span className={`inline-block px-[3px] py-0 rounded-sm text-[8px] font-medium leading-tight whitespace-nowrap
+                               ↓ 改为 ↓
+<span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-medium whitespace-nowrap
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔄 回滚到v4.8.4
+
+如果部署后不满意:
+
+cp /www/wwwroot/stock-tracker/src/app/page.tsx.backup-v4.8.4 /www/wwwroot/stock-tracker/src/app/page.tsx
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}')
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx
+docker restart $CONTAINER_ID
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+创建时间: 2025-10-03
+版本: v4.8.5
+用途: 微调溢价徽章大小，对齐日期弹窗样式
