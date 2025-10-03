@@ -845,9 +845,9 @@ export default function Home() {
                   {selectedDateData.sectorData.map((sector, index) => (
                     <tr key={sector.sectorName} className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-primary-50`}>
                       <td className="px-2 py-1.5 text-2xs text-gray-400">#{index + 1}</td>
-                      <td className="px-2 py-1.5 font-medium text-gray-900">{sector.sectorName}</td>
+                      <td className="px-2 py-1.5 font-semibold text-sm text-gray-900">{sector.sectorName}</td>
                       <td className="px-2 py-1.5 text-center">
-                        <span className={`px-2 py-0.5 rounded text-2xs ${
+                        <span className={`px-2 py-0.5 rounded text-xs ${
                           sector.stockCount >= 5 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                         }`}>
                           {sector.stockCount}
@@ -855,13 +855,13 @@ export default function Home() {
                       </td>
                       {Object.entries(sector.avgPremiumByDay).map(([date, avgPremium]) => (
                         <td key={date} className="px-2 py-1.5 text-center">
-                          <span className={`px-1.5 py-0.5 rounded text-2xs font-medium ${getPerformanceClass(avgPremium)}`}>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${getPerformanceColorClass(avgPremium)}`}>
                             {avgPremium.toFixed(1)}%
                           </span>
                         </td>
                       ))}
                       <td className="px-2 py-1.5 text-center">
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getPerformanceClass(sector.total5DayPremium || 0)}`}>
+                        <span className={`px-2.5 py-1 rounded text-sm font-semibold ${getPerformanceColorClass(sector.total5DayPremium || 0)}`}>
                           {(sector.total5DayPremium || 0).toFixed(1)}%
                         </span>
                       </td>
