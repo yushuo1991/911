@@ -1358,7 +1358,7 @@ export default function Home() {
 
       {/* K线图弹窗 */}
       {showModal && selectedStock && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[70]">
           <div className="bg-white rounded-xl p-4 max-w-4xl max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">
