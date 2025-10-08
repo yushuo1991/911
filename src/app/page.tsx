@@ -227,17 +227,16 @@ export default function Home() {
   const handleRankingBadgeClick = (sectorName: string) => {
     if (!sevenDaysData || !dates) return;
 
-    // 收集该板块在7天内每天的涨停个股
+    // 收集该板块在7天内每天的涨停个股（v4.8.7修复：显示所有7天，即使某天没有涨停个股）
     const dailyBreakdown: {date: string, stocks: StockPerformance[]}[] = [];
 
     dates.forEach(date => {
       const dayData = sevenDaysData[date];
-      if (dayData && dayData.categories[sectorName]) {
-        dailyBreakdown.push({
-          date,
-          stocks: dayData.categories[sectorName]
-        });
-      }
+      // v4.8.7修复：即使该日期没有该板块的涨停个股，也显示该日期（stocks为空数组）
+      dailyBreakdown.push({
+        date,
+        stocks: (dayData && dayData.categories[sectorName]) ? dayData.categories[sectorName] : []
+      });
     });
 
     setSelected7DayLadderData({
@@ -1241,7 +1240,7 @@ export default function Home() {
                                   stock.boardCount === 2 ? 'text-orange-600' :
                                   'text-gray-500'
                                 }`}>
-                                  {stock.boardCount}板
+                                  {stock.td_type}
                                 </span>
                               </div>
                             ))}
