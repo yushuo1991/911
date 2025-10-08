@@ -1,0 +1,35 @@
+╔══════════════════════════════════════════════════════════════╗
+║          v4.8.7 单行部署命令（无换行符问题）                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法一：Git拉取重建（完整单行命令）
+
+cd /www/wwwroot/stock-tracker && git fetch origin && git checkout -- src/app/page.tsx && git pull origin main && docker compose down && docker compose build && docker compose up -d && sleep 20 && docker ps | grep stock-tracker && curl -I http://localhost:3002 && echo "✅ v4.8.7部署完成！"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法二：Perl热替换（完整单行命令，最快）
+
+cd /www/wwwroot/stock-tracker && cp src/app/page.tsx src/app/page.tsx.backup-v4.8.6 && sed -i 's/z-50/z-[70]/' src/app/page.tsx && CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}') && docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx && docker restart $CONTAINER_ID && sleep 15 && echo "✅ v4.8.7热部署完成！"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 说明
+
+修改内容：
+- 文件：src/app/page.tsx（第1361行）
+- 修改：z-50 改为 z-[70]
+- 目的：让K线图弹窗显示在最上层
+
+验证方法：
+1. 访问 http://bk.yushuo.click
+2. 点击排序 → 选板块 → 点日期 → 点个股名称
+3. K线图应该在最上层显示
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔄 回滚命令（单行）
+
+cp /www/wwwroot/stock-tracker/src/app/page.tsx.backup-v4.8.6 /www/wwwroot/stock-tracker/src/app/page.tsx && CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}') && docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx && docker restart $CONTAINER_ID
