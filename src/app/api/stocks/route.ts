@@ -23,7 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
     private cache = new Map<string, CacheEntry>();
     private sevenDaysCache = new Map<string, SevenDaysCacheEntry>();
     private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24小时
-    private readonly SEVEN_DAYS_CACHE_DURATION = 2 * 60 * 60 * 1000; // 7天数据缓存2小时
+    private readonly SEVEN_DAYS_CACHE_DURATION = 30 * 60 * 1000; // 7天数据缓存30分钟（v4.8.8修复：加快数据刷新）
 
     private getCacheKey(stockCode: string, tradingDays: string[]): string {
       return `${stockCode}:${tradingDays.join(',')}`;
@@ -255,15 +255,24 @@ import { NextRequest, NextResponse } from 'next/server';
             reversedStockList.forEach((stockData: any[]) => {
               // stockData是一个数组，索引说明：
               // [0]: 股票代码, [1]: 股票名称, [9]: 板位类型
+              // [6]: 成交额（元）- v4.8.8新增
               const stockCode = stockData[0];
               const stockName = stockData[1];
               const tdType = stockData[9] || '首板';
+              const amountInYuan = parseFloat(stockData[6]) || 0; // 成交额（元）
+              const amountInYi = amountInYuan / 100000000; // 转换为亿元
+
+              // 调试日志：记录前3个股票的完整数组结构
+              if (stocks.length < 3) {
+                console.log(`[API] stockData数组结构 [${stockName}]:`, JSON.stringify(stockData.slice(0, 15)));
+              }
 
               stocks.push({
                 StockName: stockName,
                 StockCode: stockCode,
                 ZSName: zsName,
-                TDType: tdType
+                TDType: tdType,
+                Amount: Math.round(amountInYi * 100) / 100 // 保留2位小数
               });
             });
           }
@@ -807,6 +816,7 @@ import { NextRequest, NextResponse } from 'next/server';
         // 按分类整理数据
         const categories: Record<string, StockPerformance[]> = {};
         const followUpData: Record<string, Record<string, Record<string, number>>> = {};
+        const sectorAmounts: Record<string, number> = {}; // v4.8.8新增：板块成交额汇总
 
         for (const stock of limitUpStocks) {
           const category = stock.ZSName || '其他';
@@ -825,8 +835,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
           if (!categories[category]) {
             categories[category] = [];
+            sectorAmounts[category] = 0; // 初始化板块成交额
           }
           categories[category].push(stockPerformance);
+
+          // v4.8.8新增：累加板块成交额
+          if (stock.Amount && stock.Amount > 0) {
+            sectorAmounts[category] += stock.Amount;
+          }
 
           // 存储后续表现数据
           if (!followUpData[category]) {
@@ -843,11 +859,17 @@ import { NextRequest, NextResponse } from 'next/server';
         // 计算统计数据
         const stats = calculateStats(categories);
 
+        // v4.8.8新增：四舍五入板块成交额到两位小数
+        Object.keys(sectorAmounts).forEach(category => {
+          sectorAmounts[category] = Math.round(sectorAmounts[category] * 100) / 100;
+        });
+
         result[day] = {
           date: day,
           categories,
           stats,
-          followUpData
+          followUpData,
+          sectorAmounts // v4.8.8新增：板块成交额汇总（亿元）
         };
 
       } catch (error) {

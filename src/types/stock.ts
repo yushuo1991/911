@@ -3,6 +3,7 @@ export interface Stock {
   StockCode: string;
   ZSName: string;
   TDType: string;
+  Amount?: number; // 成交额（亿元）- v4.8.8新增
 }
 
 export interface StockPerformance {
@@ -40,6 +41,7 @@ export interface DayData {
     profit_ratio: number;
   };
   followUpData: Record<string, Record<string, Record<string, number>>>; // 板块->股票代码->后续日期表现
+  sectorAmounts?: Record<string, number>; // v4.8.8新增：板块成交额汇总（亿元）
 }
 
 export interface SevenDaysData {

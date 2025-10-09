@@ -1,0 +1,127 @@
+╔══════════════════════════════════════════════════════════════╗
+║     🚀 v4.8.7 服务器快速部署（K线图z-index修复）            ║
+╚══════════════════════════════════════════════════════════════╝
+
+改动说明: 修复K线图弹窗被个股溢价弹窗遮挡的问题
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 Git拉取部署（推荐）
+
+复制整段到服务器执行:
+
+cd /www/wwwroot/stock-tracker && \
+git fetch origin && \
+git checkout -- src/app/page.tsx && \
+git pull origin main && \
+docker compose down && \
+docker compose build && \
+docker compose up -d && \
+sleep 20 && \
+docker ps | grep stock-tracker && \
+curl -I http://localhost:3002 && \
+echo "✅ v4.8.7部署完成！访问 http://bk.yushuo.click 验证"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 Perl热替换部署（最快）
+
+复制整段到服务器执行:
+
+cd /www/wwwroot/stock-tracker && \
+cp src/app/page.tsx src/app/page.tsx.backup-v4.8.6 && \
+perl -i -pe 's/z-50/z-[70]/g if /K线图弹窗/' src/app/page.tsx && \
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}') && \
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx && \
+docker restart $CONTAINER_ID && \
+sleep 15 && \
+echo "✅ v4.8.7部署完成！"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 验证v4.8.7部署成功
+
+访问 http://bk.yushuo.click 并按以下步骤验证:
+
+1. 点击"排序" → 选择任意板块（如"摩尔线程概念"）
+2. 显示该板块7天梯队
+3. 点击任意日期（如"09-25"）→ 打开个股溢价弹窗
+4. 在溢价弹窗中点击任意个股名称（如"森元股份"）
+5. ✅ K线图弹窗应该显示在最上层，不被溢价弹窗遮挡
+
+修改前 (v4.8.6):
+- K线图弹窗: z-50
+- 个股溢价弹窗: z-[60]
+- 问题: K线图被遮挡 ❌
+
+修改后 (v4.8.7):
+- K线图弹窗: z-[70] ✨
+- 个股溢价弹窗: z-[60]
+- 效果: K线图始终在最上层 ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 v4.8.7 具体修改
+
+文件: src/app/page.tsx (line 1361)
+
+修改前:
+<div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+
+修改后:
+<div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[70]">
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 z-index层级结构
+
+| 弹窗类型 | z-index | 层级 |
+|---------|---------|------|
+| K线图弹窗 | z-[70] | 最高（v4.8.7修复）✨ |
+| 个股溢价弹窗 | z-[60] | 次高 |
+| 日期弹窗 | z-50 | 中等 |
+| 其他弹窗 | z-50 | 中等 |
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔄 回滚到v4.8.6
+
+如果部署后有问题:
+
+cp /www/wwwroot/stock-tracker/src/app/page.tsx.backup-v4.8.6 \
+   /www/wwwroot/stock-tracker/src/app/page.tsx
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}')
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx
+docker restart $CONTAINER_ID
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 Git提交记录
+
+commit c35861e (HEAD -> main, origin/main)
+Author: Claude Code
+Date: 2025-10-03
+
+    fix: v4.8.7 修复K线图弹窗被个股溢价弹窗遮挡问题
+
+    问题:
+    - 在个股溢价弹窗中点击个股名称打开K线图时
+    - K线图弹窗被个股溢价弹窗遮挡，不在最上层显示
+
+    原因:
+    - K线图弹窗: z-50
+    - 个股溢价弹窗: z-[60]
+    - z-index不够高，被遮挡
+
+    修复:
+    - K线图弹窗: z-50 → z-[70]
+    - 确保K线图始终显示在最上层
+
+    用户反馈: K线图弹窗没有在最前面显示，需要始终处于最上方
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+创建时间: 2025-10-03
+版本: v4.8.7
+改动: 仅修改1行代码（z-50 → z-[70]）
+类型: Bug修复

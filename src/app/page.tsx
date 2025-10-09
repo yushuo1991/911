@@ -1555,10 +1555,24 @@ export default function Home() {
                                 <div className="font-medium text-gray-900 text-xs truncate hover:text-blue-600 transition-colors">
                                   {sector.name}
                                 </div>
-                                <div className={`text-2xs px-1.5 py-0.5 rounded mt-0.5 inline-block ${
-                                  sector.count >= 5 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {sector.count}个
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <div className={`text-2xs px-1.5 py-0.5 rounded inline-block ${
+                                    sector.count >= 5 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {sector.count}个
+                                  </div>
+                                  {(() => {
+                                    // v4.8.8新增：显示板块成交额
+                                    const sectorAmount = sevenDaysData[date]?.sectorAmounts?.[sector.name];
+                                    if (sectorAmount && sectorAmount > 0) {
+                                      return (
+                                        <div className="text-2xs px-1.5 py-0.5 rounded inline-block bg-yellow-100 text-yellow-700" title={`成交额: ${sectorAmount}亿元`}>
+                                          💰{sectorAmount}亿
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
