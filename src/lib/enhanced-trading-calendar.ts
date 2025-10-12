@@ -238,9 +238,22 @@ export async function getValidTradingDays(startDate: string, count: number = 5):
   }
 }
 
-// 2. 从交易日历获取7个交易日（向前追溯）
+// 2. 从交易日历获取7个交易日（向前追溯，17:00后包含当天）
 export async function get7TradingDaysFromCalendar(endDate: string): Promise<string[]> {
   const tradingDays: string[] = [];
+
+  // v4.8.9新增：判断是否应该包含当天（17:00之后且是交易日）
+  const now = new Date();
+  const endDateObj = new Date(endDate);
+  const currentHour = now.getHours();
+
+  // 检查endDate是否是今天
+  const isToday = now.toISOString().split('T')[0] === endDate;
+
+  // 如果是今天且时间>=17:00，则包含当天；否则从前一天开始查找
+  const shouldIncludeToday = isToday && currentHour >= 17;
+
+  console.log(`[7天交易日] 当前时间: ${now.toISOString()}, 小时: ${currentHour}, 是否包含当天: ${shouldIncludeToday}`);
 
   // 计算查询范围（向前追溯30天确保包含7个交易日）
   const startDate = new Date(endDate);
@@ -258,6 +271,14 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
     if (calendar.size > 0) {
       // 使用真实交易日历，从endDate向前查找
       let currentDate = new Date(endDate);
+
+      // v4.8.9修改：根据时间决定起始位置
+      if (!shouldIncludeToday) {
+        currentDate.setDate(currentDate.getDate() - 1); // 从前一天开始
+        console.log(`[7天交易日] 当前时间<17:00，从前一天开始查找`);
+      } else {
+        console.log(`[7天交易日] 当前时间>=17:00，包含当天`);
+      }
 
       while (tradingDays.length < 7) {
         const dateStr = currentDate.getFullYear().toString() +
@@ -284,6 +305,11 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
       console.log(`[7天交易日] 降级到周末过滤逻辑`);
       let currentDate = new Date(endDate);
 
+      // v4.8.9修改：根据时间决定起始位置
+      if (!shouldIncludeToday) {
+        currentDate.setDate(currentDate.getDate() - 1);
+      }
+
       while (tradingDays.length < 7) {
         if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
           // 转换为YYYY-MM-DD格式
@@ -306,6 +332,11 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
     // 兜底：使用周末过滤
     const fallbackDays: string[] = [];
     let currentDate = new Date(endDate);
+
+    // v4.8.9修改：根据时间决定起始位置
+    if (!shouldIncludeToday) {
+      currentDate.setDate(currentDate.getDate() - 1);
+    }
 
     while (fallbackDays.length < 7) {
       if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {

@@ -1,0 +1,5 @@
+诊断命令（复制下面这一整行）：
+cd /www/wwwroot/stock-tracker && echo "=== Git版本 ===" && git log -1 --oneline && echo "" && echo "=== 缓存时间检查 ===" && grep "SEVEN_DAYS_CACHE_DURATION" src/app/api/stocks/route.ts | head -1 && echo "" && echo "=== Amount字段检查 ===" && grep "Amount" src/types/stock.ts | head -2 && echo "" && echo "=== Docker状态 ===" && docker ps | grep stock-tracker && echo "" && echo "=== 服务响应 ===" && curl -I http://localhost:3002 2>&1 | head -1
+
+重新部署命令（如果诊断有问题，复制下面这一整行）：
+cd /www/wwwroot/stock-tracker && git fetch origin && git reset --hard origin/main && docker compose down && docker compose build --no-cache && docker compose up -d && sleep 20 && echo "部署完成"

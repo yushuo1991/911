@@ -23,7 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
     private cache = new Map<string, CacheEntry>();
     private sevenDaysCache = new Map<string, SevenDaysCacheEntry>();
     private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24小时
-    private readonly SEVEN_DAYS_CACHE_DURATION = 30 * 60 * 1000; // 7天数据缓存30分钟（v4.8.8修复：加快数据刷新）
+    private readonly SEVEN_DAYS_CACHE_DURATION = 5 * 60 * 1000; // 7天数据缓存5分钟（v4.8.9修复：浏览器缓存问题）
 
     private getCacheKey(stockCode: string, tradingDays: string[]): string {
       return `${stockCode}:${tradingDays.join(',')}`;
@@ -767,6 +767,12 @@ import { NextRequest, NextResponse } from 'next/server';
         data: memoryCachedResult,
         dates: sevenDays,
         cached: true
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
     }
 
@@ -784,6 +790,12 @@ import { NextRequest, NextResponse } from 'next/server';
           data: dbCachedResult.data,
           dates: dbCachedResult.dates,
           cached: true
+        }, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
         });
       }
     } catch (dbError) {
@@ -901,6 +913,12 @@ import { NextRequest, NextResponse } from 'next/server';
       data: result,
       dates: sevenDays,
       cached: false
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
   }
 
