@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
   import { Stock, LimitUpApiResponse, StockPerformance, TrackingData } from '@/types/stock';
   import { generateTradingDays, generateMockPerformance, sortStocksByBoard, calculateStats } from '@/lib/utils';
   import { stockDatabase } from '@/lib/database';
-  import { get7TradingDaysFromCalendar } from '@/lib/enhanced-trading-calendar';
+  import { get7TradingDaysFromCalendar, getValidTradingDays } from '@/lib/enhanced-trading-calendar';
 
   const TUSHARE_TOKEN = process.env.TUSHARE_TOKEN || '';
 
@@ -692,9 +692,9 @@ import { NextRequest, NextResponse } from 'next/server';
       });
     }
 
-    // 获取交易日
-    const tradingDays = generateTradingDays(date, 5);
-    console.log(`[API] 生成交易日: ${tradingDays}`);
+    // 获取交易日 - v4.8.10修复：使用真实交易日历排除节假日
+    const tradingDays = await getValidTradingDays(date, 5);
+    console.log(`[API] 生成交易日（已排除节假日）: ${tradingDays}`);
 
     // 按分类整理数据
     const categories: Record<string, StockPerformance[]> = {};
@@ -822,8 +822,8 @@ import { NextRequest, NextResponse } from 'next/server';
           continue;
         }
 
-        // 获取该天后5个交易日（用于溢价计算）
-        const followUpDays = generateTradingDays(day, 5);
+        // 获取该天后5个交易日（用于溢价计算）- v4.8.10修复：使用真实交易日历排除节假日
+        const followUpDays = await getValidTradingDays(day, 5);
 
         // 按分类整理数据
         const categories: Record<string, StockPerformance[]> = {};
