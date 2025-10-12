@@ -45,6 +45,9 @@ export default function Home() {
   const [showOnly10PlusInSectorModal, setShowOnly10PlusInSectorModal] = useState(false);
   // 新增：板块弹窗排序模式（需求3）
   const [sectorModalSortMode, setSectorModalSortMode] = useState<'board' | 'return'>('board');
+  // 新增：K线图批量展示状态
+  const [showKlineInSector, setShowKlineInSector] = useState(false);
+  const [klinePage, setKlinePage] = useState(0); // K线图当前页码
 
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
@@ -255,6 +258,8 @@ export default function Home() {
   const closeSectorModal = () => {
     setShowSectorModal(false);
     setSelectedSectorData(null);
+    setShowKlineInSector(false); // 重置K线显示状态
+    setKlinePage(0); // 重置页码
   };
 
   const closeDateModal = () => {
@@ -493,12 +498,27 @@ export default function Home() {
               <h3 className="text-lg font-bold text-gray-900">
                 📊 {selectedSectorData.name} - 个股梯队详情 ({formatDate(selectedSectorData.date)})
               </h3>
-              <button
-                onClick={closeSectorModal}
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowKlineInSector(!showKlineInSector);
+                    setKlinePage(0); // 重置页码
+                  }}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    showKlineInSector
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {showKlineInSector ? '隐藏K线' : '显示K线'}
+                </button>
+                <button
+                  onClick={closeSectorModal}
+                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div className="mb-2 flex justify-between items-center">
@@ -667,6 +687,64 @@ export default function Home() {
                 </table>
               </div>
             </div>
+
+            {/* K线图展示区域 - 最多8个，支持分页 */}
+            {showKlineInSector && selectedSectorData && (
+              <div className="mt-4 border-t pt-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-sm font-semibold text-gray-800">
+                    📈 个股K线图 (共{selectedSectorData.stocks.length}只，每页8只)
+                  </h4>
+                  {selectedSectorData.stocks.length > 8 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setKlinePage(Math.max(0, klinePage - 1))}
+                        disabled={klinePage === 0}
+                        className="px-2 py-1 rounded text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        ← 上一页
+                      </button>
+                      <span className="text-xs text-gray-600">
+                        第 {klinePage + 1} / {Math.ceil(selectedSectorData.stocks.length / 8)} 页
+                      </span>
+                      <button
+                        onClick={() => setKlinePage(Math.min(Math.ceil(selectedSectorData.stocks.length / 8) - 1, klinePage + 1))}
+                        disabled={klinePage >= Math.ceil(selectedSectorData.stocks.length / 8) - 1}
+                        className="px-2 py-1 rounded text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        下一页 →
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* K线图网格布局 - 响应式 */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {selectedSectorData.stocks
+                    .slice(klinePage * 8, (klinePage + 1) * 8)
+                    .map((stock) => (
+                      <div key={stock.code} className="bg-gray-50 rounded-lg p-2 border border-gray-200">
+                        <div className="text-xs font-semibold text-gray-900 mb-1 truncate" title={`${stock.name} (${stock.code})`}>
+                          {stock.name}
+                        </div>
+                        <div className="text-2xs text-gray-500 mb-2">
+                          {stock.td_type} | {stock.code}
+                        </div>
+                        <img
+                          src={`http://image.sinajs.cn/newchart/daily/${getStockCodeFormat(stock.code)}.gif`}
+                          alt={`${stock.name}K线图`}
+                          className="w-full h-auto rounded border border-gray-300"
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+S+e6v+WbvuWKoOi9veWけ+ihjTwvdGV4dD4KPC9zdmc+';
+                          }}
+                        />
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
