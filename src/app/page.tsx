@@ -48,6 +48,10 @@ export default function Home() {
   // 新增：K线图批量展示状态
   const [showKlineInSector, setShowKlineInSector] = useState(false);
   const [klinePage, setKlinePage] = useState(0); // K线图当前页码
+  // 新增：独立K线弹窗状态
+  const [showKlineModal, setShowKlineModal] = useState(false);
+  const [klineModalData, setKlineModalData] = useState<{sectorName: string, date: string, stocks: StockPerformance[]} | null>(null);
+  const [klineModalPage, setKlineModalPage] = useState(0);
 
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
@@ -291,6 +295,24 @@ export default function Home() {
     setSelectedDateColumnData(null);
   };
 
+  // 打开独立K线弹窗
+  const handleOpenKlineModal = (sectorName: string, date: string, stocks: StockPerformance[]) => {
+    setKlineModalData({
+      sectorName,
+      date,
+      stocks
+    });
+    setKlineModalPage(0); // 重置页码
+    setShowKlineModal(true);
+  };
+
+  // 关闭独立K线弹窗
+  const closeKlineModal = () => {
+    setShowKlineModal(false);
+    setKlineModalData(null);
+    setKlineModalPage(0);
+  };
+
   // 处理日期列点击 - 显示该日期个股的后续5天溢价详情
   const handleDateColumnClick = (date: string, stocks: StockPerformance[], sectorName: string) => {
     const dayData = sevenDaysData?.[date];
@@ -498,27 +520,12 @@ export default function Home() {
               <h3 className="text-lg font-bold text-gray-900">
                 📊 {selectedSectorData.name} - 个股梯队详情 ({formatDate(selectedSectorData.date)})
               </h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setShowKlineInSector(!showKlineInSector);
-                    setKlinePage(0); // 重置页码
-                  }}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                    showKlineInSector
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {showKlineInSector ? '隐藏K线' : '显示K线'}
-                </button>
-                <button
-                  onClick={closeSectorModal}
-                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
+              <button
+                onClick={closeSectorModal}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
             </div>
 
             <div className="mb-2 flex justify-between items-center">
@@ -526,6 +533,19 @@ export default function Home() {
                 共 {selectedSectorData.stocks.length} 只个股，按{sectorModalSortMode === 'board' ? '连板数' : '5日累计溢价'}排序
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowKlineInSector(!showKlineInSector);
+                    setKlinePage(0); // 重置页码
+                  }}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    showKlineInSector
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {showKlineInSector ? '隐藏K线' : '显示K线'}
+                </button>
                 <button
                   onClick={() => setShowOnly10PlusInSectorModal(!showOnly10PlusInSectorModal)}
                   className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
@@ -1032,13 +1052,24 @@ export default function Home() {
                   return (
                     <div key={sector.sectorName} className="bg-white rounded border border-gray-200 shadow-sm p-1">
                       <div className="flex items-center justify-between mb-0.5 pb-0.5 border-b border-gray-100">
-                        <h4 className="text-[9px] font-semibold text-gray-900 truncate">
+                        <h4 className="text-[9px] font-semibold text-gray-900 truncate flex-1">
                           {sector.sectorName} <span className="text-gray-500">({sector.stocks.length})</span>
                         </h4>
-                        <div className={`px-1 py-0.5 rounded text-[8px] font-medium ${
-                          getPerformanceClass(sector.avgPremium)
-                        }`}>
-                          {sector.avgPremium.toFixed(1)}%
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenKlineModal(sector.sectorName, selectedStockCountData.date, sector.stocks);
+                            }}
+                            className="px-1 py-0.5 rounded text-[7px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                          >
+                            📈K
+                          </button>
+                          <div className={`px-1 py-0.5 rounded text-[8px] font-medium ${
+                            getPerformanceClass(sector.avgPremium)
+                          }`}>
+                            {sector.avgPremium.toFixed(1)}%
+                          </div>
                         </div>
                       </div>
 
@@ -1462,6 +1493,97 @@ export default function Home() {
               <p className="text-2xs text-gray-500 mt-2">
                 数据来源: 新浪财经 | 点击空白区域关闭
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 独立K线弹窗 - 批量展示板块个股K线 */}
+      {showKlineModal && klineModalData && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-[80]">
+          <div className="bg-white rounded-xl p-4 w-[98vw] h-[95vh] overflow-hidden shadow-2xl flex flex-col">
+            <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">
+                📈 {klineModalData.sectorName} - K线图批量展示 ({formatDate(klineModalData.date)})
+              </h3>
+              <button
+                onClick={closeKlineModal}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-3 flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                共 {klineModalData.stocks.length} 只个股，每页显示12只
+              </div>
+              {klineModalData.stocks.length > 12 && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setKlineModalPage(Math.max(0, klineModalPage - 1))}
+                    disabled={klineModalPage === 0}
+                    className="px-3 py-1.5 rounded text-sm bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    ← 上一页
+                  </button>
+                  <span className="text-sm text-gray-700 font-medium">
+                    第 {klineModalPage + 1} / {Math.ceil(klineModalData.stocks.length / 12)} 页
+                  </span>
+                  <button
+                    onClick={() => setKlineModalPage(Math.min(Math.ceil(klineModalData.stocks.length / 12) - 1, klineModalPage + 1))}
+                    disabled={klineModalPage >= Math.ceil(klineModalData.stocks.length / 12) - 1}
+                    className="px-3 py-1.5 rounded text-sm bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    下一页 →
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* K线图网格 - 4x3布局，充分利用空间 */}
+            <div className="flex-1 overflow-auto">
+              <div className="grid grid-cols-3 xl:grid-cols-4 gap-4 p-2">
+                {klineModalData.stocks
+                  .slice(klineModalPage * 12, (klineModalPage + 1) * 12)
+                  .map((stock) => (
+                    <div key={stock.code} className="bg-gray-50 rounded-lg p-3 border-2 border-gray-200 hover:border-blue-400 transition-all">
+                      <div className="flex items-center justify-between mb-2">
+                        <button
+                          className="text-sm font-bold text-gray-900 hover:text-blue-600 transition-colors truncate flex-1 text-left"
+                          onClick={() => handleStockClick(stock.name, stock.code)}
+                          title={`${stock.name} (${stock.code})`}
+                        >
+                          {stock.name}
+                        </button>
+                        <span className={`text-xs ml-2 px-2 py-0.5 rounded font-semibold whitespace-nowrap ${
+                          stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'bg-red-100 text-red-700' :
+                          stock.td_type.includes('2') ? 'bg-orange-100 text-orange-700' :
+                          'bg-gray-200 text-gray-700'
+                        }`}>
+                          {stock.td_type}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mb-2">
+                        {stock.code}
+                      </div>
+                      <img
+                        src={`http://image.sinajs.cn/newchart/daily/${getStockCodeFormat(stock.code)}.gif`}
+                        alt={`${stock.name}K线图`}
+                        className="w-full h-auto rounded border border-gray-300"
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+S+e6v+WbvuWKoOi9veWけ+ihjTwvdGV4dD4KPC9zdmc+';
+                        }}
+                      />
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="mt-3 text-xs text-gray-500 text-center">
+              💡 点击个股名称可查看单独K线图 | 使用上下翻页浏览更多个股
             </div>
           </div>
         </div>
