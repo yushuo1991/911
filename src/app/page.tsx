@@ -1811,11 +1811,13 @@ export default function Home() {
             <h3 className="text-blue-800 font-medium mb-2 text-sm">💡 使用说明</h3>
             <ul className="text-blue-700 text-xs space-y-0.5">
               <li>• 按最近7个交易日排列，显示每日涨停板块及数量和平均溢价</li>
-              <li>• <span className="font-semibold">点击日期头部</span>: 显示各板块后续5天平均溢价</li>
-              <li>• <span className="font-semibold">点击板块名称</span>: 查看该板块个股5天溢价图表和详情</li>
-              <li>• <span className="font-semibold">点击排行徽章</span>: 查看该板块7天涨停个股阶梯</li>
-              <li>• 点击"7天涨停排行"查看板块强度排名</li>
-              <li>• 点击股票名称可查看K线图</li>
+              <li>• <span className="font-semibold">点击日期头部</span>: 显示涨停数前5名板块及后续5天平均溢价</li>
+              <li>• <span className="font-semibold">点击板块名称</span>: 查看该板块个股5天溢价图表和详情（含K线批量查看）</li>
+              <li>• <span className="font-semibold">点击排行徽章</span>: 查看该板块7天涨停个股阶梯，点击日期可查看完整板块详情</li>
+              <li>• <span className="font-semibold">点击涨停数</span>: 按板块分组显示当天所有涨停个股，每个板块标题有📈K按钮可批量查看K线</li>
+              <li>• <span className="font-semibold">排序模式</span>: 右上角可切换"连板排序"或"涨幅排序"，影响所有个股列表和K线显示顺序</li>
+              <li>• 点击"7天涨停排行"查看板块强度排名（Top 5）</li>
+              <li>• 点击股票名称可查看单独K线图</li>
               <li>• 可筛选只显示≥5个涨停的活跃板块</li>
             </ul>
           </div>
