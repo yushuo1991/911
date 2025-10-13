@@ -1,0 +1,291 @@
+# v4.8.12 部署指南 - 独立K线弹窗功能完善
+
+## 新增功能
+
+### 1. 涨停数弹窗板块标题K线按钮
+- **位置**: 涨停数弹窗中每个板块标题右侧
+- **按钮**: 📈K (蓝色小按钮)
+- **功能**: 点击直接打开该板块独立K线弹窗
+
+### 2. 独立K线弹窗
+- **特点**: 最高层级弹窗(z-index: 80)
+- **布局**: 98vw × 95vh (充分利用屏幕空间)
+- **网格**: 响应式4列布局(小屏3列)
+- **分页**: 每页显示12只个股K线图
+- **功能**: 大图展示,上下翻页,点击股票名查看单独K线
+
+### 3. 板块详情弹窗按钮位置优化
+- **调整**: K线按钮从右上角移至"显示涨幅>10%"按钮左侧
+- **优势**: 按钮分组更合理,操作更便捷
+
+## Git信息
+```
+Commit: 7333eee
+Message: feat: v4.8.12 独立K线弹窗功能完善
+Date: 2025-10-13
+```
+
+## 服务器部署命令(多行版本,逐行复制)
+
+### 步骤1: 进入项目目录
+```bash
+cd /www/wwwroot/stock-tracker
+```
+
+### 步骤2: 拉取最新代码
+```bash
+git fetch origin
+```
+
+```bash
+git pull origin main
+```
+
+### 步骤3: 验证代码版本
+```bash
+git log -1 --format="%h %s"
+```
+**预期输出**: `7333eee feat: v4.8.12 独立K线弹窗功能完善`
+
+### 步骤4: 停止当前容器
+```bash
+docker compose down
+```
+
+### 步骤5: 重新构建(无缓存)⭐ 关键步骤
+```bash
+docker compose build --no-cache
+```
+**说明**: 这一步确保新代码被包含到Docker镜像中(约需3-5分钟)
+
+### 步骤6: 启动新容器
+```bash
+docker compose up -d
+```
+
+### 步骤7: 等待服务启动
+```bash
+sleep 30
+```
+
+### 步骤8: 查看日志验证
+```bash
+docker logs --tail 30 stock-tracker-app
+```
+
+### 步骤9: 测试API响应
+```bash
+curl -s "http://localhost:3002/api/stocks?date=$(date +%Y-%m-%d)&mode=7days" | head -c 200
+```
+
+## 验证部署
+
+### 服务器端验证
+```bash
+# 1. 确认容器运行
+docker ps | grep stock-tracker
+
+# 2. 确认代码版本
+cd /www/wwwroot/stock-tracker && git log -1 --oneline
+
+# 3. 确认镜像构建时间(应该是今天)
+docker images | grep stock-tracker
+```
+
+### 浏览器端验证
+
+#### 测试场景1: 涨停数弹窗K线按钮
+1. 访问 http://bk.yushuo.click
+2. 强制刷新: `Ctrl+Shift+R` (Windows/Linux) 或 `Cmd+Shift+R` (Mac)
+3. 点击任意日期的"XX 只涨停"
+4. 在弹出的涨停数弹窗中,每个板块名称右侧应该看到 **📈K** 按钮
+5. 点击任意板块的📈K按钮
+6. **预期**: 打开独立K线弹窗,显示该板块所有个股K线图
+
+#### 测试场景2: 独立K线弹窗
+1. 打开独立K线弹窗(通过上述步骤)
+2. 验证弹窗特点:
+   - 弹窗占据几乎整个屏幕(98vw × 95vh)
+   - K线图以3-4列网格显示
+   - 每页显示12只个股
+   - 如果个股>12只,显示分页控制(上一页/下一页)
+3. 验证分页功能:
+   - 点击"下一页"切换到第2页
+   - 页码显示正确(例: 第 2 / 3 页)
+   - 第1页"上一页"按钮禁用
+   - 最后一页"下一页"按钮禁用
+4. 验证K线图加载:
+   - K线图正常显示(来自新浪财经API)
+   - 加载失败时显示灰色占位图
+   - 图片懒加载(loading="lazy")
+5. 验证交互:
+   - 点击个股名称,打开单独K线弹窗(z-index更高)
+   - 点击关闭按钮(✕),弹窗正确关闭
+
+#### 测试场景3: 板块详情弹窗按钮位置
+1. 点击任意日期的板块名称
+2. 在弹出的板块详情弹窗中,查看右上角控制区域
+3. 验证按钮顺序:**[显示K线] [显示涨幅>10%] [✕]**
+4. **预期**:
+   - "显示K线"按钮在左侧
+   - "显示涨幅>10%"按钮在中间
+   - 关闭按钮(✕)在右侧
+
+#### 测试场景4: K线图质量
+1. 打开独立K线弹窗
+2. 验证K线图:
+   - 图片清晰度高(充分利用空间)
+   - 每个K线图卡片包含:股票名称、代码、连板状态、K线图
+   - 鼠标悬停时卡片边框变蓝
+3. 对比旧版K线功能(板块详情弹窗内嵌):
+   - 新版K线图更大
+   - 新版布局更合理(独立弹窗)
+   - 新版操作更方便(不需要滚动)
+
+## 技术细节
+
+### 修改的文件
+- `src/app/page.tsx` (主要修改文件)
+  - lines 52-54: 新增独立K线弹窗状态管理
+  - lines 298-314: 新增handleOpenKlineModal和closeKlineModal函数
+  - lines 562-570: 涨停数弹窗板块标题添加📈K按钮
+  - lines 531-575: 板块详情弹窗K线按钮位置调整
+  - lines 1005-1093: 独立K线弹窗组件
+
+### 状态管理
+```typescript
+// 独立K线弹窗状态
+const [showKlineModal, setShowKlineModal] = useState(false);
+const [klineModalData, setKlineModalData] = useState<{
+  sectorName: string,
+  date: string,
+  stocks: StockPerformance[]
+} | null>(null);
+const [klineModalPage, setKlineModalPage] = useState(0);
+```
+
+### Z-index层级
+- z-40: 弹窗背景
+- z-50: 普通弹窗
+- z-[60]: 日期列详情弹窗
+- z-[70]: 单股K线弹窗
+- **z-[80]: 独立K线弹窗(最高层)** ⭐
+
+### K线图URL格式
+```typescript
+// 沪市股票 (6开头)
+http://image.sinajs.cn/newchart/daily/sh600000.gif
+
+// 深市股票 (0开头)
+http://image.sinajs.cn/newchart/daily/sz000001.gif
+```
+
+### 分页逻辑
+```typescript
+// 每页12个
+const startIndex = klineModalPage * 12;
+const endIndex = (klineModalPage + 1) * 12;
+
+// 切片数组
+klineModalData.stocks.slice(startIndex, endIndex)
+
+// 总页数
+Math.ceil(klineModalData.stocks.length / 12)
+```
+
+### 响应式布局
+```css
+grid-cols-3        /* 小屏: 3列 */
+xl:grid-cols-4     /* 大屏: 4列 (≥1280px) */
+```
+
+## 测试清单
+
+### 功能完整性
+- [ ] 涨停数弹窗每个板块标题右侧有📈K按钮
+- [ ] 点击📈K按钮打开独立K线弹窗
+- [ ] 独立K线弹窗占据98vw×95vh屏幕空间
+- [ ] K线图以3-4列网格显示
+- [ ] 每页显示12只个股K线图
+- [ ] 分页控制正常工作(上一页/下一页)
+- [ ] K线图正常加载(来自新浪财经API)
+- [ ] 加载失败时显示占位图
+- [ ] 点击个股名称打开单独K线弹窗
+- [ ] 板块详情弹窗K线按钮在"显示涨幅>10%"左侧
+- [ ] 关闭弹窗功能正常
+
+### 性能指标
+- [ ] 独立K线弹窗打开速度 <500ms
+- [ ] K线图懒加载生效
+- [ ] 分页切换流畅无卡顿
+- [ ] 多层弹窗z-index层级正确
+
+### 兼容性
+- [ ] Chrome浏览器正常显示
+- [ ] Firefox浏览器正常显示
+- [ ] Edge浏览器正常显示
+- [ ] 移动端响应式布局正确
+
+## 回滚方案
+
+如果v4.8.12有问题,回滚到v4.8.11(K线诊断版本):
+```bash
+cd /www/wwwroot/stock-tracker && git fetch origin && git checkout 74240f5 && docker compose down && docker compose build --no-cache && docker compose up -d && echo "✅ 已回滚到v4.8.11"
+```
+
+## 常见问题
+
+### Q1: 独立K线弹窗不显示?
+**排查步骤**:
+1. 确认浏览器已强制刷新(Ctrl+Shift+R)
+2. 打开开发者工具(F12) > Console,查看是否有JavaScript错误
+3. 检查Network标签,确认K线图URL请求状态
+4. 验证服务器代码版本: `git log -1 --oneline` 应显示 `7333eee`
+
+### Q2: K线图加载失败?
+**可能原因**:
+1. 新浪财经API访问受限(网络问题)
+2. 股票代码格式转换错误
+
+**排查步骤**:
+```bash
+# 测试K线图URL
+curl -I "http://image.sinajs.cn/newchart/daily/sh600000.gif"
+# 预期: HTTP/1.1 200 OK
+```
+
+### Q3: 涨停数弹窗没有📈K按钮?
+**排查步骤**:
+1. 确认Docker镜像已重新构建(build --no-cache)
+2. 确认浏览器缓存已清除
+3. 检查代码版本: 应包含lines 562-570的📈K按钮代码
+
+### Q4: 板块详情弹窗K线按钮位置不对?
+**预期位置**: [显示K线] [显示涨幅>10%] [✕]
+
+**如果位置错误**:
+1. 确认代码已更新到v4.8.12(7333eee)
+2. 确认Docker镜像已重新构建
+3. 强制刷新浏览器
+
+## 用户反馈
+
+如遇到问题,请提供:
+1. 浏览器类型和版本
+2. 开发者工具Console错误信息
+3. 问题截图
+4. 操作步骤复现
+
+## 相关文档
+- **v4.8.11诊断报告**: K-LINE-DIAGNOSTIC-REPORT.md
+- **v4.8.11部署指南**: DEPLOY-v4.8.11.txt
+- **v4.8.11修复脚本**: FIX-KLINE-DEPLOY.sh
+
+---
+
+**生成时间**: 2025-10-13
+**版本**: v4.8.12
+**新增功能**: 独立K线弹窗功能完善
+**前置版本**: v4.8.11 (K线批量展示功能)
+**Commit**: 7333eee
+**作者**: Claude Code
