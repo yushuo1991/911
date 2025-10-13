@@ -272,7 +272,8 @@ export function isValidDate(dateString: string): boolean {
 
 export function getTodayString(): string {
   const date = new Date();
-  date.setDate(date.getDate() - 1); // 使用昨天日期，避免当天或假期无数据
+  // 直接返回今天的日期
+  // 交易日判断和17:00逻辑由 get7TradingDaysFromCalendar() 处理
   return date.toISOString().split('T')[0];
 }
 
