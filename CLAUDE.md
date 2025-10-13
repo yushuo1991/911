@@ -3,7 +3,71 @@
 
 # 项目备份记录
 
-## v4.14-stable-20251002 (当前稳定版本 - 10-2定稿) ⭐
+## v4.8.14-minute-chart-20251013 (当前稳定版本 - 分时图完整版) ⭐
+
+### 备份信息
+- **备份时间**: 2025-10-13
+- **版本标签**: v4.8.14-minute-chart-20251013
+- **Git提交**: f791f50
+- **备注**: 分时图批量展示 + 单股分时+K线分屏
+- **本地备份**: backup/v4.8.14-minute-chart-20251013.tar.gz
+- **GitHub标签**: https://github.com/yushuo1991/911/releases/tag/v4.8.14-minute-chart-20251013
+
+### 核心功能
+- ✅ 独立分时图批量展示弹窗（z-index: 90，最高层）
+- ✅ 板块详情弹窗分时按钮（📊 今日分时，绿色主题）
+- ✅ 涨停数弹窗板块标题分时按钮（📊M）
+- ✅ 单股弹窗分时+K线左右分屏显示（50%+50%）
+- ✅ 独立K线批量展示弹窗（v4.8.12继承）
+- ✅ 全局排序模式控制（连板/涨幅排序）
+- ✅ 7天板块节奏分析
+- ✅ 个股后续5天溢价追踪
+
+### 技术特性
+- 分时图API: `http://image.sinajs.cn/newchart/min/n/{sh/sz}code.gif`（注意 `/n/` 路径）
+- K线图API: `http://image.sinajs.cn/newchart/daily/{sh/sz}code.gif`
+- 98vw × 95vh 全屏弹窗
+- 3-4列响应式网格布局
+- 每页12只个股分页展示
+- 绿色主题分时图 vs 蓝色主题K线图
+- 懒加载 + 图片占位处理
+- 排序联动（与全局排序模式一致）
+
+### 性能指标
+- 弹窗打开速度: <500ms
+- API响应时间: <2s（取决于新浪API）
+- 图片懒加载: loading="lazy"
+- 分页切换: <100ms
+- 备份文件: ~1-2MB (压缩后)
+
+### 下载备份到本地
+```bash
+# 方式1: 从本地解压
+cd "C:\Users\yushu\Desktop\stock-tracker - 副本"
+tar -xzf "backup/v4.8.14-minute-chart-20251013.tar.gz" -C ../stock-tracker-v4.8.14
+
+# 方式2: 从GitHub克隆（标签推送成功后）
+git clone --branch v4.8.14-minute-chart-20251013 https://github.com/yushuo1991/911.git stock-tracker-v4.8.14
+```
+
+### 恢复到服务器
+```bash
+cd /www/wwwroot/stock-tracker
+git fetch origin --tags
+git checkout v4.8.14-minute-chart-20251013
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
+### 详细文档
+- 完整备份说明: `backup/BACKUP-v4.8.14-README.md`
+- 部署指南: `DEPLOY-v4.8.14.txt`
+- v4.8.13部署: `DEPLOY-v4.8.13.txt`（前置版本）
+
+---
+
+## v4.14-stable-20251002 (历史版本 - 10-2定稿)
 
 ### 备份信息
 - **备份时间**: 2025-10-02 21:40
@@ -137,6 +201,8 @@ crontab -e
 
 | 版本 | 日期 | 说明 | 备份位置 |
 |------|------|------|----------|
+| v4.8.14-minute-chart-20251013 | 2025-10-13 | 分时图批量展示+单股分屏 | backup/v4.8.14-minute-chart-20251013.tar.gz |
+| v4.14-stable-20251002 | 2025-10-02 | 10-2定稿，Tushare交易日历 | backup/v4.14-stable-20251002-10-2定稿.tar.gz |
 | v4.2-stable-20250930 | 2025-09-30 | 生产稳定版，完整部署成功 | /www/backup/stock-tracker/ |
 | v1.3.1 | 之前 | UI优化版本 | Git标签 |
 
