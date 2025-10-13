@@ -128,7 +128,7 @@ else
 fi
 
 # 检查数据库容器
-if docker ps --filter "name=stock-tracker-db" | grep -q "stock-tracker-db"; then
+if docker ps --filter "name=stock-tracker-mysql" | grep -q "stock-tracker-mysql"; then
     log "✅ 数据库容器运行正常"
 else
     error_exit "数据库容器未运行"

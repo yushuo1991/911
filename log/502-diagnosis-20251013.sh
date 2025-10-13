@@ -54,10 +54,10 @@ else
         log "修复命令: docker compose up -d"
     fi
 
-    if docker ps --filter "name=stock-tracker-db" | grep -q "stock-tracker-db"; then
-        log "✅ stock-tracker-db容器运行中"
+    if docker ps --filter "name=stock-tracker-mysql" | grep -q "stock-tracker-mysql"; then
+        log "✅ stock-tracker-mysql容器运行中"
     else
-        log "❌ stock-tracker-db容器未运行!"
+        log "❌ stock-tracker-mysql容器未运行!"
         log "修复命令: docker compose up -d"
     fi
 fi
@@ -174,13 +174,13 @@ log ""
 
 # 检查MySQL连接
 log "5.1 检查MySQL容器状态:"
-if docker ps --filter "name=stock-tracker-db" | grep -q "stock-tracker-db"; then
+if docker ps --filter "name=stock-tracker-mysql" | grep -q "stock-tracker-mysql"; then
     log "✅ MySQL容器运行中"
 
     # 测试数据库连接
     log ""
     log "5.2 测试数据库连接:"
-    docker exec stock-tracker-db mysql -uroot -proot123 -e "SELECT 1" 2>&1 | tee -a "$LOG_FILE"
+    docker exec stock-tracker-mysql mysql -uroot -proot123 -e "SELECT 1" 2>&1 | tee -a "$LOG_FILE"
 
     if [ $? -eq 0 ]; then
         log "✅ 数据库连接正常"
@@ -283,7 +283,7 @@ if ! docker ps --filter "name=stock-tracker-app" | grep -q "stock-tracker-app"; 
     ISSUES_FOUND=$((ISSUES_FOUND + 1))
 fi
 
-if ! docker ps --filter "name=stock-tracker-db" | grep -q "stock-tracker-db"; then
+if ! docker ps --filter "name=stock-tracker-mysql" | grep -q "stock-tracker-mysql"; then
     log "❌ [关键] 数据库容器未运行"
     log "   修复: docker compose up -d"
     ISSUES_FOUND=$((ISSUES_FOUND + 1))
