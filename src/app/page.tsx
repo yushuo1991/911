@@ -49,6 +49,10 @@ export default function Home() {
   const [showKlineModal, setShowKlineModal] = useState(false);
   const [klineModalData, setKlineModalData] = useState<{sectorName: string, date: string, stocks: StockPerformance[]} | null>(null);
   const [klineModalPage, setKlineModalPage] = useState(0);
+  // 新增：独立分时图弹窗状态
+  const [showMinuteModal, setShowMinuteModal] = useState(false);
+  const [minuteModalData, setMinuteModalData] = useState<{sectorName: string, date: string, stocks: StockPerformance[]} | null>(null);
+  const [minuteModalPage, setMinuteModalPage] = useState(0);
 
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
@@ -308,6 +312,24 @@ export default function Home() {
     setKlineModalPage(0);
   };
 
+  // 打开独立分时图弹窗
+  const handleOpenMinuteModal = (sectorName: string, date: string, stocks: StockPerformance[]) => {
+    setMinuteModalData({
+      sectorName,
+      date,
+      stocks
+    });
+    setMinuteModalPage(0); // 重置页码
+    setShowMinuteModal(true);
+  };
+
+  // 关闭独立分时图弹窗
+  const closeMinuteModal = () => {
+    setShowMinuteModal(false);
+    setMinuteModalData(null);
+    setMinuteModalPage(0);
+  };
+
   // 处理日期列点击 - 显示该日期个股的后续5天溢价详情
   const handleDateColumnClick = (date: string, stocks: StockPerformance[], sectorName: string) => {
     const dayData = sevenDaysData?.[date];
@@ -528,6 +550,19 @@ export default function Home() {
                 共 {selectedSectorData.stocks.length} 只个股，按{sectorModalSortMode === 'board' ? '连板数' : '5日累计溢价'}排序
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const sortedStocks = getSortedStocksForSector(
+                      selectedSectorData.stocks,
+                      selectedSectorData.followUpData,
+                      sectorModalSortMode
+                    );
+                    handleOpenMinuteModal(selectedSectorData.name, selectedSectorData.date, sortedStocks);
+                  }}
+                  className="px-2 py-1 rounded text-xs font-medium transition-colors bg-green-600 text-white hover:bg-green-700"
+                >
+                  📊 今日分时
+                </button>
                 <button
                   onClick={() => {
                     const sortedStocks = getSortedStocksForSector(
@@ -996,6 +1031,21 @@ export default function Home() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              // 传入排序后的stocks数组,确保分时图顺序与表格一致
+                              const followUpDataMap: Record<string, Record<string, number>> = {};
+                              sector.stocks.forEach(stock => {
+                                followUpDataMap[stock.code] = stock.followUpData;
+                              });
+                              const sortedStocks = getSortedStocksForSector(sector.stocks, followUpDataMap, sectorModalSortMode);
+                              handleOpenMinuteModal(sector.sectorName, selectedStockCountData.date, sortedStocks);
+                            }}
+                            className="px-1 py-0.5 rounded text-[7px] font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                          >
+                            📊M
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               // 传入排序后的stocks数组,确保K线图顺序与表格一致
                               const followUpDataMap: Record<string, Record<string, number>> = {};
                               sector.stocks.forEach(stock => {
@@ -1413,13 +1463,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* K线图弹窗 */}
+      {/* 个股分时+K线左右分屏弹窗 */}
       {showModal && selectedStock && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[70]">
-          <div className="bg-white rounded-xl p-4 max-w-4xl max-h-[90vh] overflow-auto shadow-2xl">
+          <div className="bg-white rounded-xl p-4 max-w-6xl w-full max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">
-                {selectedStock.name} ({selectedStock.code}) K线图
+                {selectedStock.name} ({selectedStock.code}) 今日分时 & K线图
               </h3>
               <button
                 onClick={closeModal}
@@ -1428,21 +1478,47 @@ export default function Home() {
                 ✕
               </button>
             </div>
-            <div className="text-center">
-              <img
-                src={`http://image.sinajs.cn/newchart/daily/${getStockCodeFormat(selectedStock.code)}.gif`}
-                alt={`${selectedStock.name}K线图`}
-                className="max-w-full h-auto rounded-lg shadow-md"
-                loading="lazy"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OTk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPktcdTdFRkZcdTU2RkVcdTUyMDBcdThGN0RcdTUxMTZcdTUwNjdcdTU5MzQ8L3RleHQ+Cjwvc3ZnPg==';
-                }}
-              />
-              <p className="text-2xs text-gray-500 mt-2">
-                数据来源: 新浪财经 | 点击空白区域关闭
-              </p>
+
+            {/* 分屏布局: 左侧分时图50%, 右侧K线图50% */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* 左侧: 分时图 */}
+              <div className="border-r pr-4">
+                <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                  <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs mr-2">📊 今日分时</span>
+                </h4>
+                <img
+                  src={`http://image.sinajs.cn/newchart/min/n/${getStockCodeFormat(selectedStock.code)}.gif`}
+                  alt={`${selectedStock.name}分时图`}
+                  className="w-full h-auto rounded-lg shadow-md"
+                  loading="lazy"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OTk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuWIhuaXtuWbvuWKoOi9veWksei0pTwvdGV4dD4KPC9zdmc+';
+                  }}
+                />
+              </div>
+
+              {/* 右侧: K线图 */}
+              <div className="pl-4">
+                <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs mr-2">📈 日K线图</span>
+                </h4>
+                <img
+                  src={`http://image.sinajs.cn/newchart/daily/${getStockCodeFormat(selectedStock.code)}.gif`}
+                  alt={`${selectedStock.name}K线图`}
+                  className="w-full h-auto rounded-lg shadow-md"
+                  loading="lazy"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OTk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPktcdTdFRkZcdTU2RkVcdTUyMDBcdThGN0RcdTUxMTZcdTUwNjdcdTU5MzQ8L3RleHQ+Cjwvc3ZnPg==';
+                  }}
+                />
+              </div>
             </div>
+
+            <p className="text-2xs text-gray-500 mt-3 text-center">
+              数据来源: 新浪财经 | 点击空白区域关闭
+            </p>
           </div>
         </div>
       )}
@@ -1533,6 +1609,97 @@ export default function Home() {
 
             <div className="mt-3 text-xs text-gray-500 text-center">
               💡 点击个股名称可查看单独K线图 | 使用上下翻页浏览更多个股
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 独立分时图弹窗 - 批量展示板块个股分时图 */}
+      {showMinuteModal && minuteModalData && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-[90]">
+          <div className="bg-white rounded-xl p-4 w-[98vw] h-[95vh] overflow-hidden shadow-2xl flex flex-col">
+            <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">
+                📊 {minuteModalData.sectorName} - 分时图批量展示 ({formatDate(minuteModalData.date)})
+              </h3>
+              <button
+                onClick={closeMinuteModal}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-3 flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                共 {minuteModalData.stocks.length} 只个股，每页显示12只
+              </div>
+              {minuteModalData.stocks.length > 12 && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setMinuteModalPage(Math.max(0, minuteModalPage - 1))}
+                    disabled={minuteModalPage === 0}
+                    className="px-3 py-1.5 rounded text-sm bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    ← 上一页
+                  </button>
+                  <span className="text-sm text-gray-700 font-medium">
+                    第 {minuteModalPage + 1} / {Math.ceil(minuteModalData.stocks.length / 12)} 页
+                  </span>
+                  <button
+                    onClick={() => setMinuteModalPage(Math.min(Math.ceil(minuteModalData.stocks.length / 12) - 1, minuteModalPage + 1))}
+                    disabled={minuteModalPage >= Math.ceil(minuteModalData.stocks.length / 12) - 1}
+                    className="px-3 py-1.5 rounded text-sm bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    下一页 →
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 分时图网格 - 4x3布局，充分利用空间 */}
+            <div className="flex-1 overflow-auto">
+              <div className="grid grid-cols-3 xl:grid-cols-4 gap-4 p-2">
+                {minuteModalData.stocks
+                  .slice(minuteModalPage * 12, (minuteModalPage + 1) * 12)
+                  .map((stock) => (
+                    <div key={stock.code} className="bg-gray-50 rounded-lg p-3 border-2 border-gray-200 hover:border-green-400 transition-all">
+                      <div className="flex items-center justify-between mb-2">
+                        <button
+                          className="text-sm font-bold text-gray-900 hover:text-green-600 transition-colors truncate flex-1 text-left"
+                          onClick={() => handleStockClick(stock.name, stock.code)}
+                          title={`${stock.name} (${stock.code})`}
+                        >
+                          {stock.name}
+                        </button>
+                        <span className={`text-xs ml-2 px-2 py-0.5 rounded font-semibold whitespace-nowrap ${
+                          stock.td_type.includes('3') || stock.td_type.includes('4') || stock.td_type.includes('5') || stock.td_type.includes('6') || stock.td_type.includes('7') || stock.td_type.includes('8') || stock.td_type.includes('9') || stock.td_type.includes('10') ? 'bg-red-100 text-red-700' :
+                          stock.td_type.includes('2') ? 'bg-orange-100 text-orange-700' :
+                          'bg-gray-200 text-gray-700'
+                        }`}>
+                          {stock.td_type}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mb-2">
+                        {stock.code}
+                      </div>
+                      <img
+                        src={`http://image.sinajs.cn/newchart/min/n/${getStockCodeFormat(stock.code)}.gif`}
+                        alt={`${stock.name}分时图`}
+                        className="w-full h-auto rounded border border-gray-300"
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+5YiG5pe25Zu+5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4=';
+                        }}
+                      />
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="mt-3 text-xs text-gray-500 text-center">
+              💡 点击个股名称可查看单独图表 | 使用上下翻页浏览更多个股
             </div>
           </div>
         </div>
