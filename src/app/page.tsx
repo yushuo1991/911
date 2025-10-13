@@ -740,7 +740,7 @@ export default function Home() {
 
                 {/* K线图网格布局 - 响应式 */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {selectedSectorData.stocks
+                  {getSortedStocksForSector(selectedSectorData.stocks, selectedSectorData.followUpData, sectorModalSortMode)
                     .slice(klinePage * 8, (klinePage + 1) * 8)
                     .map((stock) => (
                       <div key={stock.code} className="bg-gray-50 rounded-lg p-2 border border-gray-200">
@@ -1059,7 +1059,13 @@ export default function Home() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleOpenKlineModal(sector.sectorName, selectedStockCountData.date, sector.stocks);
+                              // 传入排序后的stocks数组,确保K线图顺序与表格一致
+                              const followUpDataMap: Record<string, Record<string, number>> = {};
+                              sector.stocks.forEach(stock => {
+                                followUpDataMap[stock.code] = stock.followUpData;
+                              });
+                              const sortedStocks = getSortedStocksForSector(sector.stocks, followUpDataMap, sectorModalSortMode);
+                              handleOpenKlineModal(sector.sectorName, selectedStockCountData.date, sortedStocks);
                             }}
                             className="px-1 py-0.5 rounded text-[7px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
                           >
@@ -1297,7 +1303,13 @@ export default function Home() {
                       <th
                         key={day.date}
                         className="border border-gray-300 px-2 py-2 min-w-[120px] cursor-pointer hover:bg-blue-50 transition-colors"
-                        onClick={() => handleDateColumnClick(day.date, day.stocks, selected7DayLadderData.sectorName)}
+                        onClick={() => {
+                          const dayData = sevenDaysData?.[day.date];
+                          if (dayData) {
+                            const followUpData = dayData.followUpData[selected7DayLadderData.sectorName] || {};
+                            handleSectorClick(day.date, selected7DayLadderData.sectorName, day.stocks, followUpData);
+                          }
+                        }}
                       >
                         <div className="text-sm font-semibold text-gray-900">
                           {formatDate(day.date).slice(5)}
@@ -1363,7 +1375,7 @@ export default function Home() {
             </div>
 
             <div className="mt-3 text-2xs text-gray-500 text-center">
-              💡 提示：点击日期表头可查看该日所有个股后续5天溢价详情 | 点击个股名称可查看K线图
+              💡 提示：点击日期表头可查看该日板块详情（含溢价曲线图和K线功能） | 点击个股名称可查看K线图
             </div>
           </div>
         </div>
