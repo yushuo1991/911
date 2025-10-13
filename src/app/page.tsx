@@ -1030,10 +1030,24 @@ export default function Home() {
                   return (
                     <div key={sector.sectorName} className="bg-white rounded border border-gray-200 shadow-sm p-1">
                       <div className="flex items-center justify-between mb-0.5 pb-0.5 border-b border-gray-100">
-                        <h4 className="text-[9px] font-semibold text-gray-900 truncate flex-1">
-                          {sector.sectorName} <span className="text-gray-500">({sector.stocks.length})</span>
-                        </h4>
-                        <div className="flex items-center gap-0.5">
+                        <div className="flex flex-col gap-0.5 flex-1 min-w-0 mr-1">
+                          <h4 className="text-[9px] font-semibold text-gray-900 truncate">
+                            {sector.sectorName} <span className="text-gray-500">({sector.stocks.length})</span>
+                          </h4>
+                          {(() => {
+                            // v4.8.17新增：涨停数弹窗显示板块成交额总和
+                            const sectorAmount = sevenDaysData?.[selectedStockCountData.date]?.sectorAmounts?.[sector.sectorName];
+                            if (sectorAmount && sectorAmount > 0) {
+                              return (
+                                <div className="text-[8px] px-1 py-0.5 rounded inline-block bg-yellow-100 text-yellow-700 self-start" title={`板块成交额: ${sectorAmount}亿元`}>
+                                  💰{sectorAmount}亿
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                        <div className="flex items-center gap-0.5 shrink-0">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
