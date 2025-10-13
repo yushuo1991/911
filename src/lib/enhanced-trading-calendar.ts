@@ -242,18 +242,20 @@ export async function getValidTradingDays(startDate: string, count: number = 5):
 export async function get7TradingDaysFromCalendar(endDate: string): Promise<string[]> {
   const tradingDays: string[] = [];
 
-  // v4.8.9新增：判断是否应该包含当天（17:00之后且是交易日）
+  // v4.8.18修复：使用北京时间（东八区UTC+8）判断是否包含当天
+  // 中国股市基于北京时间运行，15:00收盘
   const now = new Date();
-  const endDateObj = new Date(endDate);
-  const currentHour = now.getHours();
+  const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // 转换为北京时间
+  const beijingHour = beijingTime.getUTCHours(); // 使用UTC方法获取北京时间的小时数
+  const beijingDateStr = beijingTime.toISOString().split('T')[0]; // 北京时间的日期
 
-  // 检查endDate是否是今天
-  const isToday = now.toISOString().split('T')[0] === endDate;
+  // 检查endDate是否是北京时间的今天
+  const isToday = beijingDateStr === endDate;
 
-  // 如果是今天且时间>=17:00，则包含当天；否则从前一天开始查找
-  const shouldIncludeToday = isToday && currentHour >= 17;
+  // v4.8.18修复：如果是今天且北京时间>=15:00（收盘时间），则包含当天；否则从前一天开始查找
+  const shouldIncludeToday = isToday && beijingHour >= 15;
 
-  console.log(`[7天交易日] 当前时间: ${now.toISOString()}, 小时: ${currentHour}, 是否包含当天: ${shouldIncludeToday}`);
+  console.log(`[7天交易日] 北京时间: ${beijingTime.toISOString()}, 小时: ${beijingHour}, 北京日期: ${beijingDateStr}, 是否包含当天: ${shouldIncludeToday}`);
 
   // 计算查询范围（向前追溯30天确保包含7个交易日）
   const startDate = new Date(endDate);

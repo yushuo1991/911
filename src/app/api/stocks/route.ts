@@ -339,6 +339,91 @@ import { NextRequest, NextResponse } from 'next/server';
     return `${stockCode}.SZ`; // 默认深交所
   }
 
+  // v4.8.18新增：使用Tushare API批量获取个股真实成交额
+  async function getBatchStockAmount(stockCodes: string[], tradeDate: string): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+
+    // 初始化所有股票为0
+    stockCodes.forEach(code => result.set(code, 0));
+
+    try {
+      console.log(`[成交额API] 批量获取${stockCodes.length}只股票在${tradeDate}的成交额`);
+
+      // 频率控制
+      await rateController.checkAndWait();
+
+      // 构建批量查询参数
+      const tsCodes = stockCodes.map(code => convertStockCodeForTushare(code));
+      const tradeDateFormatted = tradeDate.replace(/-/g, '');
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      const response = await fetch('https://api.tushare.pro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_name: 'daily',
+          token: TUSHARE_TOKEN,
+          params: {
+            trade_date: tradeDateFormatted
+          },
+          fields: 'ts_code,trade_date,amount' // 成交额字段（单位：千元）
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Tushare成交额API HTTP error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.msg && data.msg.includes('每分钟最多访问该接口')) {
+        console.log(`[成交额API] Tushare频率限制: ${data.msg}`);
+        throw new Error('RATE_LIMIT');
+      }
+
+      if (data.code === 0 && data.data && data.data.items) {
+        console.log(`[成交额API] 获取到${data.data.items.length}条成交额数据`);
+
+        // 解析数据
+        data.data.items.forEach((item: any[]) => {
+          const tsCode = item[0]; // ts_code
+          const amountInK = parseFloat(item[2]) || 0; // amount（千元）
+          const amountInYi = amountInK / 100000; // 转换为亿元
+
+          // 转换回原始股票代码
+          const originalCode = stockCodes.find(code =>
+            convertStockCodeForTushare(code) === tsCode
+          );
+
+          if (originalCode) {
+            result.set(originalCode, Math.round(amountInYi * 100) / 100); // 保留2位小数
+          }
+        });
+
+        console.log(`[成交额API] 成功获取${result.size}只股票的真实成交额`);
+      } else {
+        console.log(`[成交额API] API返回无效数据:`, data);
+      }
+
+    } catch (error) {
+      const err = error as any;
+      if (err.name === 'AbortError') {
+        console.log(`[成交额API] 请求超时`);
+      } else if (err.message === 'RATE_LIMIT') {
+        console.log(`[成交额API] 遇到频率限制`);
+      } else {
+        console.log(`[成交额API] 请求失败: ${error}`);
+      }
+    }
+
+    return result;
+  }
+
   // 批量获取多只股票多个日期的数据
   async function getBatchStockDaily(stockCodes: string[], tradeDates: string[]): Promise<Map<string, Record<string,
   number>>> {
@@ -822,6 +907,11 @@ import { NextRequest, NextResponse } from 'next/server';
           continue;
         }
 
+        // v4.8.18新增：使用Tushare API批量获取真实成交额
+        const stockCodes = limitUpStocks.map(s => s.StockCode);
+        const realAmounts = await getBatchStockAmount(stockCodes, day);
+        console.log(`[API] 获取${day}的真实成交额，覆盖${realAmounts.size}只股票`);
+
         // 获取该天后5个交易日（用于溢价计算）- v4.8.10修复：使用真实交易日历排除节假日
         const followUpDays = await getValidTradingDays(day, 5);
 
@@ -837,13 +927,16 @@ import { NextRequest, NextResponse } from 'next/server';
           const followUpPerformance = await getStockPerformance(stock.StockCode, followUpDays, day);
           const totalReturn = Object.values(followUpPerformance).reduce((sum, val) => sum + val, 0);
 
+          // v4.8.18修改：使用Tushare真实成交额替代API假数据
+          const realAmount = realAmounts.get(stock.StockCode) || 0;
+
           const stockPerformance: StockPerformance = {
             name: stock.StockName,
             code: stock.StockCode,
             td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
             performance: { [day]: 10.0 }, // 涨停日当天固定为10%
             total_return: Math.round(totalReturn * 100) / 100,
-            amount: stock.Amount // v4.8.16新增：个股涨停当日成交额（亿元）
+            amount: realAmount // v4.8.18修改：使用Tushare真实成交额（亿元）
           };
 
           if (!categories[category]) {
@@ -852,9 +945,9 @@ import { NextRequest, NextResponse } from 'next/server';
           }
           categories[category].push(stockPerformance);
 
-          // v4.8.8新增：累加板块成交额
-          if (stock.Amount && stock.Amount > 0) {
-            sectorAmounts[category] += stock.Amount;
+          // v4.8.18修改：使用真实成交额累加板块成交额
+          if (realAmount > 0) {
+            sectorAmounts[category] += realAmount;
           }
 
           // 存储后续表现数据

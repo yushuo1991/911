@@ -57,6 +57,34 @@ export default function Home() {
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
 
+  // v4.8.19新增：获取板块成交额排名
+  const getSectorAmountRank = (date: string, sectorName: string): number | null => {
+    const dayData = sevenDaysData?.[date];
+    if (!dayData || !dayData.sectorAmounts) return null;
+
+    // 获取所有板块的成交额，并排序
+    const sectorAmounts = Object.entries(dayData.sectorAmounts)
+      .map(([name, amount]) => ({ name, amount }))
+      .filter(s => s.amount > 0)
+      .sort((a, b) => b.amount - a.amount); // 按成交额降序
+
+    // 找到当前板块的排名（1开始）
+    const rank = sectorAmounts.findIndex(s => s.name === sectorName);
+    return rank !== -1 ? rank + 1 : null;
+  };
+
+  // v4.8.19新增：获取板块内个股成交额排名
+  const getStockAmountRankInSector = (stocks: StockPerformance[], stockCode: string): number | null => {
+    // 获取所有有成交额数据的个股，并按成交额降序排序
+    const stocksWithAmount = stocks
+      .filter(s => s.amount && s.amount > 0)
+      .sort((a, b) => (b.amount || 0) - (a.amount || 0));
+
+    // 找到当前个股的排名（1开始）
+    const rank = stocksWithAmount.findIndex(s => s.code === stockCode);
+    return rank !== -1 ? rank + 1 : null;
+  };
+
   const fetch7DaysData = async () => {
     setLoading(true);
     setError(null);
@@ -717,9 +745,32 @@ export default function Home() {
                               </span>
                             </td>
                             <td className="px-2 py-1.5 text-center">
-                              <span className="text-2xs text-gray-700">
-                                {stock.amount ? `${stock.amount.toFixed(2)}亿` : '-'}
-                              </span>
+                              {(() => {
+                                // v4.8.19新增：个股成交额前2名红色高亮
+                                if (!stock.amount || stock.amount === 0) {
+                                  return <span className="text-2xs text-gray-700">-</span>;
+                                }
+
+                                // 获取该个股在板块内的成交额排名
+                                const rank = getStockAmountRankInSector(selectedSectorData.stocks, stock.code);
+
+                                // 根据排名选择颜色
+                                let colorClass = 'text-2xs text-gray-700'; // 默认灰色
+                                if (rank === 1) {
+                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-red-600 text-white font-semibold'; // 第1名：深红色
+                                } else if (rank === 2) {
+                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-red-400 text-white font-medium'; // 第2名：中等红色
+                                }
+
+                                return (
+                                  <span
+                                    className={colorClass}
+                                    title={rank ? `个股成交额排名: 第${rank}名` : ''}
+                                  >
+                                    {stock.amount.toFixed(2)}亿
+                                  </span>
+                                );
+                              })()}
                             </td>
                             {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
                               const performance = selectedSectorData.followUpData[stock.code]?.[followDate] || 0;
@@ -1035,12 +1086,26 @@ export default function Home() {
                             {sector.sectorName} <span className="text-gray-500">({sector.stocks.length})</span>
                           </h4>
                           {(() => {
-                            // v4.8.17新增：涨停数弹窗显示板块成交额总和
+                            // v4.8.19修改：涨停数弹窗显示板块成交额，前2名用红色高亮
                             const sectorAmount = sevenDaysData?.[selectedStockCountData.date]?.sectorAmounts?.[sector.sectorName];
                             if (sectorAmount && sectorAmount > 0) {
+                              // 获取该板块的成交额排名
+                              const rank = getSectorAmountRank(selectedStockCountData.date, sector.sectorName);
+
+                              // 根据排名选择颜色
+                              let colorClass = 'bg-blue-50 text-blue-700'; // 默认浅蓝色
+                              if (rank === 1) {
+                                colorClass = 'bg-red-600 text-white font-semibold'; // 第1名：深红色
+                              } else if (rank === 2) {
+                                colorClass = 'bg-red-400 text-white font-medium'; // 第2名：中等红色
+                              }
+
                               return (
-                                <div className="text-[8px] px-1 py-0.5 rounded inline-block bg-yellow-100 text-yellow-700 self-start" title={`板块成交额: ${sectorAmount}亿元`}>
-                                  💰{sectorAmount}亿
+                                <div
+                                  className={`text-[8px] px-1 py-0.5 rounded inline-block ${colorClass} self-start`}
+                                  title={`板块成交额: ${sectorAmount}亿元${rank ? ` (第${rank}名)` : ''}`}
+                                >
+                                  {sectorAmount}亿
                                 </div>
                               );
                             }
@@ -1904,12 +1969,26 @@ export default function Home() {
                                     {sector.count}个
                                   </div>
                                   {(() => {
-                                    // v4.8.8新增：显示板块成交额
+                                    // v4.8.19修改：显示板块成交额，前2名用红色高亮
                                     const sectorAmount = sevenDaysData[date]?.sectorAmounts?.[sector.name];
                                     if (sectorAmount && sectorAmount > 0) {
+                                      // 获取该板块的成交额排名
+                                      const rank = getSectorAmountRank(date, sector.name);
+
+                                      // 根据排名选择颜色
+                                      let colorClass = 'bg-blue-50 text-blue-700'; // 默认浅蓝色
+                                      if (rank === 1) {
+                                        colorClass = 'bg-red-600 text-white font-semibold'; // 第1名：深红色
+                                      } else if (rank === 2) {
+                                        colorClass = 'bg-red-400 text-white font-medium'; // 第2名：中等红色
+                                      }
+
                                       return (
-                                        <div className="text-2xs px-1.5 py-0.5 rounded inline-block bg-yellow-100 text-yellow-700" title={`成交额: ${sectorAmount}亿元`}>
-                                          💰{sectorAmount}亿
+                                        <div
+                                          className={`text-2xs px-1.5 py-0.5 rounded inline-block ${colorClass}`}
+                                          title={`成交额: ${sectorAmount}亿元${rank ? ` (第${rank}名)` : ''}`}
+                                        >
+                                          {sectorAmount}亿
                                         </div>
                                       );
                                     }

@@ -271,10 +271,11 @@ export function isValidDate(dateString: string): boolean {
 }
 
 export function getTodayString(): string {
+  // v4.8.18修复：使用北京时间（东八区UTC+8）而不是UTC时间
+  // 中国股市基于北京时间运行，必须使用东八区时间
   const date = new Date();
-  // 直接返回今天的日期
-  // 交易日判断和17:00逻辑由 get7TradingDaysFromCalendar() 处理
-  return date.toISOString().split('T')[0];
+  const beijingDate = new Date(date.getTime() + (8 * 60 * 60 * 1000)); // 转换为北京时间
+  return beijingDate.toISOString().split('T')[0];
 }
 
 export function calculateDailyAverage(stocks: StockPerformance[], day: string): number {
