@@ -842,7 +842,8 @@ import { NextRequest, NextResponse } from 'next/server';
             code: stock.StockCode,
             td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
             performance: { [day]: 10.0 }, // 涨停日当天固定为10%
-            total_return: Math.round(totalReturn * 100) / 100
+            total_return: Math.round(totalReturn * 100) / 100,
+            amount: stock.Amount // v4.8.16新增：个股涨停当日成交额（亿元）
           };
 
           if (!categories[category]) {

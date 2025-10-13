@@ -625,6 +625,7 @@ export default function Home() {
                       <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">#</th>
                       <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">股票</th>
                       <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">板数</th>
+                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">成交额</th>
                       {(() => {
                         // 使用dates数组确保日期正确排序
                         const currentDateIndex = dates.indexOf(selectedSectorData.date);
@@ -641,7 +642,7 @@ export default function Home() {
                       <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">累计</th>
                     </tr>
                     <tr className="border-b bg-blue-50">
-                      <th colSpan={3} className="px-2 py-1 text-right text-2xs text-blue-700">板块平均:</th>
+                      <th colSpan={4} className="px-2 py-1 text-right text-2xs text-blue-700">板块平均:</th>
                       {(() => {
                         // 使用dates数组确保日期正确排序
                         const currentDateIndex = dates.indexOf(selectedSectorData.date);
@@ -713,6 +714,11 @@ export default function Home() {
                                 'text-gray-600'
                               }`}>
                                 {stock.td_type.replace('连板', '板')}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              <span className="text-2xs text-gray-700">
+                                {stock.amount ? `${stock.amount.toFixed(2)}亿` : '-'}
                               </span>
                             </td>
                             {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
@@ -1070,17 +1076,18 @@ export default function Home() {
                       <table className="w-full border-collapse table-fixed">
                         <thead className="bg-blue-50">
                           <tr className="border-b border-blue-100">
-                            <th className="px-0.5 py-1 text-left text-[10px] font-semibold text-gray-700 w-[18%]">名称</th>
-                            <th className="px-0.5 py-1 text-center text-[10px] font-semibold text-gray-700 w-[10%]">状态</th>
+                            <th className="px-0.5 py-1 text-left text-[10px] font-semibold text-gray-700 w-[16%]">名称</th>
+                            <th className="px-0.5 py-1 text-center text-[10px] font-semibold text-gray-700 w-[9%]">状态</th>
+                            <th className="px-0.5 py-1 text-center text-[10px] font-semibold text-gray-700 w-[8%]">额</th>
                             {followUpDates.map((date, index) => {
                               const formattedDate = formatDate(date).slice(5);
                               return (
-                                <th key={date} className="px-0.5 py-1 text-center text-[10px] font-semibold text-gray-700 w-[12%]">
+                                <th key={date} className="px-0.5 py-1 text-center text-[10px] font-semibold text-gray-700 w-[11%]">
                                   {formattedDate}
                                 </th>
                               );
                             })}
-                            <th className="px-0.5 py-1 text-center text-[10px] font-semibold text-gray-700 w-[10%]">5日</th>
+                            <th className="px-0.5 py-1 text-center text-[10px] font-semibold text-gray-700 w-[9%]">5日</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1109,6 +1116,11 @@ export default function Home() {
                                   'bg-gray-200 text-gray-700'
                                 }`}>
                                   {stock.td_type.replace('首板', '1').replace('首', '1').replace('连板', '').replace('板', '')}
+                                </span>
+                              </td>
+                              <td className="px-0.5 py-0.5 text-center">
+                                <span className="text-[9px] text-gray-700">
+                                  {stock.amount ? `${stock.amount.toFixed(1)}` : '-'}
                                 </span>
                               </td>
                               {followUpDates.map(date => {

@@ -46,7 +46,9 @@
       "Bash(git describe:*)",
       "WebFetch(domain:bk.yushuo.click)",
       "Bash(node:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(if [ ! -d \"backup\" ])",
+      "Bash(then mkdir backup)"
     ],
     "deny": [],
     "ask": []

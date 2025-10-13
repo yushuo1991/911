@@ -12,6 +12,7 @@ export interface StockPerformance {
   td_type: string;
   performance: Record<string, number>;
   total_return: number;
+  amount?: number; // v4.8.16新增：个股涨停当日成交额（亿元）
   followUpData?: Record<string, number>; // 可选：个股后续日期表现数据
   totalReturn?: number; // 可选：累计收益（用于涨停数弹窗）
 }
