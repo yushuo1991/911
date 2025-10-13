@@ -1198,9 +1198,32 @@ export default function Home() {
                                 </span>
                               </td>
                               <td className="px-0.5 py-0.5 text-center">
-                                <span className="text-[9px] text-gray-700">
-                                  {stock.amount ? `${stock.amount.toFixed(1)}` : '-'}
-                                </span>
+                                {(() => {
+                                  // v4.8.19新增：涨停数弹窗个股成交额前2名红色高亮
+                                  if (!stock.amount || stock.amount === 0) {
+                                    return <span className="text-[9px] text-gray-700">-</span>;
+                                  }
+
+                                  // 获取该个股在当前板块内的成交额排名
+                                  const rank = getStockAmountRankInSector(sector.stocks, stock.code);
+
+                                  // 根据排名选择颜色
+                                  let colorClass = 'text-[9px] text-gray-700'; // 默认灰色
+                                  if (rank === 1) {
+                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-red-600 text-white font-semibold'; // 第1名：深红色
+                                  } else if (rank === 2) {
+                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-red-400 text-white font-medium'; // 第2名：中等红色
+                                  }
+
+                                  return (
+                                    <span
+                                      className={colorClass}
+                                      title={rank ? `板块内成交额排名: 第${rank}名` : ''}
+                                    >
+                                      {stock.amount.toFixed(1)}
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               {followUpDates.map(date => {
                                 const performance = stock.followUpData?.[date] || 0;
