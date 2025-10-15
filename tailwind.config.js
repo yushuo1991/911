@@ -72,7 +72,7 @@ module.exports = {
 
           // 成交额橙色系 - 基于 #E9573F 和 #FCFCE5
           'orange-100': '#FCFCE5', // 浅橙色
-          'orange-400': '#F4A261', // 中橙色
+          'orange-400': '#FC6E51', // 中橙色
           'orange-600': '#E9573F', // 深橙色
           'orange-700': '#C73E1D', // 深橙色文字
           'orange-800': '#A83418', // 更深橙色文字
