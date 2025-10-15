@@ -757,9 +757,9 @@ export default function Home() {
                                 // 根据排名选择颜色
                                 let colorClass = 'text-2xs text-gray-700'; // 默认灰色
                                 if (rank === 1) {
-                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-red-600 text-white font-semibold'; // 第1名：深红色
+                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-blue-600 text-white font-semibold'; // 第1名：深蓝色
                                 } else if (rank === 2) {
-                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-red-400 text-white font-medium'; // 第2名：中等红色
+                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-blue-400 text-white font-medium'; // 第2名：中蓝色
                                 }
 
                                 return (
@@ -1095,9 +1095,9 @@ export default function Home() {
                               // 根据排名选择颜色
                               let colorClass = 'bg-blue-50 text-blue-700'; // 默认浅蓝色
                               if (rank === 1) {
-                                colorClass = 'bg-red-600 text-white font-semibold'; // 第1名：深红色
+                                colorClass = 'bg-blue-600 text-white font-semibold'; // 第1名：深蓝色
                               } else if (rank === 2) {
-                                colorClass = 'bg-red-400 text-white font-medium'; // 第2名：中等红色
+                                colorClass = 'bg-blue-400 text-white font-medium'; // 第2名：中蓝色
                               }
 
                               return (
@@ -1210,9 +1210,9 @@ export default function Home() {
                                   // 根据排名选择颜色
                                   let colorClass = 'text-[9px] text-gray-700'; // 默认灰色
                                   if (rank === 1) {
-                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-red-600 text-white font-semibold'; // 第1名：深红色
+                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-blue-600 text-white font-semibold'; // 第1名：深蓝色
                                   } else if (rank === 2) {
-                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-red-400 text-white font-medium'; // 第2名：中等红色
+                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-blue-400 text-white font-medium'; // 第2名：中蓝色
                                   }
 
                                   return (
@@ -2001,9 +2001,9 @@ export default function Home() {
                                       // 根据排名选择颜色
                                       let colorClass = 'bg-blue-50 text-blue-700'; // 默认浅蓝色
                                       if (rank === 1) {
-                                        colorClass = 'bg-red-600 text-white font-semibold'; // 第1名：深红色
+                                        colorClass = 'bg-blue-600 text-white font-semibold'; // 第1名：深蓝色
                                       } else if (rank === 2) {
-                                        colorClass = 'bg-red-400 text-white font-medium'; // 第2名：中等红色
+                                        colorClass = 'bg-blue-400 text-white font-medium'; // 第2名：中蓝色
                                       }
 
                                       return (
