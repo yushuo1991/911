@@ -757,9 +757,9 @@ export default function Home() {
                                 // 根据排名选择颜色
                                 let colorClass = 'text-2xs text-gray-700'; // 默认灰色
                                 if (rank === 1) {
-                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-amber-600 text-white font-semibold'; // 第1名：深橙色
+                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-stock-orange-600 text-white font-semibold'; // 第1名：深橙色 #E9573F
                                 } else if (rank === 2) {
-                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-amber-400 text-white font-medium'; // 第2名：中橙色
+                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-stock-orange-400 text-white font-medium'; // 第2名：中橙色 #F4A261
                                 }
 
                                 return (
@@ -1093,11 +1093,11 @@ export default function Home() {
                               const rank = getSectorAmountRank(selectedStockCountData.date, sector.sectorName);
 
                               // 根据排名选择颜色
-                              let colorClass = 'bg-amber-50 text-amber-700'; // 默认浅橙色
+                              let colorClass = 'bg-stock-orange-100 text-stock-orange-800'; // 默认浅橙色 #FCFCE5
                               if (rank === 1) {
-                                colorClass = 'bg-amber-600 text-white font-semibold'; // 第1名：深橙色
+                                colorClass = 'bg-stock-orange-600 text-white font-semibold'; // 第1名：深橙色 #E9573F
                               } else if (rank === 2) {
-                                colorClass = 'bg-amber-400 text-white font-medium'; // 第2名：中橙色
+                                colorClass = 'bg-stock-orange-400 text-white font-medium'; // 第2名：中橙色 #F4A261
                               }
 
                               return (
@@ -1210,9 +1210,9 @@ export default function Home() {
                                   // 根据排名选择颜色
                                   let colorClass = 'text-[9px] text-gray-700'; // 默认灰色
                                   if (rank === 1) {
-                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-amber-600 text-white font-semibold'; // 第1名：深橙色
+                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-stock-orange-600 text-white font-semibold'; // 第1名：深橙色 #E9573F
                                   } else if (rank === 2) {
-                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-amber-400 text-white font-medium'; // 第2名：中橙色
+                                    colorClass = 'text-[9px] px-1 py-0.5 rounded bg-stock-orange-400 text-white font-medium'; // 第2名：中橙色 #F4A261
                                   }
 
                                   return (
@@ -1999,11 +1999,11 @@ export default function Home() {
                                       const rank = getSectorAmountRank(date, sector.name);
 
                                       // 根据排名选择颜色
-                                      let colorClass = 'bg-amber-50 text-amber-700'; // 默认浅橙色
+                                      let colorClass = 'bg-stock-orange-100 text-stock-orange-800'; // 默认浅橙色 #FCFCE5
                                       if (rank === 1) {
-                                        colorClass = 'bg-amber-600 text-white font-semibold'; // 第1名：深橙色
+                                        colorClass = 'bg-stock-orange-600 text-white font-semibold'; // 第1名：深橙色 #E9573F
                                       } else if (rank === 2) {
-                                        colorClass = 'bg-amber-400 text-white font-medium'; // 第2名：中橙色
+                                        colorClass = 'bg-stock-orange-400 text-white font-medium'; // 第2名：中橙色 #F4A261
                                       }
 
                                       return (

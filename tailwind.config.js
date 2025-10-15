@@ -10,9 +10,11 @@ module.exports = {
     'bg-stock-red-100', 'bg-stock-red-200', 'bg-stock-red-300', 'bg-stock-red-400', 'bg-stock-red-500', 'bg-stock-red-600',
     'bg-stock-green-100', 'bg-stock-green-200', 'bg-stock-green-300', 'bg-stock-green-400', 'bg-stock-green-500',
     'bg-stock-dark',
+    'bg-stock-orange-100', 'bg-stock-orange-400', 'bg-stock-orange-600',
     // 对应文字颜色
     'text-red-700', 'text-red-800', 'text-red-900', 'text-green-700', 'text-green-800', 'text-green-900',
     'text-white', 'text-slate-600', 'text-slate-700', 'text-gray-900',
+    'text-stock-orange-700', 'text-stock-orange-800',
     // 保留原有颜色以防需要
     'bg-orange-600', 'bg-red-400', 'bg-red-500', 'bg-rose-400', 'bg-rose-200', 'bg-rose-100',
     'bg-teal-600', 'bg-emerald-400', 'bg-emerald-500', 'bg-green-400', 'bg-green-200', 'bg-green-100',
@@ -67,6 +69,13 @@ module.exports = {
 
           // 跌停深色 - #434a54
           'dark': '#434a54',     // 跌停深灰蓝
+
+          // 成交额橙色系 - 基于 #E9573F 和 #FCFCE5
+          'orange-100': '#FCFCE5', // 浅橙色
+          'orange-400': '#F4A261', // 中橙色
+          'orange-600': '#E9573F', // 深橙色
+          'orange-700': '#C73E1D', // 深橙色文字
+          'orange-800': '#A83418', // 更深橙色文字
         },
       },
       animation: {
