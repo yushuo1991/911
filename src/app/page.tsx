@@ -437,10 +437,22 @@ export default function Home() {
   ) => {
     return [...stocks].sort((a, b) => {
       if (sortMode === 'board') {
-        // 按连板数排序（使用getBoardWeight提取数字）
+        // v4.8.24新增：状态为主，涨停时间为辅的复合排序
         const aBoardWeight = getBoardWeight(a.td_type);
         const bBoardWeight = getBoardWeight(b.td_type);
-        return bBoardWeight - aBoardWeight; // 降序排列，高板在前
+
+        // 首要条件：按状态排序
+        if (aBoardWeight !== bBoardWeight) {
+          return bBoardWeight - aBoardWeight; // 降序排列，高板在前
+        }
+
+        // 次要条件：状态相同时，按涨停时间排序（越早越在前）
+        const aTime = a.limitUpTime || '23:59'; // 默认最晚时间
+        const bTime = b.limitUpTime || '23:59';
+
+        // 时间格式：HH:MM，比较数值大小
+        return aTime.localeCompare(bTime); // 时间升序，早的在前
+
       } else {
         // 按累计收益排序
         const aFollowUp = followUpData[a.code] || {};
@@ -463,26 +475,39 @@ export default function Home() {
 
     const sectorCountMap: Record<string, { name: string; totalLimitUpCount: number; dailyBreakdown: { date: string; count: number }[] }> = {};
 
-    // 统计最近7天每个板块的涨停家数，排除"其他"和"ST板块"
+    // v4.8.24新增：确保所有板块在7天中都有记录，没有涨停时记录为0
+    // 首先收集所有出现过的板块名称
+    const allSectorNames = new Set<string>();
+    recent7Days.forEach(date => {
+      const dayData = sevenDaysData[date];
+      if (dayData && dayData.categories) {
+        Object.keys(dayData.categories).forEach(sectorName => {
+          // 排除"其他"板块和"ST板块"
+          if (sectorName !== '其他' && sectorName !== 'ST板块') {
+            allSectorNames.add(sectorName);
+          }
+        });
+      }
+    });
+
+    // 为每个板块初始化统计
+    allSectorNames.forEach(sectorName => {
+      sectorCountMap[sectorName] = {
+        name: sectorName,
+        totalLimitUpCount: 0,
+        dailyBreakdown: []
+      };
+    });
+
+    // 统计最近7天每个板块的涨停家数
     recent7Days.forEach(date => {
       const dayData = sevenDaysData[date];
       if (!dayData) return;
 
-      Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
-        // 排除"其他"板块和"ST板块"
-        if (sectorName === '其他' || sectorName === 'ST板块') {
-          return;
-        }
-
-        if (!sectorCountMap[sectorName]) {
-          sectorCountMap[sectorName] = {
-            name: sectorName,
-            totalLimitUpCount: 0,
-            dailyBreakdown: []
-          };
-        }
-
+      allSectorNames.forEach(sectorName => {
+        const stocks = dayData.categories[sectorName] || [];
         const dayLimitUpCount = stocks.length;
+
         sectorCountMap[sectorName].totalLimitUpCount += dayLimitUpCount;
         sectorCountMap[sectorName].dailyBreakdown.push({
           date,
@@ -497,6 +522,40 @@ export default function Home() {
       .slice(0, 5);
 
     return rankedSectors;
+  }, [sevenDaysData, dates]);
+
+  // v4.8.24新增：准备板块曲线图数据
+  const prepareSectorChartData = useMemo(() => {
+    if (!sevenDaysData || !dates || dates.length === 0) return [];
+
+    // 获取所有出现过的板块名称
+    const allSectorNames = new Set<string>();
+    dates.forEach(date => {
+      const dayData = sevenDaysData[date];
+      if (dayData && dayData.categories) {
+        Object.keys(dayData.categories).forEach(sectorName => {
+          if (sectorName !== '其他' && sectorName !== 'ST板块') {
+            allSectorNames.add(sectorName);
+          }
+        });
+      }
+    });
+
+    // 为曲线图准备数据
+    const chartData = allSectorNames.map(sectorName => {
+      const dataPoint: any = { name: sectorName };
+
+      // 为每个日期添加数据
+      dates.forEach(date => {
+        const dayData = sevenDaysData[date];
+        const count = (dayData?.categories[sectorName] || []).length;
+        dataPoint[date] = count;
+      });
+
+      return dataPoint;
+    });
+
+    return chartData;
   }, [sevenDaysData, dates]);
 
   // 骨架屏组件 - 修复用户看不到功能的问题
@@ -1253,10 +1312,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* 板块强度排序弹窗 - 更新为7天 */}
+      {/* 板块强度排序弹窗 - 更新为7天，左右分栏布局 */}
       {showSectorRankingModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-4 max-w-4xl max-h-[90vh] overflow-auto shadow-2xl">
+          <div className="bg-white rounded-xl p-4 max-w-7xl max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">
                 🏆 板块7天涨停总数排行 (前5名)
@@ -1297,7 +1356,51 @@ export default function Home() {
               )}
             </div>
 
-            <div className="space-y-3">
+            {/* 左右分栏布局 */}
+            <div className="flex gap-4">
+              {/* 左侧：板块涨停家数曲线图 */}
+              <div className="w-1/2 bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-800 mb-3">📈 板块涨停家数趋势图</h4>
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={prepareSectorChartData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      label={{ value: '涨停家数', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '8px', border: '1px solid #ccc' }}
+                      labelStyle={{ color: '#333', fontWeight: 'bold' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                    {/* 动态生成前5名板块的线条 */}
+                    {getSectorStrengthRanking.slice(0, 5).map((sector, index) => {
+                      const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
+                      return (
+                        <Line
+                          key={sector.name}
+                          type="monotone"
+                          dataKey={sector.name}
+                          stroke={colors[index]}
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      );
+                    })}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* 右侧：板块排行列表 */}
+              <div className="w-1/2 space-y-3">
               {getSectorStrengthRanking.map((sector, index) => (
                 <div
                   key={sector.name}
@@ -1362,6 +1465,7 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+              </div>
             </div>
 
             {getSectorStrengthRanking.length === 0 && (

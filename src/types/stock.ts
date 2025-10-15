@@ -4,6 +4,7 @@ export interface Stock {
   ZSName: string;
   TDType: string;
   Amount?: number; // 成交额（亿元）- v4.8.8新增
+  LimitUpTime?: string; // v4.8.24新增：涨停时间（格式：HH:MM）
 }
 
 export interface StockPerformance {
@@ -15,6 +16,7 @@ export interface StockPerformance {
   amount?: number; // v4.8.16新增：个股涨停当日成交额（亿元）
   followUpData?: Record<string, number>; // 可选：个股后续日期表现数据
   totalReturn?: number; // 可选：累计收益（用于涨停数弹窗）
+  limitUpTime?: string; // v4.8.24新增：涨停时间（格式：HH:MM）
 }
 
 export interface CategoryData {

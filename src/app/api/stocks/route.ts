@@ -256,11 +256,13 @@ import { NextRequest, NextResponse } from 'next/server';
               // stockData是一个数组，索引说明：
               // [0]: 股票代码, [1]: 股票名称, [9]: 板位类型
               // [6]: 成交额（元）- v4.8.8新增
+              // [7]: 涨停时间（格式：HH:MM）- v4.8.24新增
               const stockCode = stockData[0];
               const stockName = stockData[1];
               const tdType = stockData[9] || '首板';
               const amountInYuan = parseFloat(stockData[6]) || 0; // 成交额（元）
               const amountInYi = amountInYuan / 100000000; // 转换为亿元
+              const limitUpTime = stockData[7] || '09:30'; // 涨停时间，默认9:30
 
               // 调试日志：记录前3个股票的完整数组结构
               if (stocks.length < 3) {
@@ -272,7 +274,8 @@ import { NextRequest, NextResponse } from 'next/server';
                 StockCode: stockCode,
                 ZSName: zsName,
                 TDType: tdType,
-                Amount: Math.round(amountInYi * 100) / 100 // 保留2位小数
+                Amount: Math.round(amountInYi * 100) / 100, // 保留2位小数
+                LimitUpTime: limitUpTime // v4.8.24新增：涨停时间
               });
             });
           }
@@ -794,7 +797,8 @@ import { NextRequest, NextResponse } from 'next/server';
         code: stock.StockCode,
         td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
         performance,
-        total_return: Math.round(totalReturn * 100) / 100
+        total_return: Math.round(totalReturn * 100) / 100,
+        limitUpTime: stock.LimitUpTime // v4.8.24新增：涨停时间
       };
 
       if (!categories[category]) {
@@ -936,7 +940,8 @@ import { NextRequest, NextResponse } from 'next/server';
             td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
             performance: { [day]: 10.0 }, // 涨停日当天固定为10%
             total_return: Math.round(totalReturn * 100) / 100,
-            amount: realAmount // v4.8.18修改：使用Tushare真实成交额（亿元）
+            amount: realAmount, // v4.8.18修改：使用Tushare真实成交额（亿元）
+            limitUpTime: stock.LimitUpTime // v4.8.24新增：涨停时间
           };
 
           if (!categories[category]) {
