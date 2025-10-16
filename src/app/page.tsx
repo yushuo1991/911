@@ -1507,6 +1507,20 @@ export default function Home() {
                           '#3b82f6', // 蓝色 (第4名)
                           '#8b5cf6', // 紫色 (第5名)
                         ];
+
+                        // 找到该板块的最高点
+                        const chartData = dates.map(date => {
+                          const dataPoint: any = { date: formatDate(date).slice(5) };
+                          getSectorStrengthRanking.forEach(s => {
+                            const dayData = s.dailyBreakdown.find(d => d.date === date);
+                            dataPoint[s.name] = dayData ? dayData.count : 0;
+                          });
+                          return dataPoint;
+                        });
+
+                        const maxValue = Math.max(...sector.dailyBreakdown.map(d => d.count));
+                        const maxIndex = sector.dailyBreakdown.findIndex(d => d.count === maxValue);
+
                         return (
                           <Line
                             key={sector.name}
@@ -1517,6 +1531,24 @@ export default function Home() {
                             dot={{ fill: colors[index], strokeWidth: 2, r: 5 }}
                             activeDot={{ r: 7 }}
                             name={sector.name}
+                            label={(props: any) => {
+                              // 只在最高点显示标签
+                              if (props.index === maxIndex && maxValue > 0) {
+                                return (
+                                  <text
+                                    x={props.x}
+                                    y={props.y - 10}
+                                    fill={colors[index]}
+                                    fontSize={11}
+                                    fontWeight="bold"
+                                    textAnchor="middle"
+                                  >
+                                    {sector.name}
+                                  </text>
+                                );
+                              }
+                              return null;
+                            }}
                           />
                         );
                       })}
