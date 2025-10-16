@@ -542,7 +542,7 @@ export default function Home() {
     });
 
     // 为曲线图准备数据
-    const chartData = allSectorNames.map(sectorName => {
+    const chartData = Array.from(allSectorNames).map(sectorName => {
       const dataPoint: any = { name: sectorName };
 
       // 为每个日期添加数据
