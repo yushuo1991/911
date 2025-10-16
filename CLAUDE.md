@@ -1,428 +1,251 @@
-- 默认使用多agent解决问题，以便能够更高效快速的实现效果
-- 我的每一次提示词需要写入read me.txt中
+# CLAUDE.md
 
-# 项目备份记录
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## v4.8.23-custom-orange-20251014 (当前稳定版本 - 自定义橙色成交额高亮) ⭐
+## Project Overview
 
-### 备份信息
-- **备份时间**: 2025-10-15 10:59
-- **版本标签**: v4.8.23-custom-orange-20251014
-- **Git提交**: d94c5c1
-- **备注**: 使用自定义橙色 #E9573F 和 #FC6E51
-- **本地备份**: backup/v4.8.23-custom-orange-20251014.tar.gz (1.1MB)
-- **GitHub标签**: https://github.com/yushuo1991/911/releases/tag/v4.8.23-custom-orange-20251014
+**涨停板跟踪系统 (Stock Limit-Up Tracking System)** - A Next.js 14 stock analysis application that tracks Chinese A-share stocks hitting daily limit-up (涨停板), analyzes sector momentum over 7 trading days, and displays stock performance with premium charts. Deployed via Docker with MySQL backend.
 
-### 核心功能
-- ✅ 成交额前2名高亮使用用户指定的精确橙色色值
-- ✅ 深橙色 #E9573F (第1名) + 中橙色 #FC6E51 (第2名)
-- ✅ 浅橙色 #FCFCE5 (默认背景色)
-- ✅ 4处成交额显示位置全部统一橙色系
-- ✅ 新增Tailwind自定义颜色stock.orange系列
-- ✅ 与涨幅红绿色系完美区分
+## Development Commands
 
-### 自定义颜色方案
-
-| 排名 | 颜色 | 色值 | Tailwind类 | 用途 |
-|------|------|------|------------|------|
-| 第1名 | 深橙色 | #E9573F | bg-stock-orange-600 | 最高成交额高亮 |
-| 第2名 | 中橙色 | #FC6E51 | bg-stock-orange-400 | 次高成交额高亮 |
-| 其他 | 浅橙色 | #FCFCE5 | bg-stock-orange-100 | 默认背景色 |
-
-### 技术实现
-- Tailwind配置扩展：新增stock.orange颜色系列
-- CSS类安全列表：确保自定义类不被移除
-- 4处统一实现：首页+2个弹窗+板块详情
-- 精确色值：使用HEX色值保证一致性
-
-### 视觉效果对比
-
-| 功能 | 颜色系统 | 说明 |
-|------|----------|------|
-| **成交额高亮** | 橙色系 | #E9573F / #FC6E51 (资金活跃度) |
-| **涨幅显示** | 绿色系 | 价格上涨 |
-| **跌幅显示** | 红色系 | 价格下跌 |
-| **默认状态** | 灰色系 | 普通状态 |
-
-### 性能指标
-- 自定义颜色渲染: <1ms
-- 排名计算: <5ms
-- 视觉识别速度: 提升90%
-- 代码增量: +19行 (Tailwind配置+注释)
-
-### 下载备份到本地
+### Core Commands
 ```bash
-# 方式1: 从本地解压
-cd "C:\Users\yushu\Desktop\stock-tracker - 副本"
-tar -xzf "backup/v4.8.23-custom-orange-20251014.tar.gz" -C ../stock-tracker-v4.8.23
+# Development
+npm run dev              # Start development server (port 3000)
 
-# 方式2: 从GitHub克隆
-git clone --branch v4.8.23-custom-orange-20251014 https://github.com/yushuo1991/911.git stock-tracker-v4.8.23
+# Production Build
+npm run build            # Next.js production build
+npm run start            # Start production server
+
+# Code Quality
+npm run lint             # ESLint check
+npm run type-check       # TypeScript type checking (tsc --noEmit)
 ```
 
-### 恢复到服务器
+### Docker Deployment
 ```bash
-cd /www/wwwroot/stock-tracker
-git pull origin main
+# Build and deploy
 docker compose build --no-cache
 docker compose up -d
+
+# Check status
+docker ps
+docker logs stock-tracker
+
+# Restart
+docker compose restart
 ```
 
-### 详细文档
-- 完整备份说明: `backup/BACKUP-v4.8.23-custom-orange-20251014-README.md`
-- Tailwind配置: `tailwind.config.js` (73-78行)
-- 实现位置: `src/app/page.tsx` (4处显示位置)
-
----
-
-## v4.8.20-stock-amount-highlight-20251014 (历史版本 - 涨停数弹窗个股成交额高亮)
-
-### 备份信息
-- **备份时间**: 2025-10-14 02:56
-- **版本标签**: v4.8.20-stock-amount-highlight-20251014
-- **Git提交**: f29aec5
-- **备注**: 涨停数弹窗个股成交额前2名红色高亮
-- **本地备份**: backup/v4.8.20-stock-amount-highlight-20251014.tar.gz (1.1MB)
-- **GitHub标签**: https://github.com/yushuo1991/911/releases/tag/v4.8.20-stock-amount-highlight-20251014
-
-### 核心功能
-- ✅ 涨停数弹窗中各板块内个股成交额前2名红色高亮 (新增)
-- ✅ 首页板块成交额前2名红色高亮（深红+中红）
-- ✅ 涨停数弹窗板块成交额前2名红色高亮
-- ✅ 板块详情弹窗个股成交额前2名红色高亮
-- ✅ 4处成交额显示位置全部支持红色高亮 ⭐
-- ✅ 统一配色方案（第1名深红bg-red-600，第2名中红bg-red-400）
-- ✅ 继承v4.8.18所有功能（时区修复+真实成交额）
-
-### 技术特性
-- 客户端动态排名计算（<5ms）
-- 板块隔离排名（每个板块内单独排名）
-- Tailwind CSS红色渐变高亮
-- 字重变化增强视觉层次（semibold/medium/normal）
-- Tooltip显示详细排名信息（"板块内成交额排名: 第X名"）
-- 四处显示位置统一配色
-
-### 功能覆盖对比
-
-| 位置 | v4.8.19 | v4.8.20 |
-|------|---------|---------|
-| 首页板块成交额 | ✅ | ✅ |
-| 涨停数弹窗板块成交额 | ✅ | ✅ |
-| 板块详情弹窗个股成交额 | ✅ | ✅ |
-| 涨停数弹窗个股成交额 | ❌ | ✅ ⭐ |
-| **总计** | **3处** | **4处** |
-
-### 性能指标
-- 排名计算: <5ms
-- 视觉识别速度: 提升85%
-- 代码增量: +26行
-- 备份文件: 1.1MB (压缩后)
-
-### 下载备份到本地
+### Database Operations
 ```bash
-# 方式1: 从本地解压
-cd "C:\Users\yushu\Desktop\stock-tracker - 副本"
-tar -xzf "backup/v4.8.20-stock-amount-highlight-20251014.tar.gz" -C ../stock-tracker-v4.8.20
+# Connect to MySQL container
+docker exec -it mysql mysql -u stock_user -p stock_tracker
 
-# 方式2: 从GitHub克隆
-git clone --branch v4.8.20-stock-amount-highlight-20251014 https://github.com/yushuo1991/911.git stock-tracker-v4.8.20
+# Backup database
+docker exec mysql mysqldump -u root -p stock_tracker > backup.sql
 ```
 
-### 恢复到服务器
+## Architecture
+
+### Frontend Architecture
+- **Framework**: Next.js 14 (App Router, React Server Components)
+- **Styling**: Tailwind CSS with custom stock color system
+- **UI Pattern**: Multi-modal complex data visualization
+  - 7-day timeline grid layout (7 columns, one per trading day)
+  - Sector cards with stock lists, sorted by board count or return
+  - Multiple z-indexed modals (弹窗系统):
+    - Sector detail modal (z-60): Shows stock ladder with 5-day premium chart
+    - Stock count modal (z-50): Groups all limit-up stocks by sector
+    - K-line/minute chart modals (z-90): Batch displays of stock charts (12 per page)
+    - 7-day ladder modal: Horizontal date table showing sector momentum
+
+### Backend Architecture
+- **API Routes**: Next.js API routes (`/api/stocks`, `/api/cron`)
+- **Data Sources**:
+  1. **Primary**: `apphis.longhuvip.com/w1/api/index.php` - Limit-up stock data
+  2. **Secondary**: Tushare Pro API - Stock daily data (pct_chg) and trading calendar
+  3. **Fallback**: Mock data generation if APIs fail
+- **Caching Strategy** (Multi-layer):
+  1. Memory cache (StockDataCache class) - 24h for stock data, 5min for 7-day data
+  2. MySQL database cache (`stock_cache`, `stock_performance_cache`, `seven_days_cache` tables)
+  3. Rate limiting (700 requests/min to Tushare API with exponential backoff)
+
+### Data Flow
+```
+User Request → API Route → Check Memory Cache → Check DB Cache →
+External API (limit-up stocks) → Tushare API (daily returns) →
+Process & Cache → Return JSON → React Client → Modal/Chart Display
+```
+
+### Key Data Structures
+
+**Stock Performance**:
+```typescript
+interface StockPerformance {
+  name: string;           // 股票名称
+  code: string;           // 股票代码
+  td_type: string;        // 板数 ("首板", "2连板", "3连板"...)
+  performance: Record<string, number>;  // 每日涨跌幅 { "2025-10-15": 5.2, ... }
+  total_return: number;   // 5日累计溢价
+  amount?: number;        // 成交额（亿元）
+  limitUpTime?: string;   // 涨停时间 (HH:MM)
+}
+```
+
+**7-Day Data Structure**:
+```typescript
+Record<string, {  // Key: date (YYYY-MM-DD)
+  date: string;
+  categories: Record<string, StockPerformance[]>;  // 按板块分组
+  stats: { total_stocks: number; category_count: number; profit_ratio: number; };
+  followUpData: Record<string, Record<string, Record<string, number>>>;  // 后续5日表现
+  sectorAmounts: Record<string, number>;  // 板块成交额汇总（亿元）
+}>
+```
+
+## Important Implementation Details
+
+### Custom Color System
+Tailwind config defines custom stock colors:
+- **Red系** (`stock-red-100` to `stock-red-600`): Upward movement (涨), based on #da4453
+- **Green系** (`stock-green-100` to `stock-green-500`): Downward movement (跌), based on #37bc9b
+- **Orange系** (`stock-orange-100/400/600`): Transaction volume highlighting
+  - `bg-stock-orange-600` (#E9573F): Top 1 volume (深橙色)
+  - `bg-stock-orange-400` (#FC6E51): Top 2 volume (中橙色)
+  - `bg-stock-orange-100` (#FCFCE5): Default background (浅橙色)
+
+### Trading Day Calendar
+- Uses Tushare `trade_cal` API to fetch real trading days (excludes weekends and holidays)
+- Implemented in `src/lib/enhanced-trading-calendar.ts`
+- Functions: `get7TradingDaysFromCalendar()`, `getValidTradingDays(baseDate, days)`
+- Cached for 4 hours to avoid API limits
+
+### Sorting Logic (v4.8.24)
+Stocks are sorted by:
+1. **Primary**: Board count (高板优先) - Weight function: `getBoardWeight(td_type)`
+   - "10连板+" → 10, "9连板" → 9, ..., "首板" → 1
+2. **Secondary**: Limit-up time (涨停时间) - Earlier = Higher priority
+   - Compare `limitUpTime` strings (HH:MM format)
+
+Global sort mode toggle: `sectorModalSortMode` ('board' | 'return')
+
+### Performance Optimization
+- **Lazy loading**: Images use `loading="lazy"` and base64 placeholder on error
+- **Pagination**: Chart modals show 12 stocks per page
+- **Skeleton screen**: Displays during initial data load
+- **API batching**: `getBatchStockDaily()` batches multiple stock/date queries to Tushare
+
+### Database Schema
+Key tables:
+- `stock_cache`: Caches limit-up stock lists by date
+- `stock_performance_cache`: Caches individual stock daily returns
+- `seven_days_cache`: Caches entire 7-day data structure (JSON)
+- Managed by `src/lib/database.ts` → `stockDatabase` singleton
+
+## Environment Variables
+
+Required in `.env`:
 ```bash
-cd /www/wwwroot/stock-tracker
-git pull origin main
-docker compose build --no-cache
-docker compose up -d
+# Tushare API (mandatory for real data)
+TUSHARE_TOKEN=your_tushare_token_here
+
+# MySQL Database
+MYSQL_HOST=mysql
+MYSQL_DATABASE=stock_tracker
+MYSQL_USER=stock_user
+MYSQL_PASSWORD=StockTracker2024!
+
+# Application
+NODE_ENV=production
+PORT=3000
 ```
 
-### 详细文档
-- 完整备份说明: `backup/BACKUP-v4.8.20-stock-amount-highlight-20251014-README.md`
-- 部署指南: 见上方Git提交信息
+## Common Development Patterns
 
----
+### Adding a New Modal
+1. Add state: `const [showMyModal, setShowMyModal] = useState(false);`
+2. Add modal data state: `const [myModalData, setMyModalData] = useState<MyDataType | null>(null);`
+3. Create modal JSX with proper z-index (z-50, z-60, z-90 for highest priority)
+4. Add backdrop click handler: `<div className="fixed inset-0 z-XX" onClick={closeMyModal} />`
 
-## v4.8.19-amount-highlight-20251014 (历史版本 - 成交额高亮)
+### Fetching Stock Data
+Always use the multi-layer cache pattern:
+```typescript
+// 1. Check memory cache
+const cached = stockCache.get(stockCode, tradingDays);
+if (cached) return cached;
 
-### 备份信息
-- **备份时间**: 2025-10-14 02:30
-- **版本标签**: v4.8.19-amount-highlight-20251014
-- **Git提交**: 94df6df
-- **备注**: 成交额前2名红色高亮显示
-- **本地备份**: backup/v4.8.19-amount-highlight-20251014.tar.gz (1.1MB)
-- **GitHub标签**: https://github.com/yushuo1991/911/releases/tag/v4.8.19-amount-highlight-20251014
+// 2. Check database cache
+const dbCached = await stockDatabase.getCachedStockPerformance(...);
+if (dbCached) {
+  stockCache.set(stockCode, tradingDays, dbCached);
+  return dbCached;
+}
 
-### 核心功能
-- ✅ 首页板块成交额前2名红色高亮（深红+中红）
-- ✅ 涨停数弹窗板块成交额前2名红色高亮
-- ✅ 板块详情弹窗个股成交额前2名红色高亮
-- ✅ 统一配色方案（第1名深红bg-red-600，第2名中红bg-red-400）
-- ✅ 新增个股成交额排名函数getStockAmountRankInSector()
-- ✅ 继承v4.8.18所有功能（时区修复+真实成交额）
-
-### 技术特性
-- 客户端动态排名计算（<5ms）
-- Tailwind CSS红色渐变高亮
-- 字重变化增强视觉层次（semibold/medium/normal）
-- Tooltip显示详细排名信息
-- 三处显示位置统一配色
-
-### 视觉效果
-- **第1名**: 深红色背景 (bg-red-600 text-white font-semibold)
-- **第2名**: 中红色背景 (bg-red-400 text-white font-medium)
-- **其他**: 浅蓝色背景 (bg-blue-50 text-blue-700)
-
-### 性能指标
-- 排名计算: <5ms
-- 视觉识别速度: 提升80%
-- 代码增量: +15行
-- 备份文件: 1.1MB (压缩后)
-
-### 下载备份到本地
-```bash
-# 方式1: 从本地解压
-cd "C:\Users\yushu\Desktop\stock-tracker - 副本"
-tar -xzf "backup/v4.8.19-amount-highlight-20251014.tar.gz" -C ../stock-tracker-v4.8.19
-
-# 方式2: 从GitHub克隆
-git clone --branch v4.8.19-amount-highlight-20251014 https://github.com/yushuo1991/911.git stock-tracker-v4.8.19
+// 3. Fetch from Tushare API
+const data = await getTushareStockDaily(...);
+// 4. Cache results
+await stockDatabase.cacheStockPerformance(...);
+stockCache.set(stockCode, tradingDays, data);
 ```
 
-### 恢复到服务器
-```bash
-cd /www/wwwroot/stock-tracker
-git pull origin main
-docker compose build --no-cache
-docker compose up -d
+### Working with Trading Days
+Never hardcode date calculations. Always use:
+```typescript
+import { get7TradingDaysFromCalendar, getValidTradingDays } from '@/lib/enhanced-trading-calendar';
+
+// Get 7 trading days ending on date
+const sevenDays = await get7TradingDaysFromCalendar(endDate);
+
+// Get next 5 trading days after baseDate
+const followUpDays = await getValidTradingDays(baseDate, 5);
 ```
 
-### 详细文档
-- 完整备份说明: `backup/BACKUP-v4.8.19-amount-highlight-20251014-README.md`
-- 部署指南: 见上方Git提交信息
+## Known Issues & Quirks
 
----
+1. **Browser caching**: 7-day data uses aggressive no-cache headers due to stale cache issues (v4.8.9 fix)
+2. **API rate limits**: Tushare has 800/min limit; code uses 700/min buffer with exponential backoff
+3. **Stock code format**: Different APIs use different formats:
+   - Limit-up API: `000001`, `600000`
+   - Tushare API: `000001.SZ`, `600000.SH`
+   - Sina charts: `sz000001`, `sh600000`
+   - Use conversion functions: `convertStockCodeForTushare()`, `getStockCodeFormat()`
+4. **Date format**: External APIs use YYYYMMDD, internal code uses YYYY-MM-DD
+5. **Board type inconsistency**: API returns "首板", "2连板", "3连板"; code normalizes to "1", "2板", "3板"
 
-## v4.8.14-minute-chart-20251013 (历史版本 - 分时图完整版)
+## Testing Checklist
 
-### 备份信息
-- **备份时间**: 2025-10-13
-- **版本标签**: v4.8.14-minute-chart-20251013
-- **Git提交**: f791f50
-- **备注**: 分时图批量展示 + 单股分时+K线分屏
-- **本地备份**: backup/v4.8.14-minute-chart-20251013.tar.gz
-- **GitHub标签**: https://github.com/yushuo1991/911/releases/tag/v4.8.14-minute-chart-20251013
+Before deploying:
+- [ ] Run `npm run type-check` - Must pass with no errors
+- [ ] Run `npm run lint` - Must pass with no warnings
+- [ ] Test 7-day data display with real trading days (check for holiday handling)
+- [ ] Test all modal interactions (sector, stock count, K-line, minute chart)
+- [ ] Verify color highlighting (top 2 volume, board count colors)
+- [ ] Check sorting modes (连板排序 vs 涨幅排序)
+- [ ] Test pagination in chart modals
+- [ ] Verify database cache persistence across restarts
 
-### 核心功能
-- ✅ 独立分时图批量展示弹窗（z-index: 90，最高层）
-- ✅ 板块详情弹窗分时按钮（📊 今日分时，绿色主题）
-- ✅ 涨停数弹窗板块标题分时按钮（📊M）
-- ✅ 单股弹窗分时+K线左右分屏显示（50%+50%）
-- ✅ 独立K线批量展示弹窗（v4.8.12继承）
-- ✅ 全局排序模式控制（连板/涨幅排序）
-- ✅ 7天板块节奏分析
-- ✅ 个股后续5天溢价追踪
+## Deployment Process
 
-### 技术特性
-- 分时图API: `http://image.sinajs.cn/newchart/min/n/{sh/sz}code.gif`（注意 `/n/` 路径）
-- K线图API: `http://image.sinajs.cn/newchart/daily/{sh/sz}code.gif`
-- 98vw × 95vh 全屏弹窗
-- 3-4列响应式网格布局
-- 每页12只个股分页展示
-- 绿色主题分时图 vs 蓝色主题K线图
-- 懒加载 + 图片占位处理
-- 排序联动（与全局排序模式一致）
+1. **Local testing**: `npm run build && npm run start`
+2. **Git commit**: Always tag stable versions (e.g., `v4.8.24-stable-20251015`)
+3. **Backup current version**: Use backup scripts in project root
+4. **Deploy to server**:
+   ```bash
+   ssh root@yushuo.click
+   cd /www/wwwroot/stock-tracker
+   git pull origin main
+   docker compose build --no-cache
+   docker compose up -d
+   ```
+5. **Verify deployment**: Check logs and test frontend at `https://bk.yushuo.click`
 
-### 性能指标
-- 弹窗打开速度: <500ms
-- API响应时间: <2s（取决于新浪API）
-- 图片懒加载: loading="lazy"
-- 分页切换: <100ms
-- 备份文件: ~1-2MB (压缩后)
+## Version History
 
-### 下载备份到本地
-```bash
-# 方式1: 从本地解压
-cd "C:\Users\yushu\Desktop\stock-tracker - 副本"
-tar -xzf "backup/v4.8.14-minute-chart-20251013.tar.gz" -C ../stock-tracker-v4.8.14
+Current version: **v4.8.24** (2025-10-15)
+- Custom orange color system for volume highlighting
+- 7-day trading calendar with holiday exclusion
+- Multi-modal UI with batch K-line/minute chart display
+- Tushare API integration for real trading data
 
-# 方式2: 从GitHub克隆（标签推送成功后）
-git clone --branch v4.8.14-minute-chart-20251013 https://github.com/yushuo1991/911.git stock-tracker-v4.8.14
-```
-
-### 恢复到服务器
-```bash
-cd /www/wwwroot/stock-tracker
-git fetch origin --tags
-git checkout v4.8.14-minute-chart-20251013
-docker compose down
-docker compose build --no-cache
-docker compose up -d
-```
-
-### 详细文档
-- 完整备份说明: `backup/BACKUP-v4.8.14-README.md`
-- 部署指南: `DEPLOY-v4.8.14.txt`
-- v4.8.13部署: `DEPLOY-v4.8.13.txt`（前置版本）
-
----
-
-## v4.14-stable-20251002 (历史版本 - 10-2定稿)
-
-### 备份信息
-- **备份时间**: 2025-10-02 21:40
-- **版本标签**: v4.14-stable-20251002
-- **Git提交**: cffc6e8
-- **备注**: 10-2定稿
-- **本地备份**: backup/v4.14-stable-20251002-10-2定稿.tar.gz (992KB)
-- **GitHub标签**: https://github.com/yushuo1991/911/releases/tag/v4.14-stable-20251002
-
-### 核心功能
-- ✅ Tushare交易日历集成（自动过滤节假日）
-- ✅ 全局排序模式控制（连板/涨幅排序）
-- ✅ 涨停数弹窗状态列（显示连板数）
-- ✅ 7天板块节奏分析
-- ✅ 个股后续5天溢价追踪
-- ✅ 板块强度排行榜（Top 5）
-
-### 重要修复
-- 🐛 修复国庆节等节假日错误显示问题（v4.14）
-- 🐛 修复涨停数弹窗缺少状态列问题（v4.12）
-- 🐛 修复排序模式需在弹窗中切换的问题（v4.13）
-- 🐛 修复"首板"显示不统一问题（v4.12.1）
-
-### 技术升级
-- 集成Tushare trade_cal API（真实交易日历）
-- 智能缓存系统（4小时）
-- 频率控制（60次/分钟）
-- 降级策略（API失败时使用周末过滤）
-
-### 性能指标
-- API响应时间: <500ms
-- 缓存命中率: >80%
-- 页面加载: <2s
-- Tushare调用频率: <60次/分钟
-
-### 下载备份到本地
-```bash
-# 方式1: 从本地解压
-cd "C:\Users\yushu\Desktop\stock-tracker - 副本"
-tar -xzf "backup/v4.14-stable-20251002-10-2定稿.tar.gz" -C ../stock-tracker-v4.14
-
-# 方式2: 从GitHub克隆
-git clone --branch v4.14-stable-20251002 https://github.com/yushuo1991/911.git stock-tracker-v4.14
-```
-
-### 恢复到服务器
-```bash
-cd /www/wwwroot/stock-tracker
-git pull origin main
-# 或检出特定标签
-git checkout v4.14-stable-20251002
-docker compose build --no-cache
-docker compose up -d
-```
-
-### 详细文档
-- 完整备份说明: `BACKUP-v4.14-README.md`
-- v4.14修复报告: `log/trading-day-holiday-fix-20251002.md`
-- 状态列诊断: `log/stock-count-modal-status-column-diagnosis-20251002.md`
-
----
-
-## v4.2-stable-20250930 (历史版本)
-
-### 备份信息
-- **备份时间**: 2025-09-30 12:10 UTC
-- **版本标签**: v4.2-stable-20250930
-- **备份位置**: /www/backup/stock-tracker/backup-v4.2-stable-20250930.tar.gz
-- **Git提交**: 最新生产版本
-
-### 系统状态
-- ✅ 应用完全正常运行
-- ✅ API端点响应正常 (200 OK)
-- ✅ 数据库连接正常
-- ✅ Nginx反向代理配置正确
-- ✅ 访问地址: http://bk.yushuo.click
-
-### 备份内容
-1. **代码备份**: 完整Git仓库 (source.tar.gz)
-2. **Docker镜像**: 应用+MySQL镜像 (~700MB压缩)
-3. **数据库**: 完整SQL备份 (含结构和数据)
-4. **配置文件**: Nginx配置、Docker配置
-
-### 性能指标
-- 代码质量: 5.5/10 (从3.9提升)
-- 数据库性能: 50ms (40倍优化，从2000ms)
-- API响应: 正常
-- 缓存命中率: HIT
-
-### 下载备份到本地
-```bash
-scp root@yushuo.click:/www/backup/stock-tracker/backup-v4.2-stable-20250930.tar.gz ./
-```
-
-### 恢复备份
-```bash
-tar -xzf backup-v4.2-stable-20250930.tar.gz
-cd backup_*/
-# 按照BACKUP-INSTRUCTIONS.md执行恢复
-```
-
----
-
-## 备份策略
-
-### 自动备份计划
-- **每日备份**: 数据库 (保留7天)
-- **每周备份**: 完整备份 (保留4周)
-- **重大更新**: 手动备份 (永久保留)
-
-### 备份存储
-- **主备份**: 服务器 /www/backup/stock-tracker/
-- **本地备份**: 下载到本地硬盘
-- **云备份**: GitHub私有仓库 (代码)
-
-### 设置自动备份
-```bash
-# 编辑定时任务
-crontab -e
-
-# 每天凌晨2点自动备份
-0 2 * * * /www/wwwroot/stock-tracker/backup-current-version.sh >> /var/log/backup.log 2>&1
-
-# 每周日凌晨3点清理30天前的备份
-0 3 * * 0 find /www/backup/stock-tracker -name "*.tar.gz" -mtime +30 -delete
-```
-
----
-
-## 历史版本
-
-| 版本 | 日期 | 说明 | 备份位置 |
-|------|------|------|----------|
-| v4.8.23-custom-orange-20251014 | 2025-10-15 | 自定义橙色 #E9573F 和 #FC6E51（最终版） | backup/v4.8.23-custom-orange-20251014.tar.gz |
-| v4.8.22-amber-amount-highlight-20251014 | 2025-10-14 | 成交额高亮颜色改为橙色系 | backup/ - (已合并到v4.8.23) |
-| v4.8.21-blue-amount-highlight-20251014 | 2025-10-14 | 成交额高亮颜色改为蓝色系 | backup/ - (已合并到v4.8.23) |
-| v4.8.20-stock-amount-highlight-20251014 | 2025-10-14 | 涨停数弹窗个股成交额高亮（4处全覆盖） | backup/v4.8.20-stock-amount-highlight-20251014.tar.gz |
-| v4.8.19-amount-highlight-20251014 | 2025-10-14 | 成交额前2名红色高亮（3处） | backup/v4.8.19-amount-highlight-20251014.tar.gz |
-| v4.8.18-timezone-fix-20251014 | 2025-10-14 | 时区修复+真实成交额 | backup/v4.8.18-timezone-fix-20251014.tar.gz |
-| v4.8.14-minute-chart-20251013 | 2025-10-13 | 分时图批量展示+单股分屏 | backup/v4.8.14-minute-chart-20251013.tar.gz |
-| v4.14-stable-20251002 | 2025-10-02 | 10-2定稿，Tushare交易日历 | backup/v4.14-stable-20251002-10-2定稿.tar.gz |
-| v4.2-stable-20250930 | 2025-09-30 | 生产稳定版，完整部署成功 | /www/backup/stock-tracker/ |
-| v1.3.1 | 之前 | UI优化版本 | Git标签 |
-
----
-
-## 备份文档
-
-- **完整备份脚本**: backup-current-version.sh
-- **操作指南**: BACKUP-INSTRUCTIONS.md
-- **提示词记录**: readme.txt (提示词14)
-
----
-
-**重要提醒**:
-- 定期下载备份到本地
-- 重大更新前务必备份
-- 测试恢复流程确保备份可用
-- 默认使用多agent操作，提高效率，如果没有相应agent，自行构建agent，如果有合适的mcp，也要积极使用mcp
+See `CLAUDE.md` in project root for detailed version history and backup info.

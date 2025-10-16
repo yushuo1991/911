@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { SevenDaysData, DayData, SectorSummary, StockPerformance } from '@/types/stock';
 import { getPerformanceClass, getPerformanceColorClass, getTodayString, formatDate, getBoardWeight } from '@/lib/utils';
-// import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import StockPremiumChart, { StockPremiumData } from '@/components/StockPremiumChart';
 import { transformSectorStocksToChartData } from '@/lib/chartHelpers';
 
@@ -975,10 +975,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* 日期所有个股溢价弹窗 - 新逻辑：显示板块名称和后续5天平均溢价 */}
+      {/* 日期所有个股溢价弹窗 - 新逻辑：显示板块名称和后续5天平均溢价，左右分栏布局 */}
       {showDateModal && selectedDateData && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-4 max-w-7xl max-h-[90vh] overflow-auto shadow-2xl">
+          <div className="bg-white rounded-xl p-6 w-[98vw] max-w-[98vw] max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">
                 📈 {(() => {
@@ -998,62 +998,156 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="mb-3 text-2xs text-gray-600">
-              共 {selectedDateData.sectorData.length} 个板块，按第一天平均溢价排序
+            <div className="mb-4 bg-blue-50 rounded-lg p-3">
+              <h4 className="text-sm font-semibold text-blue-800 mb-2">📊 统计说明</h4>
+              <p className="text-blue-700 text-xs">
+                共 {selectedDateData.sectorData.length} 个板块（涨停数前5名），展示后续5个交易日的平均溢价走势
+              </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-white border-b-2">
-                  <tr>
-                    <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">排名</th>
-                    <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">板块名称</th>
-                    <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">个股数</th>
-                    {Object.keys(selectedDateData.sectorData[0]?.avgPremiumByDay || {}).map((date, index) => {
-                      let formattedDate = '';
-                      try {
-                        const formatted = formatDate(date);
-                        formattedDate = formatted ? formatted.slice(5) : `T+${index + 1}`;
-                      } catch (error) {
-                        formattedDate = `T+${index + 1}`;
-                      }
-                      return (
-                        <th key={date} className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">
-                          {formattedDate}
-                        </th>
-                      );
-                    })}
-                    <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">总和</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedDateData.sectorData.map((sector, index) => (
-                    <tr key={sector.sectorName} className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-primary-50`}>
-                      <td className="px-2 py-1.5 text-2xs text-gray-400">#{index + 1}</td>
-                      <td className="px-2 py-1.5 font-semibold text-sm text-gray-900">{sector.sectorName}</td>
-                      <td className="px-2 py-1.5 text-center">
-                        <span className={`px-2 py-0.5 rounded text-xs ${
-                          sector.stockCount >= 5 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {sector.stockCount}
-                        </span>
-                      </td>
-                      {Object.entries(sector.avgPremiumByDay).map(([date, avgPremium]) => (
-                        <td key={date} className="px-2 py-1.5 text-center">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${getPerformanceColorClass(avgPremium)}`}>
-                            {avgPremium.toFixed(1)}%
-                          </span>
-                        </td>
+            {/* 左右分栏布局 */}
+            <div className="flex-1 flex gap-6 overflow-hidden">
+              {/* 左侧：板块溢价趋势图 */}
+              <div className="w-3/5 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 flex flex-col">
+                <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="text-2xl">📈</span>
+                  <span>板块后续5天溢价趋势图</span>
+                </h4>
+                <div className="flex-1 bg-white rounded-lg p-4 shadow-inner">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={(() => {
+                        // 构建图表数据：每个日期作为一行，每个板块作为一列
+                        const dates = Object.keys(selectedDateData.sectorData[0]?.avgPremiumByDay || {});
+                        return dates.map((date, index) => {
+                          const dataPoint: any = { date: formatDate(date).slice(5) || `T+${index + 1}` };
+                          selectedDateData.sectorData.forEach(sector => {
+                            dataPoint[sector.sectorName] = sector.avgPremiumByDay[date] || 0;
+                          });
+                          return dataPoint;
+                        });
+                      })()}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#d1fae5" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        stroke="#9ca3af"
+                      />
+                      <YAxis
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        stroke="#9ca3af"
+                        label={{ value: '平均溢价（%）', angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#6b7280' } }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                        }}
+                        formatter={(value: any, name: string) => [`${value}%`, name]}
+                        labelStyle={{ fontWeight: 'bold', color: '#1f2937' }}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                        iconType="line"
+                      />
+                      {selectedDateData.sectorData.map((sector, index) => {
+                        const colors = [
+                          '#10b981', // 绿色 (第1名)
+                          '#3b82f6', // 蓝色 (第2名)
+                          '#f59e0b', // 金色 (第3名)
+                          '#8b5cf6', // 紫色 (第4名)
+                          '#ec4899', // 粉色 (第5名)
+                        ];
+                        return (
+                          <Line
+                            key={sector.sectorName}
+                            type="monotone"
+                            dataKey={sector.sectorName}
+                            stroke={colors[index]}
+                            strokeWidth={3}
+                            dot={{ fill: colors[index], strokeWidth: 2, r: 5 }}
+                            activeDot={{ r: 7 }}
+                            name={sector.sectorName}
+                          />
+                        );
+                      })}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-xs text-gray-600 mt-3 text-center">
+                  💡 数据说明：展示前5名板块后续5个交易日的平均溢价变化趋势
+                </p>
+              </div>
+
+              {/* 右侧：板块溢价数据表格 */}
+              <div className="w-2/5 overflow-auto pr-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-white border-b-2">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">排名</th>
+                        <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">板块名称</th>
+                        <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">个股数</th>
+                        {Object.keys(selectedDateData.sectorData[0]?.avgPremiumByDay || {}).map((date, index) => {
+                          let formattedDate = '';
+                          try {
+                            const formatted = formatDate(date);
+                            formattedDate = formatted ? formatted.slice(5) : `T+${index + 1}`;
+                          } catch (error) {
+                            formattedDate = `T+${index + 1}`;
+                          }
+                          return (
+                            <th key={date} className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">
+                              {formattedDate}
+                            </th>
+                          );
+                        })}
+                        <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">总和</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedDateData.sectorData.map((sector, index) => (
+                        <tr key={sector.sectorName} className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-primary-50`}>
+                          <td className="px-2 py-1.5">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                              index === 0 ? 'bg-gradient-to-r from-green-400 to-green-500 text-white shadow-lg' :
+                              index === 1 ? 'bg-gradient-to-r from-blue-300 to-blue-400 text-white shadow-md' :
+                              index === 2 ? 'bg-gradient-to-r from-yellow-300 to-yellow-400 text-white shadow-md' :
+                              'bg-gray-100 text-gray-600'
+                            }`}>
+                              {index + 1}
+                            </div>
+                          </td>
+                          <td className="px-2 py-1.5 font-semibold text-sm text-gray-900">{sector.sectorName}</td>
+                          <td className="px-2 py-1.5 text-center">
+                            <span className={`px-2 py-0.5 rounded text-xs ${
+                              sector.stockCount >= 5 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {sector.stockCount}
+                            </span>
+                          </td>
+                          {Object.entries(sector.avgPremiumByDay).map(([date, avgPremium]) => (
+                            <td key={date} className="px-2 py-1.5 text-center">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${getPerformanceColorClass(avgPremium)}`}>
+                                {avgPremium.toFixed(1)}%
+                              </span>
+                            </td>
+                          ))}
+                          <td className="px-2 py-1.5 text-center">
+                            <span className={`px-2.5 py-1 rounded text-sm font-semibold ${getPerformanceColorClass(sector.total5DayPremium || 0)}`}>
+                              {(sector.total5DayPremium || 0).toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
                       ))}
-                      <td className="px-2 py-1.5 text-center">
-                        <span className={`px-2.5 py-1 rounded text-sm font-semibold ${getPerformanceColorClass(sector.total5DayPremium || 0)}`}>
-                          {(sector.total5DayPremium || 0).toFixed(1)}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1315,7 +1409,7 @@ export default function Home() {
       {/* 板块强度排序弹窗 - 更新为7天，左右分栏布局 */}
       {showSectorRankingModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-4 max-w-7xl max-h-[90vh] overflow-auto shadow-2xl">
+          <div className="bg-white rounded-xl p-6 w-[98vw] max-w-[98vw] max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">
                 🏆 板块7天涨停总数排行 (前5名)
@@ -1357,21 +1451,85 @@ export default function Home() {
             </div>
 
             {/* 左右分栏布局 */}
-            <div className="flex gap-4">
-              {/* 左侧：板块涨停家数趋势图占位符 */}
-              <div className="w-1/2 bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-gray-800 mb-3">📈 板块涨停家数趋势图</h4>
-                <div className="h-96 flex items-center justify-center text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">📊</div>
-                    <p className="text-sm">图表功能开发中</p>
-                    <p className="text-xs mt-1">即将支持板块趋势可视化</p>
-                  </div>
+            <div className="flex-1 flex gap-6 overflow-hidden">
+              {/* 左侧：板块涨停家数趋势图 */}
+              <div className="w-3/5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 flex flex-col">
+                <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="text-2xl">📈</span>
+                  <span>板块7天涨停趋势图</span>
+                </h4>
+                <div className="flex-1 bg-white rounded-lg p-4 shadow-inner">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={(() => {
+                        // 构建图表数据：每个日期作为一行，每个板块作为一列
+                        return dates.map(date => {
+                          const dataPoint: any = { date: formatDate(date).slice(5) };
+                          getSectorStrengthRanking.forEach(sector => {
+                            const dayData = sector.dailyBreakdown.find(d => d.date === date);
+                            dataPoint[sector.name] = dayData ? dayData.count : 0;
+                          });
+                          return dataPoint;
+                        });
+                      })()}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        stroke="#9ca3af"
+                      />
+                      <YAxis
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        stroke="#9ca3af"
+                        label={{ value: '涨停数（只）', angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#6b7280' } }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                        }}
+                        formatter={(value: any, name: string) => [`${value}只`, name]}
+                        labelStyle={{ fontWeight: 'bold', color: '#1f2937' }}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                        iconType="line"
+                      />
+                      {getSectorStrengthRanking.map((sector, index) => {
+                        const colors = [
+                          '#f59e0b', // 金色 (第1名)
+                          '#94a3b8', // 银色 (第2名)
+                          '#fb923c', // 铜色 (第3名)
+                          '#3b82f6', // 蓝色 (第4名)
+                          '#8b5cf6', // 紫色 (第5名)
+                        ];
+                        return (
+                          <Line
+                            key={sector.name}
+                            type="monotone"
+                            dataKey={sector.name}
+                            stroke={colors[index]}
+                            strokeWidth={3}
+                            dot={{ fill: colors[index], strokeWidth: 2, r: 5 }}
+                            activeDot={{ r: 7 }}
+                            name={sector.name}
+                          />
+                        );
+                      })}
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
+                <p className="text-xs text-gray-600 mt-3 text-center">
+                  💡 数据说明：展示前5名板块近7天涨停家数变化趋势
+                </p>
               </div>
 
               {/* 右侧：板块排行列表 */}
-              <div className="w-1/2 space-y-3">
+              <div className="w-2/5 space-y-3 overflow-y-auto pr-2">
               {getSectorStrengthRanking.map((sector, index) => (
                 <div
                   key={sector.name}
