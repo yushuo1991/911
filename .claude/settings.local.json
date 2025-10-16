@@ -52,7 +52,8 @@
       "Bash(scp:*)",
       "Bash(npm --version)",
       "Bash(backup-v4.8.19.bat)",
-      "Bash(cmd.exe:*)"
+      "Bash(cmd.exe:*)",
+      "Bash(deploy-v4.8.24.bat:*)"
     ],
     "deny": [],
     "ask": []

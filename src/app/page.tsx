@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { SevenDaysData, DayData, SectorSummary, StockPerformance } from '@/types/stock';
 import { getPerformanceClass, getPerformanceColorClass, getTodayString, formatDate, getBoardWeight } from '@/lib/utils';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+// import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import StockPremiumChart, { StockPremiumData } from '@/components/StockPremiumChart';
 import { transformSectorStocksToChartData } from '@/lib/chartHelpers';
 
@@ -1358,45 +1358,16 @@ export default function Home() {
 
             {/* 左右分栏布局 */}
             <div className="flex gap-4">
-              {/* 左侧：板块涨停家数曲线图 */}
+              {/* 左侧：板块涨停家数趋势图占位符 */}
               <div className="w-1/2 bg-gray-50 rounded-lg p-4">
                 <h4 className="text-sm font-semibold text-gray-800 mb-3">📈 板块涨停家数趋势图</h4>
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={prepareSectorChartData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 10 }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={60}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10 }}
-                      label={{ value: '涨停家数', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
-                    />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '8px', border: '1px solid #ccc' }}
-                      labelStyle={{ color: '#333', fontWeight: 'bold' }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    {/* 动态生成前5名板块的线条 */}
-                    {getSectorStrengthRanking.slice(0, 5).map((sector, index) => {
-                      const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
-                      return (
-                        <Line
-                          key={sector.name}
-                          type="monotone"
-                          dataKey={sector.name}
-                          stroke={colors[index]}
-                          strokeWidth={2}
-                          dot={{ r: 3 }}
-                          activeDot={{ r: 5 }}
-                        />
-                      );
-                    })}
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="h-96 flex items-center justify-center text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-4xl mb-2">📊</div>
+                    <p className="text-sm">图表功能开发中</p>
+                    <p className="text-xs mt-1">即将支持板块趋势可视化</p>
+                  </div>
+                </div>
               </div>
 
               {/* 右侧：板块排行列表 */}
