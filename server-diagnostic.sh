@@ -44,13 +44,13 @@ echo ""
 
 # 4. 检查容器内的代码版本
 echo "📋 [4/8] 检查Docker容器内的代码..."
-if docker exec stock-tracker-web-1 test -f /app/src/app/page.tsx; then
+if docker exec stock-tracker-app test -f /app/src/app/page.tsx; then
     echo "✅ 容器内page.tsx存在"
     echo "容器内文件修改时间:"
-    docker exec stock-tracker-web-1 stat -c '%y' /app/src/app/page.tsx
+    docker exec stock-tracker-app stat -c '%y' /app/src/app/page.tsx
     echo ""
     echo "检查容器内是否有新功能代码:"
-    if docker exec stock-tracker-web-1 grep -q "板块7天涨停趋势图" /app/src/app/page.tsx; then
+    if docker exec stock-tracker-app grep -q "板块7天涨停趋势图" /app/src/app/page.tsx; then
         echo "✅ 容器内包含'板块7天涨停趋势图'代码"
     else
         echo "❌ 容器内不包含'板块7天涨停趋势图'代码 [需要重新构建]"
@@ -62,9 +62,9 @@ echo ""
 
 # 5. 检查构建产物
 echo "📋 [5/8] 检查Next.js构建产物..."
-if docker exec stock-tracker-web-1 test -d /app/.next; then
+if docker exec stock-tracker-app test -d /app/.next; then
     echo "✅ .next目录存在"
-    docker exec stock-tracker-web-1 ls -lh /app/.next/ | head -5
+    docker exec stock-tracker-app ls -lh /app/.next/ | head -5
 else
     echo "❌ .next目录不存在"
 fi
@@ -72,7 +72,7 @@ echo ""
 
 # 6. 检查容器日志（最后50行）
 echo "📋 [6/8] 检查容器日志（最后20行）..."
-docker logs --tail 20 stock-tracker-web-1
+docker logs --tail 20 stock-tracker-app
 echo ""
 
 # 7. 检查Nginx配置
@@ -87,7 +87,7 @@ echo ""
 
 # 8. 检查API响应
 echo "📋 [8/8] 检查API响应..."
-API_RESPONSE=$(curl -s "http://localhost:3000/api/stocks?date=$(date +%Y-%m-%d)&mode=7days" | head -c 200)
+API_RESPONSE=$(curl -s "http://localhost:3002/api/stocks?date=$(date +%Y-%m-%d)&mode=7days" | head -c 200)
 if [ -n "$API_RESPONSE" ]; then
     echo "✅ API响应正常"
     echo "响应示例: ${API_RESPONSE}..."
