@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>涨停时间数据诊断</title>
+  <style>
+    body {
+      font-family: 'Microsoft YaHei', sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #333;
+    }
+    button {
+      padding: 10px 20px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    #result {
+      margin-top: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #4CAF50;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .warning {
+      color: orange;
+      font-weight: bold;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>涨停时间数据结构诊断工具</h1>
+  
+  <div>
+    <label for="dateInput">选择日期：</label>
+    <input type="date" id="dateInput" value="2024-10-16">
+    <button onclick="fetchData()">获取数据</button>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    async function fetchData() {
+      const dateInput = document.getElementById('dateInput');
+      const date = dateInput.value.replace(/-/g, '');
+      const resultDiv = document.getElementById('result');
+      
+      resultDiv.innerHTML = '<p>正在获取数据...</p>';
+      
+      try {
+        const url = 'https://apphis.longhuvip.com/w1/api/index.php';
+        const formData = new URLSearchParams({
+          Date: date,
+          Index: '0',
+          PhoneOSNew: '2',
+          VerSion: '5.21.0.1',
+          a: 'GetPlateInfo_w38',
+          apiv: 'w42',
+          c: 'HisLimitResumption',
+          st: '20'
+        });
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+            'Accept': '*/*',
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP错误! 状态: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        let html = '<h2 class="success">✅ 数据获取成功</h2>';
+        
+        // 显示总体信息
+        html += `<div><strong>总涨停数：</strong>${data.nums?.ZT || 0}</div>`;
+        html += `<div><strong>板块数量：</strong>${data.list?.length || 0}</div>`;
+        
+        // 分析数据结构
+        if (data.list && Array.isArray(data.list)) {
+          const firstSector = data.list[0];
+          if (firstSector && firstSector.StockList && firstSector.StockList.length > 0) {
+            const firstStock = firstSector.StockList[0];
+            
+            html += '<h3>📊 第一个股票的完整数组结构</h3>';
+            html += '<pre>' + JSON.stringify(firstStock, null, 2) + '</pre>';
+            html += '<table>';
+            html += '<tr><th>索引</th><th>值</th><th>说明</th></tr>';
+            for (let i = 0; i < Math.min(15, firstStock.length); i++) {
+              let description = '';
+              switch(i) {
+                case 0: description = '股票代码'; break;
+                case 1: description = '股票名称'; break;
+                case 6: description = '成交额（元）'; break;
+                case 7: description = '涨停时间？'; break;
+                case 9: description = '板位类型'; break;
+                default: description = '未知';
+              }
+              html += `<tr><td>[${i}]</td><td>${firstStock[i]}</td><td>${description}</td></tr>`;
+            }
+            html += '</table>';
+          }
+          
+          // 检查芯片板块
+          const chipSector = data.list.find(cat => cat.ZSName === '芯片');
+          if (chipSector && chipSector.StockList) {
+            html += '<h3>🔍 芯片板块个股列表</h3>';
+            html += '<table>';
+            html += '<tr><th>序号</th><th>股票代码</th><th>股票名称</th><th>板位类型</th><th>索引[7]值</th><th>成交额(元)</th></tr>';
+            
+            chipSector.StockList.forEach((stock, index) => {
+              html += `<tr>
+                <td>${index + 1}</td>
+                <td>${stock[0]}</td>
+                <td>${stock[1]}</td>
+                <td>${stock[9]}</td>
+                <td class="${stock[7] && stock[7] !== '09:30' ? 'success' : 'warning'}">${stock[7] || '未定义'}</td>
+                <td>${stock[6]}</td>
+              </tr>`;
+            });
+            html += '</table>';
+            
+            // 统计涨停时间分布
+            const timeMap = new Map();
+            chipSector.StockList.forEach(stock => {
+              const time = stock[7] || '未定义';
+              timeMap.set(time, (timeMap.get(time) || 0) + 1);
+            });
+            
+            html += '<h4>涨停时间分布统计</h4>';
+            html += '<table>';
+            html += '<tr><th>时间</th><th>数量</th></tr>';
+            Array.from(timeMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).forEach(([time, count]) => {
+              html += `<tr><td>${time}</td><td>${count}</td></tr>`;
+            });
+            html += '</table>';
+            
+            // 诊断结论
+            html += '<h3>📋 诊断结论</h3>';
+            if (timeMap.size === 1 && timeMap.has('09:30')) {
+              html += '<p class="error">❌ 所有股票的索引[7]值都是"09:30"，可能是默认值或该索引不是涨停时间</p>';
+              html += '<p class="warning">⚠️ 建议检查其他索引位置是否包含涨停时间数据</p>';
+            } else if (timeMap.size === 1) {
+              html += '<p class="warning">⚠️ 所有股票的索引[7]值相同，需要进一步验证</p>';
+            } else {
+              html += '<p class="success">✅ 索引[7]包含不同的时间值，可能确实是涨停时间字段</p>';
+            }
+          } else {
+            html += '<p class="warning">⚠️ 未找到芯片板块</p>';
+          }
+        }
+        
+        resultDiv.innerHTML = html;
+        
+      } catch (error) {
+        resultDiv.innerHTML = `<p class="error">❌ 错误: ${error.message}</p>`;
+        console.error('详细错误:', error);
+      }
+    }
+
+    // 页面加载时自动获取数据
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchData();
+    });
+  </script>
+</body>
+</html>
+
+

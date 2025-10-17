@@ -136,8 +136,7 @@ export default function Home() {
     const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
     if (next5Days.length === 0) {
       console.warn('[handleDateClick] 没有后续交易日数据');
-      // v4.8.25优化：即使没有后续数据，也显示当天板块信息
-      // 不再直接返回，而是继续显示当天板块（后续数据为空）
+      return;
     }
 
     // 按板块组织数据，计算每个板块在后续5天的平均溢价
@@ -1019,39 +1018,29 @@ export default function Home() {
               </p>
             </div>
 
-            {/* 左右分栏布局 - v4.8.25优化：调整比例为左侧图表55%，右侧表格45% */}
+            {/* 左右分栏布局 */}
             <div className="flex-1 flex gap-6 overflow-hidden">
-              {/* 左侧：板块溢价趋势图 - v4.8.25优化：增加最小高度确保显示效果 */}
-              <div className="w-[55%] bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 flex flex-col min-h-[400px]">
+              {/* 左侧：板块溢价趋势图 */}
+              <div className="w-3/5 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 flex flex-col">
                 <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span className="text-2xl">📈</span>
                   <span>板块后续5天溢价趋势图</span>
                 </h4>
-                <div className="flex-1 bg-white rounded-lg p-4 shadow-inner min-h-[300px]">
-                  {(() => {
-                    // 检查是否有后续数据
-                    const dates = Object.keys(selectedDateData.sectorData[0]?.avgPremiumByDay || {});
-                    if (dates.length === 0) {
-                      return (
-                        <div className="h-full flex items-center justify-center text-gray-500">
-                          <div className="text-center">
-                            <p className="text-sm">📊 暂无后续交易日数据</p>
-                            <p className="text-xs mt-2">该日期之后没有可用的交易数据</p>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                          data={dates.map((date, index) => {
-                            const dataPoint: any = { date: formatDate(date).slice(5) || `T+${index + 1}` };
-                            selectedDateData.sectorData.forEach(sector => {
-                              dataPoint[sector.sectorName] = sector.avgPremiumByDay[date] || 0;
-                            });
-                            return dataPoint;
-                          })}
-                          margin={{ top: 30, right: 30, left: 20, bottom: 20 }}
+                <div className="flex-1 bg-white rounded-lg p-4 shadow-inner">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={(() => {
+                        // 构建图表数据：每个日期作为一行，每个板块作为一列
+                        const dates = Object.keys(selectedDateData.sectorData[0]?.avgPremiumByDay || {});
+                        return dates.map((date, index) => {
+                          const dataPoint: any = { date: formatDate(date).slice(5) || `T+${index + 1}` };
+                          selectedDateData.sectorData.forEach(sector => {
+                            dataPoint[sector.sectorName] = sector.avgPremiumByDay[date] || 0;
+                          });
+                          return dataPoint;
+                        });
+                      })()}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#d1fae5" />
                       <XAxis
@@ -1096,84 +1085,27 @@ export default function Home() {
                             dot={{ fill: colors[index], strokeWidth: 2, r: 5 }}
                             activeDot={{ r: 7 }}
                             name={sector.sectorName}
-                            label={(props: any) => {
-                              // v4.8.25新增：为每天的最高点标注板块名称
-                              // 找出当天所有板块中的最高值
-                              const dateIndex = props.index;
-                              const currentDate = dates[dateIndex];
-                              if (!currentDate) return null;
-                              
-                              // 计算当天所有板块的溢价
-                              const dayValues = selectedDateData.sectorData.map(s => ({
-                                name: s.sectorName,
-                                value: s.avgPremiumByDay[currentDate] || 0
-                              }));
-                              
-                              // 找到最大值及对应的板块
-                              const maxItem = dayValues.reduce((max, item) => 
-                                item.value > max.value ? item : max
-                              , dayValues[0]);
-                              
-                              // 只在该板块是最高值时显示标签
-                              if (maxItem.name === sector.sectorName && maxItem.value > 0) {
-                                return (
-                                  <text
-                                    x={props.x}
-                                    y={props.y - 15}
-                                    fill={colors[index]}
-                                    fontSize={11}
-                                    fontWeight="bold"
-                                    textAnchor="middle"
-                                  >
-                                    {sector.sectorName}
-                                  </text>
-                                );
-                              }
-                              return null;
-                            }}
                           />
                         );
-                        })}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  );
-                  })()}
+                      })}
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
                 <p className="text-xs text-gray-600 mt-3 text-center">
                   💡 数据说明：展示前5名板块后续5个交易日的平均溢价变化趋势
                 </p>
               </div>
 
-              {/* 右侧：板块溢价数据表格 - v4.8.25优化：调整宽度为45% */}
-              <div className="w-[45%] overflow-auto pr-2">
-                {(() => {
-                  const dates = Object.keys(selectedDateData.sectorData[0]?.avgPremiumByDay || {});
-                  if (dates.length === 0) {
-                    return (
-                      <div className="h-full flex items-center justify-center text-gray-500 bg-gray-50 rounded-lg">
-                        <div className="text-center p-6">
-                          <p className="text-sm font-medium mb-2">📋 当日板块概览</p>
-                          <div className="text-xs text-left space-y-2 mt-4">
-                            {selectedDateData.sectorData.map((sector, index) => (
-                              <div key={sector.sectorName} className="flex items-center justify-between bg-white p-2 rounded border">
-                                <span className="font-semibold">{index + 1}. {sector.sectorName}</span>
-                                <span className="text-gray-600">{sector.stockCount} 只</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead className="sticky top-0 bg-white border-b-2">
-                          <tr>
-                            <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">排名</th>
-                            <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">板块名称</th>
-                            <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">个股数</th>
-                            {dates.map((date, index) => {
+              {/* 右侧：板块溢价数据表格 */}
+              <div className="w-2/5 overflow-auto pr-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-white border-b-2">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">排名</th>
+                        <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">板块名称</th>
+                        <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">个股数</th>
+                        {Object.keys(selectedDateData.sectorData[0]?.avgPremiumByDay || {}).map((date, index) => {
                           let formattedDate = '';
                           try {
                             const formatted = formatDate(date);
@@ -1224,12 +1156,10 @@ export default function Home() {
                             </span>
                           </td>
                         </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })()}
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -1583,13 +1513,12 @@ export default function Home() {
                         iconType="line"
                       />
                       {getSectorStrengthRanking.map((sector, index) => {
-                        // v4.8.25优化：精致且区分度高的配色方案
                         const colors = [
-                          '#dc2626', // 深红色 (第1名) - 醒目热烈
-                          '#059669', // 翠绿色 (第2名) - 清新活力
-                          '#2563eb', // 深蓝色 (第3名) - 稳重专业
-                          '#7c3aed', // 深紫色 (第4名) - 优雅神秘
-                          '#d97706', // 深金色 (第5名) - 温暖尊贵
+                          '#f59e0b', // 金色 (第1名)
+                          '#94a3b8', // 银色 (第2名)
+                          '#fb923c', // 铜色 (第3名)
+                          '#3b82f6', // 蓝色 (第4名)
+                          '#8b5cf6', // 紫色 (第5名)
                         ];
 
                         // 找到该板块的最高点
@@ -1781,23 +1710,13 @@ export default function Home() {
                 <tbody>
                   <tr>
                     {selected7DayLadderData.dailyBreakdown.map((day, dayIndex) => {
-                      // v4.8.25修复：使用真实API数据，按状态优先、涨停时间次要排序
+                      // 使用真实API数据中的td_type字段获取连板数
                       const sortedStocks = day.stocks
                         .map(stock => ({
                           ...stock,
                           boardCount: getBoardWeight(stock.td_type) // 使用真实API数据
                         }))
-                        .sort((a, b) => {
-                          // 首要条件：按板数降序排序（高板在上）
-                          if (b.boardCount !== a.boardCount) {
-                            return b.boardCount - a.boardCount;
-                          }
-                          
-                          // 次要条件：板数相同时，按涨停时间排序（越早越在前）
-                          const aTime = a.limitUpTime || '23:59';
-                          const bTime = b.limitUpTime || '23:59';
-                          return aTime.localeCompare(bTime); // 时间升序，早的在前
-                        });
+                        .sort((a, b) => b.boardCount - a.boardCount); // 按板数降序排序（高板在上）
 
                       return (
                         <td

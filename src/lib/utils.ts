@@ -236,10 +236,22 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-export function sortStocksByBoard<T extends { td_type: string; name?: string }>(stocks: T[]): T[] {
+export function sortStocksByBoard<T extends { td_type: string; name?: string; limitUpTime?: string }>(stocks: T[]): T[] {
   return stocks.sort((a, b) => {
-    // 按td_type字符串倒序排序
-    return b.td_type.localeCompare(a.td_type);
+    // v4.8.25修复：状态优先，涨停时间次要的复合排序
+    const aBoardWeight = getBoardWeight(a.td_type);
+    const bBoardWeight = getBoardWeight(b.td_type);
+    
+    // 首要条件：按状态（板位）排序，高板在前
+    if (aBoardWeight !== bBoardWeight) {
+      return bBoardWeight - aBoardWeight; // 降序排列
+    }
+    
+    // 次要条件：状态相同时，按涨停时间排序（越早越在前）
+    const aTime = a.limitUpTime || '23:59'; // 默认最晚时间
+    const bTime = b.limitUpTime || '23:59';
+    
+    return aTime.localeCompare(bTime); // 时间升序，早的在前
   });
 }
 

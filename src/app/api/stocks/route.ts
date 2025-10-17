@@ -267,6 +267,7 @@ import { NextRequest, NextResponse } from 'next/server';
               // 调试日志：记录前3个股票的完整数组结构
               if (stocks.length < 3) {
                 console.log(`[API] stockData数组结构 [${stockName}]:`, JSON.stringify(stockData.slice(0, 15)));
+                console.log(`[API] 涨停时间 (索引7): ${stockData[7]}, 板位类型 (索引9): ${stockData[9]}`);
               }
 
               stocks.push({
@@ -283,6 +284,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
         if (stocks.length > 0) {
           console.log(`[API] 成功解析list数据，${stocks.length}只股票`);
+          // v4.8.25诊断：检查前5个股票的涨停时间分布
+          const timeDistribution = new Map<string, number>();
+          stocks.slice(0, Math.min(20, stocks.length)).forEach(stock => {
+            const time = stock.LimitUpTime || 'undefined';
+            timeDistribution.set(time, (timeDistribution.get(time) || 0) + 1);
+          });
+          console.log(`[API] 前20个股票涨停时间分布:`, Object.fromEntries(timeDistribution));
           return stocks;
         }
       }

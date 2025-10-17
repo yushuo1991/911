@@ -53,7 +53,13 @@
       "Bash(npm --version)",
       "Bash(backup-v4.8.19.bat)",
       "Bash(cmd.exe:*)",
-      "Bash(deploy-v4.8.24.bat:*)"
+      "Bash(deploy-v4.8.24.bat:*)",
+      "Bash(for:*)",
+      "Bash(do echo \"尝试 $i/3...\")",
+      "Bash(break)",
+      "Bash(done)",
+      "Bash(do echo \"尝试推送 $i/3...\")",
+      "Bash(npm run type-check:*)"
     ],
     "deny": [],
     "ask": []

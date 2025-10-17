@@ -1,7 +1,7 @@
 {
   "name": "stock-tracker-vercel",
-  "version": "4.21.0",
-  "description": "宇硕涨停板跟踪系统 - Vercel部署版",
+  "version": "4.20.0",
+  "description": "涨停板跟踪系统 - Vercel部署版",
   "private": true,
   "scripts": {
     "dev": "next dev",
