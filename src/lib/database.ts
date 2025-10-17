@@ -81,6 +81,8 @@ export class StockDatabase {
           sector_name VARCHAR(100) NOT NULL,
           td_type VARCHAR(20) NOT NULL,
           trade_date DATE NOT NULL,
+          limit_up_time VARCHAR(10) DEFAULT NULL COMMENT '涨停时间(HH:MM)',
+          amount DECIMAL(10,2) DEFAULT NULL COMMENT '成交额(亿元)',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           UNIQUE KEY unique_stock_date (stock_code, trade_date),
@@ -121,11 +123,58 @@ export class StockDatabase {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
 
+      // v4.8.26数据库升级：添加涨停时间和成交额字段
+      await this.upgradeDatabase();
+
       console.log('[数据库] 数据库表初始化完成');
 
     } catch (error) {
       console.error('[数据库] 初始化表失败:', error);
       throw error;
+    }
+  }
+
+  // v4.8.26新增：数据库升级函数
+  async upgradeDatabase(): Promise<void> {
+    if (isDatabaseDisabled) {
+      return;
+    }
+
+    try {
+      // 检查并添加 limit_up_time 字段
+      const [columns] = await this.pool.execute(`
+        SHOW COLUMNS FROM stock_data LIKE 'limit_up_time'
+      `);
+
+      if (Array.isArray(columns) && columns.length === 0) {
+        console.log('[数据库升级] 添加 limit_up_time 字段...');
+        await this.pool.execute(`
+          ALTER TABLE stock_data 
+          ADD COLUMN limit_up_time VARCHAR(10) DEFAULT NULL COMMENT '涨停时间(HH:MM)' 
+          AFTER trade_date
+        `);
+        console.log('[数据库升级] limit_up_time 字段添加成功');
+      }
+
+      // 检查并添加 amount 字段
+      const [amountColumns] = await this.pool.execute(`
+        SHOW COLUMNS FROM stock_data LIKE 'amount'
+      `);
+
+      if (Array.isArray(amountColumns) && amountColumns.length === 0) {
+        console.log('[数据库升级] 添加 amount 字段...');
+        await this.pool.execute(`
+          ALTER TABLE stock_data 
+          ADD COLUMN amount DECIMAL(10,2) DEFAULT NULL COMMENT '成交额(亿元)' 
+          AFTER limit_up_time
+        `);
+        console.log('[数据库升级] amount 字段添加成功');
+      }
+
+      console.log('[数据库升级] 数据库升级检查完成');
+    } catch (error) {
+      console.error('[数据库升级] 数据库升级失败:', error);
+      // 不抛出错误，避免影响系统启动
     }
   }
 
@@ -149,16 +198,20 @@ export class StockDatabase {
             stock.StockName,
             stock.ZSName || '其他',
             stock.TDType,
-            date
+            date,
+            stock.LimitUpTime || null,  // v4.8.26新增：涨停时间
+            stock.Amount || null         // v4.8.26新增：成交额
           ]);
 
           await connection.query(`
-            INSERT INTO stock_data (stock_code, stock_name, sector_name, td_type, trade_date)
+            INSERT INTO stock_data (stock_code, stock_name, sector_name, td_type, trade_date, limit_up_time, amount)
             VALUES ?
             ON DUPLICATE KEY UPDATE
               stock_name = VALUES(stock_name),
               sector_name = VALUES(sector_name),
               td_type = VALUES(td_type),
+              limit_up_time = VALUES(limit_up_time),
+              amount = VALUES(amount),
               updated_at = CURRENT_TIMESTAMP
           `, [values]);
         }
@@ -223,7 +276,7 @@ export class StockDatabase {
 
     try {
       const [rows] = await this.pool.execute(`
-        SELECT stock_code, stock_name, sector_name, td_type
+        SELECT stock_code, stock_name, sector_name, td_type, limit_up_time, amount
         FROM stock_data
         WHERE trade_date = ?
         ORDER BY sector_name, stock_code
@@ -235,7 +288,9 @@ export class StockDatabase {
           StockCode: row.stock_code,
           StockName: row.stock_name,
           ZSName: row.sector_name,
-          TDType: row.td_type
+          TDType: row.td_type,
+          LimitUpTime: row.limit_up_time,  // v4.8.26新增：涨停时间
+          Amount: row.amount                // v4.8.26新增：成交额
         }));
       }
 
