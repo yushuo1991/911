@@ -1,13 +1,13 @@
 # PowerShell SSH Connection Script
-# Server: yushuo.click (75.2.60.5)
+# Server: bk.yushuo.click (107.173.154.147)
 
 Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host "SSH Connection to yushuo.click" -ForegroundColor Cyan
+Write-Host "SSH Connection to bk.yushuo.click" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
-$server = "yushuo.click"
-$serverIP = "75.2.60.5"
+$server = "bk.yushuo.click"
+$serverIP = "107.173.154.147"
 $port = 22
 $username = "root"
 $password = "gJ75hNHdy90TA4qGo9"

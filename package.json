@@ -10,7 +10,8 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "deploy": "node deploy-v4.8.25-auto.js",
-    "deploy:ssh": "node auto-ssh-deploy.js"
+    "deploy:ssh": "node auto-ssh-deploy.js",
+    "deploy:pm2": "node deploy-pm2.js"
   },
   "dependencies": {
     "@types/node": "^20.0.0",
