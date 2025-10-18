@@ -14,7 +14,15 @@ COPY package.json package-lock.json* ./
 # 依赖安装阶段
 # ===================================
 FROM base AS deps
-RUN npm ci
+
+# 设置 npm 配置优化构建速度
+RUN npm config set registry https://registry.npmjs.org/ && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000
+
+# 安装依赖（使用 --legacy-peer-deps 避免依赖冲突）
+RUN npm ci --legacy-peer-deps
 
 # ===================================
 # 构建阶段
@@ -24,8 +32,13 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # 构建Next.js应用
-ENV NEXT_TELEMETRY_DISABLED 1
-RUN npm run build
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
+# 显示构建进度
+RUN echo "===== 开始构建 Next.js 应用 =====" && \
+    npm run build && \
+    echo "===== Next.js 构建完成 ====="
 
 # ===================================
 # 生产运行阶段
