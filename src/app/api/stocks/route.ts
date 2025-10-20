@@ -806,6 +806,7 @@ import { NextRequest, NextResponse } from 'next/server';
         td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
         performance,
         total_return: Math.round(totalReturn * 100) / 100,
+        amount: stock.Amount, // v4.8.26修复：添加成交额字段（与7天数据保持一致）
         limitUpTime: stock.LimitUpTime // v4.8.24新增：涨停时间
       };
 
