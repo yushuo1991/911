@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     // 读取文件
     const imageBuffer = await fs.readFile(fullPath);
     
-    return new NextResponse(imageBuffer, {
+    return new NextResponse(imageBuffer as any, {
       headers: {
         'Content-Type': 'image/gif',
         'Cache-Control': 'public, max-age=86400', // 缓存1天
