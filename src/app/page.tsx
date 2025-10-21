@@ -1935,7 +1935,7 @@ export default function Home() {
 
       {/* 个股分时+K线左右分屏弹窗 */}
       {showModal && selectedStock && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[70]">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[100]">
           <div className="bg-white rounded-xl p-4 max-w-6xl w-full max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
               <h3 className="text-lg font-bold text-gray-900">
@@ -2432,7 +2432,7 @@ export default function Home() {
       {/* 点击弹窗外部关闭 */}
       {showModal && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-[95]"
           onClick={closeModal}
         />
       )}
