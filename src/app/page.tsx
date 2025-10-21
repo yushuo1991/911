@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { SevenDaysData, DayData, SectorSummary, StockPerformance } from '@/types/stock';
 import { getPerformanceClass, getPerformanceColorClass, getTodayString, formatDate, getBoardWeight } from '@/lib/utils';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 import StockPremiumChart, { StockPremiumData } from '@/components/StockPremiumChart';
 import { transformSectorStocksToChartData } from '@/lib/chartHelpers';
 
@@ -1025,14 +1025,14 @@ export default function Home() {
             </div>
 
             {/* 左右分栏布局 */}
-            <div className="flex-1 flex gap-6 overflow-hidden">
+            <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
               {/* 左侧：板块溢价趋势图 */}
-              <div className="w-3/5 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 flex flex-col">
+              <div className="w-3/5 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 flex flex-col min-h-0">
                 <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span className="text-2xl">📈</span>
                   <span>板块后续5天溢价趋势图</span>
                 </h4>
-                <div className="flex-1 bg-white rounded-lg p-4 shadow-inner">
+                <div className="flex-1 bg-white rounded-lg p-4 shadow-inner min-h-[400px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                       data={(() => {
@@ -1073,15 +1073,17 @@ export default function Home() {
                         wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                         iconType="line"
                       />
-                      {selectedDateData.sectorData.map((sector, index) => {
+                      {(() => {
+                        // 使用高对比度颜色，确保区分明确 (移到循环外部)
                         const colors = [
-                          '#10b981', // 绿色 (第1名)
-                          '#3b82f6', // 蓝色 (第2名)
-                          '#f59e0b', // 金色 (第3名)
-                          '#8b5cf6', // 紫色 (第4名)
-                          '#ec4899', // 粉色 (第5名)
+                          '#ef4444', // 鲜红色 (第1名) - Bright red
+                          '#3b82f6', // 鲜蓝色 (第2名) - Bright blue
+                          '#10b981', // 鲜绿色 (第3名) - Bright green
+                          '#f59e0b', // 鲜橙色 (第4名) - Bright orange
+                          '#8b5cf6', // 鲜紫色 (第5名) - Bright purple
                         ];
-                        return (
+
+                        return selectedDateData.sectorData.map((sector, index) => (
                           <Line
                             key={sector.sectorName}
                             type="monotone"
@@ -1091,9 +1093,59 @@ export default function Home() {
                             dot={{ fill: colors[index], strokeWidth: 2, r: 5 }}
                             activeDot={{ r: 7 }}
                             name={sector.sectorName}
+                            label={(props: any) => {
+                              // 只在峰值点显示板块名称标签
+                              if (!props || !props.x || !props.y || props.index === undefined) return null;
+                              
+                              // 获取当前日期的数据
+                              const chartData = (() => {
+                                const dates = Object.keys(selectedDateData.sectorData[0]?.avgPremiumByDay || {});
+                                return dates.map((date, index) => {
+                                  const dataPoint: any = { date: formatDate(date).slice(5) || `T+${index + 1}` };
+                                  selectedDateData.sectorData.forEach(s => {
+                                    dataPoint[s.sectorName] = s.avgPremiumByDay[date] || 0;
+                                  });
+                                  return dataPoint;
+                                });
+                              })();
+                              
+                              const currentData = chartData[props.index];
+                              if (!currentData) return null;
+                              
+                              // 找出当前日期的最大溢价值
+                              let maxValue = -Infinity;
+                              let maxSectorNames: string[] = [];
+                              selectedDateData.sectorData.forEach(s => {
+                                const value = currentData[s.sectorName] || 0;
+                                if (value > maxValue) {
+                                  maxValue = value;
+                                  maxSectorNames = [s.sectorName];
+                                } else if (value === maxValue && value !== 0) {
+                                  maxSectorNames.push(s.sectorName);
+                                }
+                              });
+                              
+                              // 只在当前板块是峰值板块时显示标签
+                              if (maxSectorNames.includes(sector.sectorName) && maxValue !== -Infinity) {
+                                return (
+                                  <text
+                                    x={props.x}
+                                    y={props.y - 10}
+                                    textAnchor="middle"
+                                    fill={colors[index]}
+                                    fontSize={11}
+                                    fontWeight="bold"
+                                  >
+                                    {sector.sectorName}
+                                  </text>
+                                );
+                              }
+                              
+                              return null;
+                            }}
                           />
-                        );
-                      })}
+                        ));
+                      })()}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -1518,59 +1570,79 @@ export default function Home() {
                         wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                         iconType="line"
                       />
-                      {getSectorStrengthRanking.map((sector, index) => {
+                      {(() => {
+                        // 使用高对比度颜色，确保区分明确 (移到循环外部)
                         const colors = [
-                          '#f59e0b', // 金色 (第1名)
-                          '#94a3b8', // 银色 (第2名)
-                          '#fb923c', // 铜色 (第3名)
-                          '#3b82f6', // 蓝色 (第4名)
-                          '#8b5cf6', // 紫色 (第5名)
+                          '#ef4444', // 鲜红色 (第1名) - Bright red
+                          '#3b82f6', // 鲜蓝色 (第2名) - Bright blue
+                          '#10b981', // 鲜绿色 (第3名) - Bright green
+                          '#f59e0b', // 鲜橙色 (第4名) - Bright orange
+                          '#8b5cf6', // 鲜紫色 (第5名) - Bright purple
                         ];
 
-                        // 找到该板块的最高点
-                        const chartData = dates.map(date => {
-                          const dataPoint: any = { date: formatDate(date).slice(5) };
-                          getSectorStrengthRanking.forEach(s => {
-                            const dayData = s.dailyBreakdown.find(d => d.date === date);
-                            dataPoint[s.name] = dayData ? dayData.count : 0;
-                          });
-                          return dataPoint;
+                        return getSectorStrengthRanking.map((sector, index) => {
+                          return (
+                            <Line
+                              key={sector.name}
+                              type="monotone"
+                              dataKey={sector.name}
+                              stroke={colors[index]}
+                              strokeWidth={3}
+                              dot={{ fill: colors[index], strokeWidth: 2, r: 5 }}
+                              activeDot={{ r: 7 }}
+                              name={sector.name}
+                              label={(props: any) => {
+                                // 只在峰值点显示板块名称标签
+                                if (!props || !props.x || !props.y || props.index === undefined) return null;
+                                
+                                // 获取当前日期的数据
+                                const chartData = dates.map(date => {
+                                  const dataPoint: any = { date: formatDate(date).slice(5) };
+                                  getSectorStrengthRanking.forEach(s => {
+                                    const dayData = s.dailyBreakdown.find(d => d.date === date);
+                                    dataPoint[s.name] = dayData ? dayData.count : 0;
+                                  });
+                                  return dataPoint;
+                                });
+                                
+                                const currentData = chartData[props.index];
+                                if (!currentData) return null;
+                                
+                                // 找出当前日期的最大值
+                                let maxValue = 0;
+                                let maxSectorNames: string[] = [];
+                                getSectorStrengthRanking.forEach(s => {
+                                  const value = currentData[s.name] || 0;
+                                  if (value > maxValue) {
+                                    maxValue = value;
+                                    maxSectorNames = [s.name];
+                                  } else if (value === maxValue && value > 0) {
+                                    maxSectorNames.push(s.name);
+                                  }
+                                });
+                                
+                                // 只在当前板块是峰值板块时显示标签
+                                if (maxSectorNames.includes(sector.name) && props.value > 0) {
+                                  return (
+                                    <text
+                                      x={props.x}
+                                      y={props.y - 10}
+                                      textAnchor="middle"
+                                      fill={colors[index]}
+                                      fontSize={11}
+                                      fontWeight="bold"
+                                    >
+                                      {sector.name}
+                                    </text>
+                                  );
+                                }
+                                
+                                return null;
+                              }}
+                            />
+                          );
                         });
-
-                        const maxValue = Math.max(...sector.dailyBreakdown.map(d => d.count));
-                        const maxIndex = sector.dailyBreakdown.findIndex(d => d.count === maxValue);
-
-                        return (
-                          <Line
-                            key={sector.name}
-                            type="monotone"
-                            dataKey={sector.name}
-                            stroke={colors[index]}
-                            strokeWidth={3}
-                            dot={{ fill: colors[index], strokeWidth: 2, r: 5 }}
-                            activeDot={{ r: 7 }}
-                            name={sector.name}
-                            label={(props: any) => {
-                              // 只在最高点显示标签
-                              if (props.index === maxIndex && maxValue > 0) {
-                                return (
-                                  <text
-                                    x={props.x}
-                                    y={props.y - 10}
-                                    fill={colors[index]}
-                                    fontSize={11}
-                                    fontWeight="bold"
-                                    textAnchor="middle"
-                                  >
-                                    {sector.name}
-                                  </text>
-                                );
-                              }
-                              return null;
-                            }}
-                          />
-                        );
-                      })}
+                      })()}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
