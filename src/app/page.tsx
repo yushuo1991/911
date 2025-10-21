@@ -16,6 +16,18 @@ function getStockCodeFormat(stockCode: string): string {
   }
 }
 
+// 获取分时图URL（根据模式返回实时或快照）
+function getMinuteChartUrl(stockCode: string, mode: 'realtime' | 'snapshot', date?: string): string {
+  if (mode === 'snapshot' && date) {
+    // 从数据库读取历史快照
+    return `/api/minute-snapshot?date=${date}&code=${stockCode}`;
+  } else {
+    // 从新浪API读取实时分时图
+    const codeFormat = getStockCodeFormat(stockCode);
+    return `http://image.sinajs.cn/newchart/min/n/${codeFormat}.gif`;
+  }
+}
+
 export default function Home() {
   const [sevenDaysData, setSevenDaysData] = useState<SevenDaysData | null>(null);
   const [dates, setDates] = useState<string[]>([]);
@@ -53,6 +65,8 @@ export default function Home() {
   const [showMinuteModal, setShowMinuteModal] = useState(false);
   const [minuteModalData, setMinuteModalData] = useState<{sectorName: string, date: string, stocks: StockPerformance[]} | null>(null);
   const [minuteModalPage, setMinuteModalPage] = useState(0);
+  // 新增：分时图显示模式（realtime=今日分时，snapshot=当日分时）
+  const [minuteChartMode, setMinuteChartMode] = useState<'realtime' | 'snapshot'>('realtime');
 
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
@@ -663,11 +677,26 @@ export default function Home() {
                       selectedSectorData.followUpData,
                       sectorModalSortMode
                     );
+                    setMinuteChartMode('realtime');
                     handleOpenMinuteModal(selectedSectorData.name, selectedSectorData.date, sortedStocks);
                   }}
                   className="px-2 py-1 rounded text-xs font-medium transition-colors bg-green-600 text-white hover:bg-green-700"
                 >
                   📊 今日分时
+                </button>
+                <button
+                  onClick={() => {
+                    const sortedStocks = getSortedStocksForSector(
+                      selectedSectorData.stocks,
+                      selectedSectorData.followUpData,
+                      sectorModalSortMode
+                    );
+                    setMinuteChartMode('snapshot');
+                    handleOpenMinuteModal(selectedSectorData.name, selectedSectorData.date, sortedStocks);
+                  }}
+                  className="px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  📷 当日分时
                 </button>
                 <button
                   onClick={() => {
@@ -2089,9 +2118,33 @@ export default function Home() {
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-[90]">
           <div className="bg-white rounded-xl p-4 w-[98vw] h-[95vh] overflow-hidden shadow-2xl flex flex-col">
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900">
-                📊 {minuteModalData.sectorName} - 分时图批量展示 ({formatDate(minuteModalData.date)})
-              </h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {minuteChartMode === 'realtime' ? '📊' : '📷'} {minuteModalData.sectorName} - {minuteChartMode === 'realtime' ? '今日' : '当日'}分时图 ({formatDate(minuteModalData.date)})
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setMinuteChartMode('realtime')}
+                    className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                      minuteChartMode === 'realtime' 
+                        ? 'bg-green-600 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    📊 今日分时
+                  </button>
+                  <button
+                    onClick={() => setMinuteChartMode('snapshot')}
+                    className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                      minuteChartMode === 'snapshot' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    📷 当日分时
+                  </button>
+                </div>
+              </div>
               <button
                 onClick={closeMinuteModal}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors text-xl"
@@ -2154,13 +2207,18 @@ export default function Home() {
                         {stock.code}
                       </div>
                       <img
-                        src={`http://image.sinajs.cn/newchart/min/n/${getStockCodeFormat(stock.code)}.gif`}
-                        alt={`${stock.name}分时图`}
+                        key={`${stock.code}-${minuteChartMode}`}
+                        src={getMinuteChartUrl(stock.code, minuteChartMode, minuteModalData.date)}
+                        alt={`${stock.name}${minuteChartMode === 'realtime' ? '实时' : '历史'}分时图`}
                         className="w-full h-auto rounded border border-gray-300"
                         loading="lazy"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+5YiG5pe25Zu+5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4=';
+                          if (minuteChartMode === 'snapshot') {
+                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+5pqC5peg5b2T5pel5b+r54WnPC90ZXh0Pjwvc3ZnPg==';
+                          } else {
+                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+5YiG5pe25Zu+5Yqg6L295aSx6LSkPC90ZXh0Pjwvc3ZnPg==';
+                          }
                         }}
                       />
                     </div>
