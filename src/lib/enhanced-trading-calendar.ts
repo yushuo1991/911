@@ -238,7 +238,6 @@ export async function getValidTradingDays(startDate: string, count: number = 5):
   }
 }
 
-<<<<<<< HEAD
 // 2. 从交易日历获取7个交易日（向前追溯，16:00后包含当天）
 export async function get7TradingDaysFromCalendar(endDate: string): Promise<string[]> {
   const tradingDays: string[] = [];
@@ -252,31 +251,15 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
   const beijingTimeMs = utcTime + (8 * 60 * 60 * 1000); // UTC + 8小时 = 北京时间
   const beijingTime = new Date(beijingTimeMs);
   
-=======
-// 2. 从交易日历获取7个交易日（向前追溯，17:00后包含当天）
-export async function get7TradingDaysFromCalendar(endDate: string): Promise<string[]> {
-  const tradingDays: string[] = [];
-
-  // v4.8.18修复：使用北京时间（东八区UTC+8）判断是否包含当天
-  // 中国股市15:00收盘，但数据API需要处理时间，通常17:00后数据完整可用
-  const now = new Date();
-  const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // 转换为北京时间
->>>>>>> 86887ec382a82d9038e8df20f97a4d0e5ef02a56
   const beijingHour = beijingTime.getUTCHours(); // 使用UTC方法获取北京时间的小时数
   const beijingDateStr = beijingTime.toISOString().split('T')[0]; // 北京时间的日期
 
   // 检查endDate是否是北京时间的今天
   const isToday = beijingDateStr === endDate;
 
-<<<<<<< HEAD
   // v4.8.26修复：改为16:00判断，确保数据完整可用后才包含当天
   // 股市15:00收盘，数据处理约需1小时，16:00后数据已基本完整
   const shouldIncludeToday = isToday && beijingHour >= 16;
-=======
-  // v4.8.22修复：改为17:00判断，确保数据完整可用后才包含当天
-  // 股市15:00收盘，但涨停板、涨跌幅等数据需要1-2小时处理，17:00后数据才完整
-  const shouldIncludeToday = isToday && beijingHour >= 17;
->>>>>>> 86887ec382a82d9038e8df20f97a4d0e5ef02a56
 
   console.log(`[7天交易日] 北京时间: ${beijingTime.toISOString()}, 小时: ${beijingHour}, 北京日期: ${beijingDateStr}, 是否包含当天: ${shouldIncludeToday}`);
 
