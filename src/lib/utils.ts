@@ -289,12 +289,19 @@ export function isValidDate(dateString: string): boolean {
 }
 
 export function getTodayString(): string {
+<<<<<<< HEAD
   // v4.8.26修复：正确处理北京时间转换，考虑服务器时区
   // 先转换到UTC基准，再加上北京时区偏移（UTC+8）
   const date = new Date();
   const utcTime = date.getTime() + (date.getTimezoneOffset() * 60 * 1000); // 转换为UTC
   const beijingTime = utcTime + (8 * 60 * 60 * 1000); // UTC + 8小时 = 北京时间
   const beijingDate = new Date(beijingTime);
+=======
+  // v4.8.18修复：使用北京时间（东八区UTC+8）而不是UTC时间
+  // 中国股市基于北京时间运行，必须使用东八区时间
+  const date = new Date();
+  const beijingDate = new Date(date.getTime() + (8 * 60 * 60 * 1000)); // 转换为北京时间
+>>>>>>> 86887ec382a82d9038e8df20f97a4d0e5ef02a56
   return beijingDate.toISOString().split('T')[0];
 }
 
