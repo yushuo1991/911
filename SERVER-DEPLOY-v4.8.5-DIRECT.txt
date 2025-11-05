@@ -1,0 +1,154 @@
+╔══════════════════════════════════════════════════════════════╗
+║         🚀 v4.8.5 服务器直接部署（无需GitHub）              ║
+╚══════════════════════════════════════════════════════════════╝
+
+问题: GitHub连接不稳定
+解决: 直接在服务器修改文件，无需git pull
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法一：服务器直接修改代码（最快 - 推荐）
+
+复制整段到宝塔终端执行:
+
+cd /www/wwwroot/stock-tracker && \
+echo "🔄 [1/6] 备份当前page.tsx..." && \
+cp src/app/page.tsx src/app/page.tsx.backup-before-v4.8.5 && \
+echo "✅ 已备份到: src/app/page.tsx.backup-before-v4.8.5" && \
+echo "" && \
+echo "📝 [2/6] 应用v4.8.5修改..." && \
+sed -i 's/px-\[3px\] py-0 rounded-sm text-\[8px\] font-bold leading-tight/px-1 py-0.5 rounded text-[9px] font-bold/g' src/app/page.tsx && \
+sed -i 's/px-\[3px\] py-0 rounded-sm text-\[8px\] font-medium leading-tight whitespace-nowrap/px-1.5 py-0.5 rounded text-[9px] font-medium whitespace-nowrap/g' src/app/page.tsx && \
+echo "✅ 代码修改完成" && \
+echo "" && \
+echo "📦 [3/6] 获取容器ID..." && \
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}') && \
+echo "容器ID: $CONTAINER_ID" && \
+echo "" && \
+echo "📂 [4/6] 复制修改后的代码到容器..." && \
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx && \
+echo "✅ 代码已复制到容器" && \
+echo "" && \
+echo "🔄 [5/6] 重启容器应用..." && \
+docker exec $CONTAINER_ID sh -c "pkill -f 'node.*next'" || true && \
+sleep 3 && \
+docker restart $CONTAINER_ID && \
+echo "" && \
+echo "⏳ [6/6] 等待15秒启动..." && \
+sleep 15 && \
+echo "" && \
+echo "🔍 检查状态:" && \
+docker ps | grep stock-tracker && \
+curl -I http://localhost:3002 && \
+echo "" && \
+echo "✅ v4.8.5直接部署完成！" && \
+echo "访问 http://bk.yushuo.click 验证（Ctrl+Shift+R刷新）"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法二：手动修改文件（如果方法一sed失败）
+
+1. 编辑文件:
+vim /www/wwwroot/stock-tracker/src/app/page.tsx
+
+2. 查找替换（在vim中执行）:
+:%s/px-\[3px\] py-0 rounded-sm text-\[8px\] font-bold leading-tight/px-1 py-0.5 rounded text-[9px] font-bold/g
+:%s/px-\[3px\] py-0 rounded-sm text-\[8px\] font-medium leading-tight whitespace-nowrap/px-1.5 py-0.5 rounded text-[9px] font-medium whitespace-nowrap/g
+
+3. 保存退出:
+:wq
+
+4. 复制到容器并重启:
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}')
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx
+docker restart $CONTAINER_ID
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法三：完整重新构建（最稳妥）
+
+如果热替换失败，执行完整重建:
+
+cd /www/wwwroot/stock-tracker && \
+# 先应用代码修改（使用方法一或方法二） && \
+docker compose down && \
+docker compose build && \
+docker compose up -d && \
+sleep 20 && \
+docker ps | grep stock-tracker && \
+curl -I http://localhost:3002
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 验证v4.8.5部署成功
+
+1. 访问 http://bk.yushuo.click
+2. 按 Ctrl+Shift+R 强制刷新
+3. 点击任意涨停数（如"73只涨停"）
+4. 观察变化:
+   ✅ 溢价徽章字号: 8px → 9px（稍微放大）
+   ✅ 溢价徽章padding: px-[3px] py-0 → px-1.5 py-0.5
+   ✅ 状态徽章padding: px-[3px] py-0 → px-1 py-0.5
+   ✅ 圆角: rounded-sm → rounded（与日期弹窗一致）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 v4.8.5 具体修改
+
+文件: src/app/page.tsx
+
+修改前 (v4.8.4):
+```tsx
+{/* 状态徽章 */}
+<span className={`inline-block px-[3px] py-0 rounded-sm text-[8px] font-bold leading-tight ...`}>
+
+{/* 溢价徽章 */}
+<span className={`inline-block px-[3px] py-0 rounded-sm text-[8px] font-medium leading-tight whitespace-nowrap ${getPerformanceColorClass(performance)}`}>
+```
+
+修改后 (v4.8.5):
+```tsx
+{/* 状态徽章 - 9px字号，px-1 py-0.5，rounded */}
+<span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ...`}>
+
+{/* 溢价徽章 - 9px字号，px-1.5 py-0.5，rounded */}
+<span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-medium whitespace-nowrap ${getPerformanceColorClass(performance)}`}>
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔄 如何回滚到v4.8.4
+
+如果v4.8.5有问题，恢复备份:
+
+cp /www/wwwroot/stock-tracker/src/app/page.tsx.backup-before-v4.8.5 /www/wwwroot/stock-tracker/src/app/page.tsx
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}')
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx
+docker restart $CONTAINER_ID
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 本地Git记录
+
+本地已提交:
+commit 4405332
+Author: Claude Code
+Date: 2025-10-03
+
+    feat: v4.8.5 微调溢价徽章大小并对齐日期弹窗样式
+
+    调整涨停数弹窗徽章:
+    - 字号: 8px → 9px (稍微放大)
+    - 状态徽章padding: px-[3px] py-0 → px-1 py-0.5
+    - 溢价徽章padding: px-[3px] py-0 → px-1.5 py-0.5
+    - 圆角: rounded-sm → rounded (与日期弹窗一致)
+    - 移除leading-tight使用默认行高
+
+等网络恢复后推送:
+git push origin main
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+创建时间: 2025-10-03
+版本: v4.8.5
+目的: 微调溢价徽章大小，对齐日期弹窗样式

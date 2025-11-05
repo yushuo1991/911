@@ -1,0 +1,86 @@
+services:
+  # Next.js 应用
+  stock-tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stock-tracker-app
+    ports:
+      - "3002:3000"  # 映射到宿主机3002端口
+    environment:
+      # Tushare API配置
+      - TUSHARE_TOKEN=${TUSHARE_TOKEN:-2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211}
+
+      # 数据库配置 - 连接到独立MySQL服务
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=stock_user
+      - DB_PASSWORD=stock_password_2025
+      - DB_NAME=stock_tracker
+      - DB_DISABLE=false
+
+      # 应用配置
+      - NODE_ENV=production
+      - TZ=Asia/Shanghai
+      - NEXT_PUBLIC_APP_VERSION=4.1-docker
+      - NEXTAUTH_URL=http://bk.yushuo.click
+
+      # 缓存配置
+      - ENABLE_DATABASE_CACHE=true
+      - CACHE_TTL=7200
+
+      # 调度器Token
+      - SCHEDULER_TOKEN=default-secure-token
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - stock-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: stock-tracker-mysql
+    ports:
+      - "3307:3306"  # 避免与宿主机MySQL冲突
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password_2025
+      - MYSQL_DATABASE=stock_tracker
+      - MYSQL_USER=stock_user
+      - MYSQL_PASSWORD=stock_password_2025
+      - TZ=Asia/Shanghai
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max_connections=200
+    restart: unless-stopped
+    networks:
+      - stock-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  mysql-data:
+    driver: local
+
+networks:
+  stock-network:
+    driver: bridge

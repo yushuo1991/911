@@ -1,0 +1,107 @@
+╔══════════════════════════════════════════════════════════════╗
+║         🚀 v4.8.4 服务器快速部署（无需重新构建镜像）          ║
+╚══════════════════════════════════════════════════════════════╝
+
+问题: Docker镜像拉取超时（TLS handshake timeout）
+解决: 使用已有镜像，仅替换代码文件
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法一：直接替换容器内代码（最快 - 推荐）
+
+cd /www/wwwroot/stock-tracker && \
+echo "🔄 [1/5] 拉取v4.8.4代码..." && \
+git checkout -- src/app/page.tsx && \
+git pull origin main && \
+echo "✅ 代码已更新到:" && \
+git log --oneline -1 && \
+echo "" && \
+echo "📝 [2/5] 获取容器ID..." && \
+CONTAINER_ID=$(docker ps | grep stock-tracker-app | awk '{print $1}') && \
+echo "容器ID: $CONTAINER_ID" && \
+echo "" && \
+echo "📦 [3/5] 复制新代码到容器..." && \
+docker cp src/lib/utils.ts $CONTAINER_ID:/app/src/lib/utils.ts && \
+docker cp src/app/page.tsx $CONTAINER_ID:/app/src/app/page.tsx && \
+echo "✅ 代码已复制到容器" && \
+echo "" && \
+echo "🔄 [4/5] 重启容器应用..." && \
+docker exec $CONTAINER_ID sh -c "pkill -f 'node.*next'" || true && \
+sleep 3 && \
+docker restart $CONTAINER_ID && \
+echo "" && \
+echo "⏳ [5/5] 等待15秒..." && \
+sleep 15 && \
+echo "" && \
+echo "🔍 检查状态:" && \
+docker ps | grep stock-tracker && \
+curl -I http://localhost:3002 && \
+echo "" && \
+echo "✅ v4.8.4快速部署完成！" && \
+echo "访问 http://bk.yushuo.click 验证（Ctrl+Shift+R刷新）"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法二：使用缓存构建（如果方法一失败）
+
+cd /www/wwwroot/stock-tracker && \
+git checkout -- src/app/page.tsx && \
+git pull origin main && \
+docker compose down && \
+docker compose build && \
+docker compose up -d && \
+sleep 20 && \
+docker ps | grep stock-tracker && \
+curl -I http://localhost:3002
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 方法三：配置Docker镜像源（长期解决）
+
+# 创建Docker配置
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json <<EOF
+{
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://dockerproxy.com",
+    "https://docker.mirrors.ustc.edu.cn",
+    "https://hub-mirror.c.163.com"
+  ]
+}
+EOF
+
+# 重启Docker
+systemctl daemon-reload
+systemctl restart docker
+
+# 然后重试构建
+cd /www/wwwroot/stock-tracker
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 验证v4.8.4部署成功
+
+1. 访问 http://bk.yushuo.click
+2. 按 Ctrl+Shift+R 强制刷新
+3. 点击任意涨停数（如"73只涨停"）
+4. 观察变化:
+   ✅ 表头文字清晰（10px）
+   ✅ 股票名清晰（11px）
+   ✅ 溢价徽章变小（8px，3px padding）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 v4.8.4 改动文件
+
+1. src/lib/utils.ts - 新增getPerformanceColorClass()
+2. src/app/page.tsx - 修改涨停数弹窗表格样式
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+创建时间: 2025-10-03
+版本: v4.8.4
+解决问题: 溢价徽章getPerformanceClass样式冲突

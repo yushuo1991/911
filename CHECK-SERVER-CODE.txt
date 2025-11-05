@@ -1,0 +1,23 @@
+# 检查服务器代码版本
+
+# 在服务器执行以下命令检查代码是否正确
+
+# 1. 检查Git提交版本
+git log --oneline -1
+
+# 2. 检查状态列代码是否存在（应该找到3处）
+grep -n "td_type.replace" src/app/page.tsx
+
+# 3. 检查涨停数弹窗表头是否有状态列
+grep -n "状态" src/app/page.tsx | grep -i "th"
+
+# 4. 查看具体的状态列实现（第1024-1032行）
+sed -n '1024,1032p' src/app/page.tsx
+
+# 5. 检查docker容器内的代码（确认构建是否使用了最新代码）
+docker exec stock-tracker-app grep -n "td_type.replace" src/app/page.tsx
+
+# 6. 重启容器并清除Next.js缓存
+docker compose restart app
+docker exec stock-tracker-app rm -rf .next
+docker compose restart app
