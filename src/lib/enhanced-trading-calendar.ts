@@ -283,15 +283,9 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
       // v4.8.9修改：根据时间决定起始位置
       if (!shouldIncludeToday) {
         currentDate.setDate(currentDate.getDate() - 1); // 从前一天开始
-<<<<<<< HEAD
         console.log(`[7天交易日] 当前时间<16:00，从前一天开始查找`);
       } else {
         console.log(`[7天交易日] 当前时间>=16:00，包含当天`);
-=======
-        console.log(`[7天交易日] 当前时间<17:00，从前一天开始查找`);
-      } else {
-        console.log(`[7天交易日] 当前时间>=17:00，包含当天`);
->>>>>>> 86887ec382a82d9038e8df20f97a4d0e5ef02a56
       }
 
       while (tradingDays.length < 7) {
