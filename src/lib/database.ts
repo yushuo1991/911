@@ -455,6 +455,60 @@ export class StockDatabase {
     }
   }
 
+  // v4.20.2新增：清除指定日期的涨停股票缓存
+  async clearStockDataCache(date: string): Promise<void> {
+    if (isDatabaseDisabled || !this.pool.execute) {
+      console.log('[数据库] 数据库已禁用或连接不可用');
+      return;
+    }
+
+    try {
+      await this.pool.execute(
+        'DELETE FROM stock_data WHERE trade_date = ?',
+        [date]
+      );
+      console.log(`[数据库] 已清除 ${date} 的涨停股票缓存`);
+    } catch (error) {
+      console.error(`[数据库] 清除涨停股票缓存失败:`, error);
+      throw error;
+    }
+  }
+
+  // v4.20.2新增：清除指定日期的股票表现缓存
+  async clearPerformanceCache(baseDate: string): Promise<void> {
+    if (isDatabaseDisabled || !this.pool.execute) {
+      console.log('[数据库] 数据库已禁用或连接不可用');
+      return;
+    }
+
+    try {
+      await this.pool.execute(
+        'DELETE FROM stock_performance WHERE base_date = ?',
+        [baseDate]
+      );
+      console.log(`[数据库] 已清除 ${baseDate} 的股票表现缓存`);
+    } catch (error) {
+      console.error(`[数据库] 清除股票表现缓存失败:`, error);
+      throw error;
+    }
+  }
+
+  // v4.20.2新增：清除所有7天数据缓存
+  async clear7DaysCache(): Promise<void> {
+    if (isDatabaseDisabled || !this.pool.execute) {
+      console.log('[数据库] 数据库已禁用或连接不可用');
+      return;
+    }
+
+    try {
+      await this.pool.execute('DELETE FROM seven_days_cache');
+      console.log(`[数据库] 已清除所有7天数据缓存`);
+    } catch (error) {
+      console.error(`[数据库] 清除7天数据缓存失败:`, error);
+      throw error;
+    }
+  }
+
   // 关闭连接池
   async close(): Promise<void> {
     if (isDatabaseDisabled || !this.pool.end) {

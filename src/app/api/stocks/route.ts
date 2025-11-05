@@ -257,7 +257,8 @@ import { NextRequest, NextResponse } from 'next/server';
               // [0]: 股票代码, [1]: 股票名称, [9]: 板位类型
               // [6]: 成交额（元）- v4.8.8新增
               // [7]: 涨停时间（格式：HH:MM）- v4.8.24新增
-              const stockCode = stockData[0];
+              const rawStockCode = stockData[0];
+              const stockCode = normalizeStockCode(rawStockCode); // v4.20.2：规范化代码
               const stockName = stockData[1];
               const tdType = stockData[9] || '首板';
               const amountInYuan = parseFloat(stockData[6]) || 0; // 成交额（元）
@@ -337,18 +338,69 @@ import { NextRequest, NextResponse } from 'next/server';
     }
   }
 
-  // 转换股票代码格式为Tushare格式
-  function convertStockCodeForTushare(stockCode: string): string {
-    // 股票代码格式转换：000001 -> 000001.SZ, 600000 -> 600000.SH
-    if (stockCode.startsWith('60') || stockCode.startsWith('68') || stockCode.startsWith('51')) {
-      return `${stockCode}.SH`; // 上交所
-    } else if (stockCode.startsWith('00') || stockCode.startsWith('30') || stockCode.startsWith('12')) {
-      return `${stockCode}.SZ`; // 深交所
-    } else if (stockCode.startsWith('43') || stockCode.startsWith('83') || stockCode.startsWith('87')) {
-      return `${stockCode}.BJ`; // 北交所
-    }
-    return `${stockCode}.SZ`; // 默认深交所
+// v4.20.2新增：规范化股票代码（修复7位代码问题）
+function normalizeStockCode(rawCode: string): string {
+  const code = rawCode.trim();
+  
+  // 标准股票代码应该是6位数字
+  if (code.length === 6) {
+    return code; // 已经是标准格式
   }
+  
+  // 如果长度大于6位，尝试截取
+  if (code.length > 6) {
+    // 创业板：300xxx
+    if (code.startsWith('300')) {
+      const normalized = code.slice(0, 6);
+      console.log(`[代码规范化] 创业板: ${code} → ${normalized}`);
+      return normalized;
+    }
+    
+    // 科创板：688xxx
+    if (code.startsWith('688')) {
+      const normalized = code.slice(0, 6);
+      console.log(`[代码规范化] 科创板: ${code} → ${normalized}`);
+      return normalized;
+    }
+    
+    // 深市主板：000xxx, 001xxx, 002xxx, 003xxx
+    if (code.startsWith('00')) {
+      const normalized = code.slice(0, 6);
+      console.log(`[代码规范化] 深市主板: ${code} → ${normalized}`);
+      return normalized;
+    }
+    
+    // 上交所：6xxxxx
+    if (code.startsWith('6')) {
+      const normalized = code.slice(0, 6);
+      console.log(`[代码规范化] 上交所: ${code} → ${normalized}`);
+      return normalized;
+    }
+    
+    // 北交所：8xxxxx, 4xxxxx
+    if (code.startsWith('8') || code.startsWith('4')) {
+      const normalized = code.slice(0, 6);
+      console.log(`[代码规范化] 北交所: ${code} → ${normalized}`);
+      return normalized;
+    }
+  }
+  
+  console.warn(`[代码规范化] 无法规范化代码: ${code}，保持原样`);
+  return code;
+}
+
+// 转换股票代码格式为Tushare格式
+function convertStockCodeForTushare(stockCode: string): string {
+  // 股票代码格式转换：000001 -> 000001.SZ, 600000 -> 600000.SH
+  if (stockCode.startsWith('60') || stockCode.startsWith('68') || stockCode.startsWith('51')) {
+    return `${stockCode}.SH`; // 上交所
+  } else if (stockCode.startsWith('00') || stockCode.startsWith('30') || stockCode.startsWith('12')) {
+    return `${stockCode}.SZ`; // 深交所
+  } else if (stockCode.startsWith('43') || stockCode.startsWith('83') || stockCode.startsWith('87')) {
+    return `${stockCode}.BJ`; // 北交所
+  }
+  return `${stockCode}.SZ`; // 默认深交所
+}
 
   // v4.8.18新增：使用Tushare API批量获取个股真实成交额
   async function getBatchStockAmount(stockCodes: string[], tradeDate: string): Promise<Map<string, number>> {
