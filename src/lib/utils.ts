@@ -289,13 +289,22 @@ export function isValidDate(dateString: string): boolean {
 }
 
 export function getTodayString(): string {
-  // v4.8.26修复：正确处理北京时间转换，考虑服务器时区
-  // 先转换到UTC基准，再加上北京时区偏移（UTC+8）
-  const date = new Date();
-  const utcTime = date.getTime() + (date.getTimezoneOffset() * 60 * 1000); // 转换为UTC
-  const beijingTime = utcTime + (8 * 60 * 60 * 1000); // UTC + 8小时 = 北京时间
-  const beijingDate = new Date(beijingTime);
-  return beijingDate.toISOString().split('T')[0];
+  // v4.8.27修复：使用Intl API正确获取北京时间日期
+  // 问题：之前的逻辑在服务器已配置为UTC+8时会导致日期错误（凌晨0:00-8:00时落后一天）
+  // 解决：直接使用Intl API获取Asia/Shanghai时区的日期，无需手动计算时区偏移
+  const formatter = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+
+  const parts = formatter.formatToParts(new Date());
+  const year = parts.find(p => p.type === 'year')?.value || '';
+  const month = parts.find(p => p.type === 'month')?.value || '';
+  const day = parts.find(p => p.type === 'day')?.value || '';
+
+  return `${year}-${month}-${day}`;
 }
 
 export function calculateDailyAverage(stocks: StockPerformance[], day: string): number {
