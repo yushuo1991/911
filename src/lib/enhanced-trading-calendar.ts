@@ -242,26 +242,36 @@ export async function getValidTradingDays(startDate: string, count: number = 5):
 export async function get7TradingDaysFromCalendar(endDate: string): Promise<string[]> {
   const tradingDays: string[] = [];
 
-  // v4.8.26修复：正确处理北京时间转换，考虑服务器时区
+  // v4.8.27修复：使用Intl API正确获取北京时间和小时数
+  // 问题：之前的逻辑在服务器已配置为UTC+8时会导致日期和时间错误
+  // 解决：直接使用Intl API获取Asia/Shanghai时区的日期和时间
   // 中国股市15:00收盘，数据处理约需1小时，16:00后数据已基本完整
   const now = new Date();
-  
-  // 先转换到UTC基准，再加上北京时区偏移（UTC+8）
-  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000); // 转换为UTC
-  const beijingTimeMs = utcTime + (8 * 60 * 60 * 1000); // UTC + 8小时 = 北京时间
-  const beijingTime = new Date(beijingTimeMs);
-  
-  const beijingHour = beijingTime.getUTCHours(); // 使用UTC方法获取北京时间的小时数
-  const beijingDateStr = beijingTime.toISOString().split('T')[0]; // 北京时间的日期
+
+  const formatter = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false
+  });
+
+  const parts = formatter.formatToParts(now);
+  const beijingHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const year = parts.find(p => p.type === 'year')?.value || '';
+  const month = parts.find(p => p.type === 'month')?.value || '';
+  const day = parts.find(p => p.type === 'day')?.value || '';
+  const beijingDateStr = `${year}-${month}-${day}`;
 
   // 检查endDate是否是北京时间的今天
   const isToday = beijingDateStr === endDate;
 
-  // v4.8.26修复：改为16:00判断，确保数据完整可用后才包含当天
+  // v4.8.27修复：改为16:00判断，确保数据完整可用后才包含当天
   // 股市15:00收盘，数据处理约需1小时，16:00后数据已基本完整
   const shouldIncludeToday = isToday && beijingHour >= 16;
 
-  console.log(`[7天交易日] 北京时间: ${beijingTime.toISOString()}, 小时: ${beijingHour}, 北京日期: ${beijingDateStr}, 是否包含当天: ${shouldIncludeToday}`);
+  console.log(`[7天交易日] 北京时间: ${now.toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})}, 小时: ${beijingHour}, 北京日期: ${beijingDateStr}, 是否包含当天: ${shouldIncludeToday}`);
 
   // 计算查询范围（向前追溯30天确保包含7个交易日）
   const startDate = new Date(endDate);
