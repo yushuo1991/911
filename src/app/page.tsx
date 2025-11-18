@@ -19,12 +19,12 @@ function getStockCodeFormat(stockCode: string): string {
 // 获取分时图URL（根据模式返回实时或快照）
 function getMinuteChartUrl(stockCode: string, mode: 'realtime' | 'snapshot', date?: string): string {
   if (mode === 'snapshot' && date) {
-    // 从数据库读取历史快照
-    return `/api/minute-snapshot?date=${date}&code=${stockCode}`;
+    // 从数据库读取历史快照 - 添加时间戳防止缓存
+    return `/api/minute-snapshot?date=${date}&code=${stockCode}&t=${Date.now()}`;
   } else {
-    // 从新浪API读取实时分时图
+    // 从新浪API读取实时分时图 - 添加时间戳防止缓存
     const codeFormat = getStockCodeFormat(stockCode);
-    return `http://image.sinajs.cn/newchart/min/n/${codeFormat}.gif`;
+    return `http://image.sinajs.cn/newchart/min/n/${codeFormat}.gif?t=${Date.now()}`;
   }
 }
 
@@ -33,6 +33,9 @@ export default function Home() {
   const [dates, setDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLoadEarlier, setShowLoadEarlier] = useState(false); // 新增：控制"加载更早数据"按钮显示
+  const [loadingEarlier, setLoadingEarlier] = useState(false); // 新增：加载更早数据的loading状态
+  const [dateRange, setDateRange] = useState(7); // 新增：当前显示的日期范围（默认7天）
   const [onlyLimitUp5Plus, setOnlyLimitUp5Plus] = useState(false);
   const [expandedSectors, setExpandedSectors] = useState<Record<string, boolean>>({});
   const [showModal, setShowModal] = useState(false);
@@ -67,6 +70,22 @@ export default function Home() {
   const [minuteModalPage, setMinuteModalPage] = useState(0);
   // 新增：分时图显示模式（realtime=今日分时，snapshot=当日分时）
   const [minuteChartMode, setMinuteChartMode] = useState<'realtime' | 'snapshot'>('realtime');
+  // 新增：连板个股梯队弹窗状态
+  const [showMultiBoardModal, setShowMultiBoardModal] = useState(false);
+  const [multiBoardModalData, setMultiBoardModalData] = useState<{
+    date: string;
+    stocks: Array<{
+      name: string;
+      code: string;
+      td_type: string;
+      boardNum: number;
+      sectorName: string;
+      amount: number;
+      limitUpTime: string;
+      globalAmountRank: number | null;
+      followUpData: Record<string, number>;
+    }>;
+  } | null>(null);
 
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
@@ -99,20 +118,84 @@ export default function Home() {
     return rank !== -1 ? rank + 1 : null;
   };
 
-  const fetch7DaysData = async () => {
+  // 新增：获取全局成交额排名
+  const getGlobalStockAmountRank = (date: string, stockCode: string): number | null => {
+    const dayData = sevenDaysData?.[date];
+    if (!dayData) return null;
+
+    // 收集所有板块的所有个股
+    const allStocks: StockPerformance[] = [];
+    Object.values(dayData.categories).forEach(stocks => {
+      allStocks.push(...stocks);
+    });
+
+    // 按成交额降序排序
+    const stocksWithAmount = allStocks
+      .filter(s => s.amount && s.amount > 0)
+      .sort((a, b) => (b.amount || 0) - (a.amount || 0));
+
+    // 找到当前个股的排名
+    const rank = stocksWithAmount.findIndex(s => s.code === stockCode);
+    return rank !== -1 ? rank + 1 : null;
+  };
+
+  const fetch7DaysData = async (range: number = 7) => {
     setLoading(true);
     setError(null);
 
     try {
       const endDate = getTodayString();
-      const response = await fetch(`/api/stocks?date=${endDate}&mode=7days`);
-      const result = await response.json();
+      // 如果range > 7，需要批量获取多个7天数据段
+      if (range <= 7) {
+        const response = await fetch(`/api/stocks?date=${endDate}&mode=7days`);
+        const result = await response.json();
 
-      if (result.success) {
-        setSevenDaysData(result.data);
-        setDates(result.dates || []);
+        if (result.success) {
+          setSevenDaysData(result.data);
+          setDates(result.dates || []);
+          setDateRange(range);
+        } else {
+          setError(result.error || '获取数据失败');
+        }
       } else {
-        setError(result.error || '获取数据失败');
+        // 批量获取多个7天数据段（最多30天）
+        const allData: SevenDaysData = {};
+        const allDates: string[] = [];
+        let currentEndDate = endDate;
+        const segments = Math.ceil(range / 7);
+
+        for (let i = 0; i < segments; i++) {
+          const response = await fetch(`/api/stocks?date=${currentEndDate}&mode=7days`);
+          const result = await response.json();
+
+          if (result.success) {
+            // 合并数据
+            Object.assign(allData, result.data);
+            // 合并日期并去重
+            result.dates.forEach((date: string) => {
+              if (!allDates.includes(date)) {
+                allDates.push(date);
+              }
+            });
+
+            // 计算下一个段的结束日期（当前段的第一天的前一天）
+            if (result.dates && result.dates.length > 0) {
+              const firstDate = new Date(result.dates[0]);
+              firstDate.setDate(firstDate.getDate() - 1);
+              currentEndDate = firstDate.toISOString().split('T')[0];
+            }
+          } else {
+            console.warn(`获取第${i+1}段数据失败:`, result.error);
+            break;
+          }
+        }
+
+        // 按日期排序（最新的在最右边）
+        allDates.sort();
+
+        setSevenDaysData(allData);
+        setDates(allDates.slice(-range)); // 只保留最后range天
+        setDateRange(range);
       }
     } catch (err) {
       setError('网络请求失败');
@@ -122,8 +205,45 @@ export default function Home() {
     }
   };
 
+  // 新增：加载更早的数据
+  const handleLoadEarlierData = async () => {
+    if (dates.length === 0 || loadingEarlier) return;
+
+    setLoadingEarlier(true);
+    setError(null);
+
+    try {
+      const earliestDate = dates[0];
+      const newEndDate = new Date(earliestDate);
+      newEndDate.setDate(newEndDate.getDate() - 1);
+      const endDateStr = newEndDate.toISOString().split('T')[0];
+
+      // 加载更早的7天
+      const response = await fetch(`/api/stocks?date=${endDateStr}&mode=7days`);
+      const result = await response.json();
+
+      if (result.success) {
+        // 合并数据
+        setSevenDaysData(prev => ({...result.data, ...prev}));
+        // 合并日期（新日期在前）
+        const newDates = [...result.dates.filter((d: string) => !dates.includes(d)), ...dates];
+        // 保留最多30天
+        setDates(newDates.slice(-30));
+        setDateRange(Math.min(newDates.length, 30));
+      } else {
+        setError(result.error || '加载更早数据失败');
+      }
+    } catch (err) {
+      setError('加载更早数据失败');
+      console.error('Load earlier error:', err);
+    } finally {
+      setLoadingEarlier(false);
+      setShowLoadEarlier(false); // 加载完成后隐藏按钮
+    }
+  };
+
   useEffect(() => {
-    fetch7DaysData();
+    fetch7DaysData(7);
   }, []);
 
   // 处理板块点击显示弹窗 - 显示该板块个股梯队（新：分屏布局，左侧图表，右侧表格）
@@ -135,6 +255,89 @@ export default function Home() {
       followUpData: followUpData
     });
     setShowSectorModal(true);
+  };
+
+  // 新增：处理星期几点击 - 显示当天连板个股梯队（2板+）
+  const handleWeekdayStocksClick = (date: string) => {
+    const dayData = sevenDaysData?.[date];
+    if (!dayData || !dates) return;
+
+    // 找到当前日期在dates数组中的位置
+    const currentDateIndex = dates.indexOf(date);
+    if (currentDateIndex === -1) return;
+
+    // 获取次日起5个交易日
+    const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
+
+    // 收集所有板块的所有连板个股（2板+）
+    const multiBoardStocks: Array<{
+      name: string;
+      code: string;
+      td_type: string;
+      boardNum: number;
+      sectorName: string;
+      amount: number;
+      limitUpTime: string;
+      globalAmountRank: number | null;
+      followUpData: Record<string, number>;
+    }> = [];
+
+    Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
+      stocks.forEach(stock => {
+        // 解析连板数
+        const boardMatch = stock.td_type.match(/(\d+)板/);
+        const boardNum = boardMatch ? parseInt(boardMatch[1]) : 1;
+
+        // 只收集2板及以上的个股
+        if (boardNum >= 2) {
+          // 计算该股票的后续5天表现
+          const followUpData: Record<string, number> = {};
+          next5Days.forEach(nextDate => {
+            const nextDayData = sevenDaysData[nextDate];
+            if (nextDayData && nextDayData.followUpData) {
+              // followUpData 结构: 板块名称 -> 股票代码 -> 基准日期 -> 涨跌幅
+              const sectorFollowUp = nextDayData.followUpData[sectorName];
+              if (sectorFollowUp && sectorFollowUp[stock.code] && sectorFollowUp[stock.code][date]) {
+                followUpData[nextDate] = sectorFollowUp[stock.code][date];
+              }
+            }
+          });
+
+          // 获取全局成交额排名
+          const globalRank = getGlobalStockAmountRank(date, stock.code);
+
+          multiBoardStocks.push({
+            name: stock.name,
+            code: stock.code,
+            td_type: stock.td_type,
+            boardNum: boardNum,
+            sectorName: sectorName,
+            amount: stock.amount || 0,
+            limitUpTime: stock.limitUpTime || '',
+            globalAmountRank: globalRank,
+            followUpData: followUpData
+          });
+        }
+      });
+    });
+
+    // 排序：连板数降序 → 同板数按涨停时间升序
+    multiBoardStocks.sort((a, b) => {
+      if (a.boardNum !== b.boardNum) {
+        return b.boardNum - a.boardNum; // 连板数降序
+      }
+      // 同板数按涨停时间升序（早涨停的在前）
+      if (a.limitUpTime && b.limitUpTime) {
+        return a.limitUpTime.localeCompare(b.limitUpTime);
+      }
+      return 0;
+    });
+
+    setMultiBoardModalData({
+      date: date,
+      stocks: multiBoardStocks
+    });
+    setShowMultiBoardModal(true);
   };
 
   // 处理日期点击 - 需求2：显示当天涨停个股数前5名板块
@@ -383,6 +586,11 @@ export default function Home() {
     setShowMinuteModal(false);
     setMinuteModalData(null);
     setMinuteModalPage(0);
+  };
+
+  const closeMultiBoardModal = () => {
+    setShowMultiBoardModal(false);
+    setMultiBoardModalData(null);
   };
 
   // 处理日期列点击 - 显示该日期个股的后续5天溢价详情
@@ -2215,8 +2423,11 @@ export default function Home() {
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           if (minuteChartMode === 'snapshot') {
-                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+5pqC5peg5b2T5pel5b+r54WnPC90ZXh0Pjwvc3ZnPg==';
+                            // 当日分时快照失败 - 显示友好提示
+                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZmVmM2M3Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI0MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iI2Y1OTcwYiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuKaoO+4jyDlvZPml6Xlv6vnhafjvIzml6DmlbA8L3RleHQ+CiAgPHRleHQgeD0iNTAlIiB5PSI2MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuivt+WIh+aNouWIsOKAnOS7iuaXpeWIhuaXtuKAneiOt+WPluWbvueJhzwvdGV4dD4KPC9zdmc+';
+                            target.title = `${stock.name} 当日分时快照不可用，请切换到"今日分时"查看实时数据`;
                           } else {
+                            // 实时分时图失败
                             target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+5YiG5pe25Zu+5Yqg6L295aSx6LSkPC90ZXh0Pjwvc3ZnPg==';
                           }
                         }}
@@ -2324,7 +2535,7 @@ export default function Home() {
 
             {/* 刷新按钮 */}
             <button
-              onClick={fetch7DaysData}
+              onClick={() => fetch7DaysData(7)}
               disabled={loading}
               className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
@@ -2346,9 +2557,47 @@ export default function Home() {
       {/* 7天时间轴主内容 - 应用紧凑样式 */}
       {sevenDaysData && dates.length > 0 && (
         <div className="max-w-full mx-auto">
-          {/* 时间轴网格 */}
-          <div className="grid grid-cols-7 gap-2">
-            {dates.map((date) => {
+          {/* 时间轴网格 - 动态列数 */}
+          <div className={`grid gap-2 relative ${
+            dates.length <= 7 ? 'grid-cols-7' :
+            dates.length <= 14 ? 'grid-cols-7 xl:grid-cols-14' :
+            'grid-cols-7 xl:grid-cols-10'
+          }`} style={{
+            gridTemplateColumns: dates.length > 7 ? `repeat(${Math.min(dates.length, 14)}, minmax(0, 1fr))` : undefined
+          }}>
+            {/* 加载更早数据触发区域 - 仅在最左侧显示 */}
+            {dates.length < 30 && (
+              <div
+                className="absolute left-0 top-0 bottom-0 w-8 z-10 cursor-pointer"
+                onMouseEnter={() => setShowLoadEarlier(true)}
+                onMouseLeave={() => !loadingEarlier && setShowLoadEarlier(false)}
+              >
+                {showLoadEarlier && (
+                  <div className="h-full flex items-center justify-center">
+                    <button
+                      onClick={handleLoadEarlierData}
+                      disabled={loadingEarlier}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-3 rounded-l-lg shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center gap-1"
+                      title="加载更早的7天数据"
+                    >
+                      {loadingEarlier ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                          <span className="text-2xs">加载中</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-lg">←</span>
+                          <span className="text-2xs writing-mode-vertical">加载更早</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {dates.map((date, index) => {
               const dayData = sevenDaysData[date];
               const sectors = processedTimelineData[date] || [];
 
@@ -2362,7 +2611,11 @@ export default function Home() {
                     >
                       {formatDate(date).slice(5)} {/* MM-DD格式 */}
                     </div>
-                    <div className="text-2xs opacity-90 mt-0.5">
+                    <div
+                      className="text-2xs opacity-90 mt-0.5 cursor-pointer hover:bg-white/10 rounded px-1.5 py-0.5 transition-colors"
+                      onClick={() => handleWeekdayStocksClick(date)}
+                      title="点击查看当天连板个股梯队"
+                    >
                       {new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' })}
                     </div>
                     <div
@@ -2457,11 +2710,14 @@ export default function Home() {
             <h3 className="text-blue-800 font-medium mb-2 text-sm">💡 使用说明</h3>
             <ul className="text-blue-700 text-xs space-y-0.5">
               <li>• 按最近7个交易日排列，显示每日涨停板块及数量和平均溢价</li>
+              <li>• <span className="font-semibold bg-blue-100 px-1 rounded">新功能</span> <span className="font-semibold">鼠标悬停最左侧边缘</span>: 显示"← 加载更早"按钮，点击可加载更早7天数据（最多保留1个月）</li>
+              <li>• <span className="font-semibold bg-green-100 px-1 rounded">新功能</span> <span className="font-semibold">点击星期几</span>: 显示当天连板个股梯队（2板+），含溢价图表和成交额全局排名</li>
               <li>• <span className="font-semibold">点击日期头部</span>: 显示涨停数前5名板块及后续5天平均溢价</li>
               <li>• <span className="font-semibold">点击板块名称</span>: 查看该板块个股5天溢价图表和详情（含K线批量查看）</li>
               <li>• <span className="font-semibold">点击排行徽章</span>: 查看该板块7天涨停个股阶梯，点击日期可查看完整板块详情</li>
               <li>• <span className="font-semibold">点击涨停数</span>: 按板块分组显示当天所有涨停个股，每个板块标题有📈K按钮可批量查看K线</li>
               <li>• <span className="font-semibold">排序模式</span>: 右上角可切换"连板排序"或"涨幅排序"，影响所有个股列表和K线显示顺序</li>
+              <li>• <span className="font-semibold bg-yellow-100 px-1 rounded">分时图说明</span>: "📊今日分时"显示实时数据，"📷当日分时"显示历史快照（需数据库支持，如无快照会显示提示）</li>
               <li>• 点击"7天涨停排行"查看板块强度排名（Top 5）</li>
               <li>• 点击股票名称可查看单独K线图</li>
               <li>• 可筛选只显示≥5个涨停的活跃板块</li>
@@ -2483,6 +2739,229 @@ export default function Home() {
             <p className="text-gray-500">
               无法获取最近7天的涨停数据，请稍后重试
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* 连板个股梯队弹窗 - 新增 */}
+      {showMultiBoardModal && multiBoardModalData && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
+          <div
+            className="bg-white rounded-lg shadow-2xl w-full max-w-[95vw] max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 弹窗头部 */}
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold">
+                  📊 {formatDate(multiBoardModalData.date)} - 连板个股梯队
+                </h2>
+                <p className="text-sm opacity-90 mt-1">
+                  共 {multiBoardModalData.stocks.length} 只连板个股（2板及以上）
+                </p>
+              </div>
+              <button
+                onClick={closeMultiBoardModal}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 弹窗内容 - 分屏布局 */}
+            <div className="flex h-[calc(90vh-120px)]">
+              {/* 左侧：图表区域 (40%) */}
+              <div className="w-2/5 p-6 bg-gray-50 border-r border-gray-200 overflow-y-auto">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">
+                  📈 后续5天溢价趋势
+                </h3>
+
+                {(() => {
+                  // 准备图表数据
+                  const currentDateIndex = dates.indexOf(multiBoardModalData.date);
+                  const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
+
+                  if (next5Days.length === 0) {
+                    return (
+                      <div className="text-center text-gray-500 py-8">
+                        暂无后续交易日数据
+                      </div>
+                    );
+                  }
+
+                  // 转换数据为图表格式
+                  const chartData = next5Days.map(date => {
+                    const dataPoint: any = { date: formatDate(date).slice(5) };
+
+                    // 计算当天所有连板个股的平均溢价
+                    let totalPremium = 0;
+                    let validCount = 0;
+
+                    multiBoardModalData.stocks.forEach(stock => {
+                      if (stock.followUpData[date] !== undefined) {
+                        totalPremium += stock.followUpData[date];
+                        validCount++;
+                      }
+                    });
+
+                    dataPoint.avgPremium = validCount > 0 ? totalPremium / validCount : 0;
+                    dataPoint.stockCount = validCount;
+
+                    return dataPoint;
+                  });
+
+                  return (
+                    <ResponsiveContainer width="100%" height={400}>
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 12 }}
+                          label={{ value: '日期', position: 'insideBottom', offset: -5 }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12 }}
+                          label={{ value: '平均溢价(%)', angle: -90, position: 'insideLeft' }}
+                        />
+                        <Tooltip
+                          formatter={(value: any) => `${value.toFixed(2)}%`}
+                          labelFormatter={(label) => `日期: ${label}`}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="avgPremium"
+                          stroke="#8b5cf6"
+                          strokeWidth={2}
+                          name="平均溢价"
+                          dot={{ fill: '#8b5cf6', r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
+
+                <div className="mt-4 text-xs text-gray-600">
+                  💡 图表显示所有连板个股的后续表现平均值
+                </div>
+              </div>
+
+              {/* 右侧：表格区域 (60%) */}
+              <div className="w-3/5 p-6 overflow-y-auto">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-2 py-2 text-left text-xs font-semibold text-gray-700">#</th>
+                        <th className="px-2 py-2 text-left text-xs font-semibold text-gray-700">股票</th>
+                        <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700">板数</th>
+                        <th className="px-2 py-2 text-left text-xs font-semibold text-gray-700">所属板块</th>
+                        <th className="px-2 py-2 text-right text-xs font-semibold text-gray-700">成交额</th>
+                        {(() => {
+                          const currentDateIndex = dates.indexOf(multiBoardModalData.date);
+                          const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
+                          return next5Days.map(date => (
+                            <th key={date} className="px-2 py-2 text-right text-xs font-semibold text-gray-700">
+                              {formatDate(date).slice(5)}
+                            </th>
+                          ));
+                        })()}
+                        <th className="px-2 py-2 text-right text-xs font-semibold text-gray-700">累计</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {multiBoardModalData.stocks.map((stock, index) => {
+                        const currentDateIndex = dates.indexOf(multiBoardModalData.date);
+                        const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
+
+                        // 计算累计涨跌幅
+                        let totalPremium = 0;
+                        next5Days.forEach(date => {
+                          if (stock.followUpData[date] !== undefined) {
+                            totalPremium += stock.followUpData[date];
+                          }
+                        });
+
+                        return (
+                          <tr
+                            key={stock.code}
+                            className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="px-2 py-2 text-gray-600">{index + 1}</td>
+                            <td className="px-2 py-2">
+                              <div className="font-medium text-gray-900">{stock.name}</div>
+                              <div className="text-xs text-gray-500">{stock.code}</div>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                stock.boardNum >= 5 ? 'bg-red-100 text-red-700' :
+                                stock.boardNum >= 3 ? 'bg-orange-100 text-orange-700' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>
+                                {stock.boardNum}板
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 text-gray-700 text-xs">{stock.sectorName}</td>
+                            <td className="px-2 py-2 text-right">
+                              {stock.amount > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span className={`text-xs font-medium ${
+                                    stock.globalAmountRank === 1 ? 'text-red-600' :
+                                    stock.globalAmountRank === 2 ? 'text-orange-600' :
+                                    'text-gray-700'
+                                  }`}>
+                                    {stock.amount.toFixed(1)}亿
+                                  </span>
+                                  {stock.globalAmountRank && stock.globalAmountRank <= 10 && (
+                                    <span className="text-2xs text-gray-500">
+                                      #{stock.globalAmountRank}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400">-</span>
+                              )}
+                            </td>
+                            {next5Days.map(date => {
+                              const premium = stock.followUpData[date];
+                              return (
+                                <td key={date} className="px-2 py-2 text-right">
+                                  {premium !== undefined ? (
+                                    <span className={`text-xs font-medium ${
+                                      premium > 0 ? 'text-red-600' :
+                                      premium < 0 ? 'text-green-600' :
+                                      'text-gray-600'
+                                    }`}>
+                                      {premium > 0 ? '+' : ''}{premium.toFixed(1)}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">-</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                            <td className="px-2 py-2 text-right">
+                              <span className={`text-xs font-bold ${
+                                totalPremium > 0 ? 'text-red-600' :
+                                totalPremium < 0 ? 'text-green-600' :
+                                'text-gray-600'
+                              }`}>
+                                {totalPremium > 0 ? '+' : ''}{totalPremium.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* 底部说明 */}
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
+              💡 按连板数降序排列，同板数按涨停时间升序 | 成交额显示全局排名（前10名） | 点击背景关闭
+            </div>
           </div>
         </div>
       )}
@@ -2534,6 +3013,12 @@ export default function Home() {
         <div
           className="fixed inset-0 z-[55]"
           onClick={closeDateColumnDetail}
+        />
+      )}
+      {showMultiBoardModal && (
+        <div
+          className="fixed inset-0 z-[55]"
+          onClick={closeMultiBoardModal}
         />
       )}
     </div>

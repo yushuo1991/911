@@ -58,17 +58,22 @@
   .animate-fade-in {
     animation: fadeIn 0.8s ease-out;
   }
-  
+
   .animate-slide-in {
     animation: slideIn 0.6s ease-out;
   }
-  
+
   .animate-bounce-in {
     animation: bounceIn 0.8s ease-out;
   }
-  
+
   .animate-scale-up {
     animation: scaleUp 0.3s ease-out;
+  }
+
+  .writing-mode-vertical {
+    writing-mode: vertical-lr;
+    text-orientation: upright;
   }
 }
 
