@@ -273,9 +273,10 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
 
   console.log(`[7天交易日] 北京时间: ${now.toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})}, 小时: ${beijingHour}, 北京日期: ${beijingDateStr}, 是否包含当天: ${shouldIncludeToday}`);
 
-  // 计算查询范围（向前追溯30天确保包含7个交易日）
+  // 计算查询范围（向前追溯50天确保包含7个交易日，考虑节假日）
+  // 7个交易日 * 5倍缓冲 = 35天，但考虑长假期（春节、国庆），使用50天更安全
   const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - 30);
+  startDate.setDate(startDate.getDate() - Math.max(7 * 5, 50));
 
   const startDateStr = startDate.toISOString().split('T')[0].replace(/-/g, '');
   const endDateStr = endDate.replace(/-/g, '');
