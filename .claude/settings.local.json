@@ -62,7 +62,17 @@
       "Bash(npm run type-check:*)",
       "Bash(docker compose:*)",
       "Bash(set DOCKER_BUILDKIT=1)",
-      "Bash(set COMPOSE_DOCKER_CLI_BUILD=1)"
+      "Bash(set COMPOSE_DOCKER_CLI_BUILD=1)",
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(if exist backup echo backup exists)",
+      "Bash(if exist log echo log exists)",
+      "Bash(git -C \"C:\\Users\\yushu\\Desktop\\bk\\911-86887ec382a82d9038e8df20f97a4d0e5ef02a56\" status)",
+      "Bash(git -C \"C:\\Users\\yushu\\Desktop\\bk\\911-86887ec382a82d9038e8df20f97a4d0e5ef02a56\" log --oneline -5)",
+      "Bash(git -C \"C:\\Users\\yushu\\Desktop\\bk\\911-86887ec382a82d9038e8df20f97a4d0e5ef02a56\" add:*)"
     ],
     "deny": [],
     "ask": []
