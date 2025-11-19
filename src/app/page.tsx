@@ -36,6 +36,7 @@ export default function Home() {
   const [showLoadEarlier, setShowLoadEarlier] = useState(false); // 新增：控制"加载更早数据"按钮显示
   const [loadingEarlier, setLoadingEarlier] = useState(false); // 新增：加载更早数据的loading状态
   const [dateRange, setDateRange] = useState(7); // 新增：当前显示的日期范围（默认7天）
+  const [currentPage, setCurrentPage] = useState(0); // 新增：当前显示的页码（0=最新7天，1=次新7天，以此类推）
   const [onlyLimitUp5Plus, setOnlyLimitUp5Plus] = useState(false);
   const [expandedSectors, setExpandedSectors] = useState<Record<string, boolean>>({});
   const [showModal, setShowModal] = useState(false);
@@ -205,7 +206,7 @@ export default function Home() {
     }
   };
 
-  // 新增：加载更早的数据
+  // 新增：加载更早的数据（修改为分页模式）
   const handleLoadEarlierData = async () => {
     if (dates.length === 0 || loadingEarlier) return;
 
@@ -213,25 +214,35 @@ export default function Home() {
     setError(null);
 
     try {
-      const earliestDate = dates[0];
-      const newEndDate = new Date(earliestDate);
-      newEndDate.setDate(newEndDate.getDate() - 1);
-      const endDateStr = newEndDate.toISOString().split('T')[0];
+      // 计算是否需要从API加载更多数据
+      const requiredStartIndex = (currentPage + 1) * 7;
 
-      // 加载更早的7天
-      const response = await fetch(`/api/stocks?date=${endDateStr}&mode=7days`);
-      const result = await response.json();
+      if (requiredStartIndex >= dates.length && dates.length < 30) {
+        // 需要加载更多数据
+        const earliestDate = dates[0];
+        const newEndDate = new Date(earliestDate);
+        newEndDate.setDate(newEndDate.getDate() - 1);
+        const endDateStr = newEndDate.toISOString().split('T')[0];
 
-      if (result.success) {
-        // 合并数据
-        setSevenDaysData(prev => ({...result.data, ...prev}));
-        // 合并日期（新日期在前）
-        const newDates = [...result.dates.filter((d: string) => !dates.includes(d)), ...dates];
-        // 保留最多30天
-        setDates(newDates.slice(-30));
-        setDateRange(Math.min(newDates.length, 30));
-      } else {
-        setError(result.error || '加载更早数据失败');
+        // 加载更早的7天
+        const response = await fetch(`/api/stocks?date=${endDateStr}&mode=7days`);
+        const result = await response.json();
+
+        if (result.success) {
+          // 合并数据
+          setSevenDaysData(prev => ({...result.data, ...prev}));
+          // 合并日期（新日期在前）
+          const newDates = [...result.dates.filter((d: string) => !dates.includes(d)), ...dates];
+          // 保留最多30天
+          setDates(newDates.slice(-30));
+          // 切换到下一页
+          setCurrentPage(prev => prev + 1);
+        } else {
+          setError(result.error || '加载更早数据失败');
+        }
+      } else if (requiredStartIndex < dates.length) {
+        // 已有数据，直接切换页码
+        setCurrentPage(prev => prev + 1);
       }
     } catch (err) {
       setError('加载更早数据失败');
@@ -239,6 +250,13 @@ export default function Home() {
     } finally {
       setLoadingEarlier(false);
       setShowLoadEarlier(false); // 加载完成后隐藏按钮
+    }
+  };
+
+  // 新增：加载更新的数据（回到更新的页面）
+  const handleLoadNewer = () => {
+    if (currentPage > 0) {
+      setCurrentPage(prev => prev - 1);
     }
   };
 
@@ -288,8 +306,8 @@ export default function Home() {
         const boardMatch = stock.td_type.match(/(\d+)板/);
         const boardNum = boardMatch ? parseInt(boardMatch[1]) : 1;
 
-        // 只收集2板及以上的个股
-        if (boardNum >= 2) {
+        // 只收集2板及以上的个股，并且过滤ST个股
+        if (boardNum >= 2 && !stock.name.toUpperCase().includes('ST')) {
           // 计算该股票的后续5天表现
           const followUpData: Record<string, number> = {};
           next5Days.forEach(nextDate => {
@@ -625,13 +643,25 @@ export default function Home() {
     setShowDateColumnDetail(true);
   };
 
+  // 计算当前页显示的日期（始终显示7天）
+  const displayDates = useMemo(() => {
+    if (dates.length === 0) return [];
+
+    // 计算起始索引（从后往前数，因为dates是倒序的，最新的在后面）
+    const startIndex = dates.length - 1 - currentPage * 7;
+    const endIndex = Math.max(startIndex - 6, 0);
+
+    // 提取当前页的7天（或更少，如果不足7天）
+    return dates.slice(endIndex, startIndex + 1).reverse();
+  }, [dates, currentPage]);
+
   // 处理7天数据，按日期生成板块汇总
   const processedTimelineData = useMemo(() => {
-    if (!sevenDaysData || !dates) return {};
+    if (!sevenDaysData || !displayDates) return {};
 
     const result: Record<string, SectorSummary[]> = {};
 
-    dates.forEach(date => {
+    displayDates.forEach(date => {
       const dayData = sevenDaysData[date];
       if (!dayData) {
         result[date] = [];
@@ -662,7 +692,7 @@ export default function Home() {
     });
 
     return result;
-  }, [sevenDaysData, dates, onlyLimitUp5Plus]);
+  }, [sevenDaysData, displayDates, onlyLimitUp5Plus]);
 
   // 获取展开的股票数据 - 需求3：支持按连板数或累计收益排序
   const getSortedStocksForSector = (
@@ -2555,49 +2585,48 @@ export default function Home() {
       )}
 
       {/* 7天时间轴主内容 - 应用紧凑样式 */}
-      {sevenDaysData && dates.length > 0 && (
+      {sevenDaysData && displayDates.length > 0 && (
         <div className="max-w-full mx-auto">
-          {/* 时间轴网格 - 动态列数 */}
-          <div className={`grid gap-2 relative ${
-            dates.length <= 7 ? 'grid-cols-7' :
-            dates.length <= 14 ? 'grid-cols-7 xl:grid-cols-14' :
-            'grid-cols-7 xl:grid-cols-10'
-          }`} style={{
-            gridTemplateColumns: dates.length > 7 ? `repeat(${Math.min(dates.length, 14)}, minmax(0, 1fr))` : undefined
-          }}>
-            {/* 加载更早数据触发区域 - 仅在最左侧显示 */}
-            {dates.length < 30 && (
-              <div
-                className="absolute left-0 top-0 bottom-0 w-8 z-10 cursor-pointer"
-                onMouseEnter={() => setShowLoadEarlier(true)}
-                onMouseLeave={() => !loadingEarlier && setShowLoadEarlier(false)}
-              >
-                {showLoadEarlier && (
-                  <div className="h-full flex items-center justify-center">
-                    <button
-                      onClick={handleLoadEarlierData}
-                      disabled={loadingEarlier}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-3 rounded-l-lg shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center gap-1"
-                      title="加载更早的7天数据"
-                    >
-                      {loadingEarlier ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                          <span className="text-2xs">加载中</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-lg">←</span>
-                          <span className="text-2xs writing-mode-vertical">加载更早</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
+          {/* 分页导航 */}
+          <div className="mb-3 flex justify-between items-center">
+            <button
+              onClick={handleLoadEarlierData}
+              disabled={loadingEarlier || (dates.length >= 30 && currentPage >= Math.floor(dates.length / 7) - 1)}
+              className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {loadingEarlier ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  <span>加载中...</span>
+                </>
+              ) : (
+                <>
+                  <span>←</span>
+                  <span>加载更早</span>
+                </>
+              )}
+            </button>
+
+            {currentPage > 0 && (
+              <div className="text-sm text-gray-600">
+                第 {currentPage + 1} 页 / 共 {Math.ceil(dates.length / 7)} 页
               </div>
             )}
 
-            {dates.map((date, index) => {
+            <button
+              onClick={handleLoadNewer}
+              disabled={currentPage === 0}
+              className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <span>加载更新</span>
+              <span>→</span>
+            </button>
+          </div>
+
+          {/* 时间轴网格 - 始终显示7列 */}
+          <div className="grid grid-cols-7 gap-2 relative">
+
+            {displayDates.map((date, index) => {
               const dayData = sevenDaysData[date];
               const sectors = processedTimelineData[date] || [];
 
@@ -2757,7 +2786,7 @@ export default function Home() {
                   📊 {formatDate(multiBoardModalData.date)} - 连板个股梯队
                 </h2>
                 <p className="text-sm opacity-90 mt-1">
-                  共 {multiBoardModalData.stocks.length} 只连板个股（2板及以上）
+                  共 {multiBoardModalData.stocks.length} 只连板个股（2板及以上，已过滤ST个股）
                 </p>
               </div>
               <button
@@ -2773,7 +2802,7 @@ export default function Home() {
               {/* 左侧：图表区域 (40%) */}
               <div className="w-2/5 p-6 bg-gray-50 border-r border-gray-200 overflow-y-auto">
                 <h3 className="text-lg font-semibold mb-4 text-gray-800">
-                  📈 后续5天溢价趋势
+                  📈 后续5天溢价趋势（3板及以上）
                 </h3>
 
                 {(() => {
@@ -2789,16 +2818,17 @@ export default function Home() {
                     );
                   }
 
-                  // 转换数据为图表格式
+                  // 转换数据为图表格式（只计算3板以上的个股）
                   const chartData = next5Days.map(date => {
                     const dataPoint: any = { date: formatDate(date).slice(5) };
 
-                    // 计算当天所有连板个股的平均溢价
+                    // 只计算3板及以上连板个股的平均溢价
                     let totalPremium = 0;
                     let validCount = 0;
 
                     multiBoardModalData.stocks.forEach(stock => {
-                      if (stock.followUpData[date] !== undefined) {
+                      // 只计算3板及以上的个股
+                      if (stock.boardNum >= 3 && stock.followUpData[date] !== undefined) {
                         totalPremium += stock.followUpData[date];
                         validCount++;
                       }
@@ -2842,7 +2872,7 @@ export default function Home() {
                 })()}
 
                 <div className="mt-4 text-xs text-gray-600">
-                  💡 图表显示所有连板个股的后续表现平均值
+                  💡 图表显示3板及以上连板个股的后续表现平均值（已过滤ST个股）
                 </div>
               </div>
 
@@ -2960,7 +2990,7 @@ export default function Home() {
 
             {/* 底部说明 */}
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
-              💡 按连板数降序排列，同板数按涨停时间升序 | 成交额显示全局排名（前10名） | 点击背景关闭
+              💡 已过滤ST个股 | 按连板数降序排列，同板数按涨停时间升序 | 成交额显示全局排名（前10名） | 点击背景关闭
             </div>
           </div>
         </div>

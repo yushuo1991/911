@@ -17,6 +17,7 @@ npm run dev              # Start dev server at http://localhost:3000
 npm run build            # Production build
 npm start                # Start production server
 npm run type-check       # TypeScript type checking (no emit)
+npm run lint             # Run ESLint for code quality checks
 ```
 
 ### Deployment
@@ -24,6 +25,15 @@ npm run type-check       # TypeScript type checking (no emit)
 git add . && git commit -m "message" && git push   # Auto-deploy via GitHub Actions
 gh run list --repo yushuo1991/bkyushuo --limit 5   # View deployment history
 gh run watch --repo yushuo1991/bkyushuo            # Monitor current deployment
+
+# Alternative deployment methods
+npm run deploy           # Run deploy-v4.8.25-auto.js script
+npm run deploy:ssh       # SSH deployment script
+npm run deploy:pm2       # PM2-specific deployment
+
+# Manual trigger from GitHub UI
+# Go to: https://github.com/yushuo1991/bkyushuo/actions
+# Click "Auto Deploy to Server" → "Run workflow"
 ```
 
 ### Server Management (PM2)
@@ -55,7 +65,7 @@ ssh root@107.173.154.147 "cd /www/wwwroot/stock-tracker && rm -rf node_modules .
 3. **Performance Calculation** → Calculate next 5 trading days' performance via Tushare daily price API for each stock
 4. **7-Day Aggregation** → `unified-data-processor.ts` processes and aggregates 7 trading days of data with internal caching
 5. **Three-Tier Caching** → MySQL database (`stock_data`, `stock_performance`, `seven_days_cache` tables), in-memory cache, trading calendar cache
-6. **Frontend Display** → `page.tsx` (StockTracker component) renders data with interactive charts and modals
+6. **Frontend Display** → `page.tsx` imports `StockTracker.tsx` component which renders data with interactive charts and modals
 
 ### Critical Time Logic (Beijing Time)
 
@@ -74,6 +84,26 @@ The system handles timezone conversions carefully:
 - **Never** use 7-digit format (SH/SZ prefix format like `SH600000`)
 - When fetching from external APIs, convert to 6-digit format immediately
 - See `src/app/api/debug-stock/route.ts` for stock code handling examples
+
+### TypeScript Type System
+
+Located in `src/types/stock.ts`, defines core data structures:
+
+**Key Types:**
+- `Stock` - Individual stock data (StockName, StockCode, ZSName, TDType, Amount, LimitUpTime)
+- `StockPerformance` - Performance metrics with follow-up data, total_return, and amount fields
+- `DayData` - Single day aggregated data with categories, stats, followUpData, and sectorAmounts
+- `SevenDaysData` - Multi-day data structure (date-keyed DayData objects)
+- `CategoryData` - Sector-organized stock groupings (sector name → StockPerformance[])
+- `TrackingData` - Single-day tracking data with trading_days array
+- `BoardType` - Board position literal types (首板, 二板, 三板, etc.)
+- `BOARD_WEIGHTS` - Numeric mapping for board positions (首板: 1, 二板: 2, ..., 十板: 10)
+- `CATEGORY_EMOJIS` - Emoji mapping for common sectors
+
+**API Response Types:**
+- `ApiResponse<T>` - Generic API response wrapper
+- `LimitUpApiResponse` - External limit-up API response structure
+- `TushareResponse` - Tushare daily price API response
 
 ### Database Schema
 
@@ -118,8 +148,13 @@ Uses Tushare API (`trade_cal` endpoint) to get accurate trading days:
 
 ### Component Architecture
 
-**Main Component:**
-- `src/app/page.tsx` - Primary UI component (3000+ lines) with:
+**Main Page:**
+- `src/app/page.tsx` - Entry page component that imports and renders StockTracker
+- `src/app/layout.tsx` - Root layout with metadata and font configuration
+- `src/app/status/page.tsx` - System status monitoring page
+
+**Primary UI Component:**
+- `src/components/StockTracker.tsx` - Main component (3000+ lines) with:
   - State management for multiple modals (sector, date, multi-board, K-line, minute chart)
   - Data fetching and caching logic
   - Event handlers for sector/date/weekday clicks
@@ -127,14 +162,20 @@ Uses Tushare API (`trade_cal` endpoint) to get accurate trading days:
   - Historical data loading (up to 30 days)
 
 **Data Processing:**
-- `UnifiedDataProcessor` class in `unified-data-processor.ts`:
+- `UnifiedDataProcessor` class in `src/lib/unified-data-processor.ts`:
   - Provides centralized data processing with internal caching
   - Ensures consistency between sector click and date click views
   - Handles stock performance calculations and aggregations
 
 **Chart Components:**
-- `StockPremiumChart.tsx` - Interactive Recharts visualization for performance trends
-- Inline chart implementations in page.tsx for various modals
+- `src/components/StockPremiumChart.tsx` - Interactive Recharts visualization for performance trends
+- Inline chart implementations in StockTracker.tsx for various modals
+
+**Helper Utilities:**
+- `src/lib/utils.ts` - General utility functions
+- `src/lib/chartHelpers.ts` - Chart calculation helpers and data transformations
+- `src/lib/enhanced-trading-calendar.ts` - Trading calendar management with Tushare integration
+- `src/lib/database.ts` - Database connection pool and query utilities
 
 ## Key Features
 
@@ -160,9 +201,9 @@ Uses Tushare API (`trade_cal` endpoint) to get accurate trading days:
 
 ### Automated Deployment (Primary Method)
 
-Every `git push` to `main` branch triggers GitHub Actions workflow:
+Every `git push` to `main` branch triggers GitHub Actions workflow (`.github/workflows/deploy.yml`):
 1. Checkout code
-2. Setup Node.js 18
+2. Setup Node.js 18 with npm cache
 3. Install dependencies (`npm ci`)
 4. Build project (`npm run build`)
 5. SSH to server and deploy
@@ -176,6 +217,11 @@ Every `git push` to `main` branch triggers GitHub Actions workflow:
 
 **Deployment Time:** ~3-5 minutes
 
+**Manual Trigger:**
+- Workflow supports `workflow_dispatch` event
+- Go to https://github.com/yushuo1991/bkyushuo/actions
+- Click "Auto Deploy to Server" → "Run workflow" button
+
 **Common Deployment Issues:**
 - **Disk space full:** Run cleanup script (`清理服务器磁盘空间.sh`)
 - **Trading calendar query insufficient:** Check `enhanced-trading-calendar.ts` query range (should be count * 5, min 30 days)
@@ -184,11 +230,15 @@ Every `git push` to `main` branch triggers GitHub Actions workflow:
 ### Server Configuration
 
 **PM2 Configuration** (`ecosystem.config.js`):
-- Single instance
-- Auto-restart on failure
+- Single instance, auto-restart on failure
 - Max memory: 1G
 - Logs: `./logs/pm2-error.log` and `./logs/pm2-out.log`
-- Graceful shutdown: 5s timeout
+- **wait_ready:** true (waits for app ready signal)
+- **listen_timeout:** 10000ms (10s timeout for app to be ready)
+- **kill_timeout:** 5000ms (5s graceful shutdown)
+- **min_uptime:** 10s (minimum uptime before considering stable)
+- **max_restarts:** 10 attempts
+- **restart_delay:** 4000ms (4s delay between restarts)
 
 **Server Paths:**
 - `/www/wwwroot/stock-tracker` (primary)
@@ -226,7 +276,7 @@ NEXT_PUBLIC_APP_VERSION=4.20.1
 
 ### When Adding New Modal/Popup Features
 
-Follow the existing pattern in `page.tsx`:
+Follow the existing pattern in `StockTracker.tsx`:
 1. Add state variables (e.g., `showXModal`, `xModalData`)
 2. Create handler function (e.g., `handleXClick`)
 3. Create close function (e.g., `closeXModal`)
