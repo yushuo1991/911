@@ -88,6 +88,16 @@ export default function Home() {
     }>;
   } | null>(null);
 
+  // 新增：单个个股图表查看弹窗状态
+  const [showSingleStockChartModal, setShowSingleStockChartModal] = useState(false);
+  const [singleStockChartData, setSingleStockChartData] = useState<{
+    name: string;
+    code: string;
+    date: string;
+  } | null>(null);
+  const [singleStockChartMode, setSingleStockChartMode] = useState<'kline' | 'minute'>('kline');
+
+
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
 
@@ -311,12 +321,11 @@ export default function Home() {
           // 计算该股票的后续5天表现
           const followUpData: Record<string, number> = {};
           next5Days.forEach(nextDate => {
-            const nextDayData = sevenDaysData[nextDate];
-            if (nextDayData && nextDayData.followUpData) {
-              // followUpData 结构: 板块名称 -> 股票代码 -> 基准日期 -> 涨跌幅
-              const sectorFollowUp = nextDayData.followUpData[sectorName];
-              if (sectorFollowUp && sectorFollowUp[stock.code] && sectorFollowUp[stock.code][date]) {
-                followUpData[nextDate] = sectorFollowUp[stock.code][date];
+            // 从基准日期的followUpData中获取该股票在后续日期的表现
+            if (dayData.followUpData && dayData.followUpData[sectorName]) {
+              const stockFollowUp = dayData.followUpData[sectorName][stock.code];
+              if (stockFollowUp && stockFollowUp[nextDate] !== undefined) {
+                followUpData[nextDate] = stockFollowUp[nextDate];
               }
             }
           });
@@ -611,6 +620,20 @@ export default function Home() {
     setMultiBoardModalData(null);
   };
 
+  // 打开单个个股图表弹窗
+  const handleOpenSingleStockChart = (name: string, code: string, date: string) => {
+    setSingleStockChartData({ name, code, date });
+    setSingleStockChartMode('kline'); // 默认显示K线
+    setShowSingleStockChartModal(true);
+  };
+
+  // 关闭单个个股图表弹窗
+  const closeSingleStockChartModal = () => {
+    setShowSingleStockChartModal(false);
+    setSingleStockChartData(null);
+  };
+
+
   // 处理日期列点击 - 显示该日期个股的后续5天溢价详情
   const handleDateColumnClick = (date: string, stocks: StockPerformance[], sectorName: string) => {
     const dayData = sevenDaysData?.[date];
@@ -647,12 +670,13 @@ export default function Home() {
   const displayDates = useMemo(() => {
     if (dates.length === 0) return [];
 
-    // 计算起始索引（从后往前数，因为dates是倒序的，最新的在后面）
+    // 计算起始索引（从后往前数，因为dates数组是从旧到新排列）
     const startIndex = dates.length - 1 - currentPage * 7;
     const endIndex = Math.max(startIndex - 6, 0);
 
     // 提取当前页的7天（或更少，如果不足7天）
-    return dates.slice(endIndex, startIndex + 1).reverse();
+    // 从左到右：旧→新，最新日期在最右边
+    return dates.slice(endIndex, startIndex + 1);
   }, [dates, currentPage]);
 
   // 处理7天数据，按日期生成板块汇总
@@ -2587,44 +2611,39 @@ export default function Home() {
       {/* 7天时间轴主内容 - 应用紧凑样式 */}
       {sevenDaysData && displayDates.length > 0 && (
         <div className="max-w-full mx-auto">
-          {/* 分页导航 */}
-          <div className="mb-3 flex justify-between items-center">
-            <button
-              onClick={handleLoadEarlierData}
-              disabled={loadingEarlier || (dates.length >= 30 && currentPage >= Math.floor(dates.length / 7) - 1)}
-              className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {loadingEarlier ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                  <span>加载中...</span>
-                </>
-              ) : (
-                <>
-                  <span>←</span>
-                  <span>加载更早</span>
-                </>
-              )}
-            </button>
-
-            {currentPage > 0 && (
-              <div className="text-sm text-gray-600">
-                第 {currentPage + 1} 页 / 共 {Math.ceil(dates.length / 7)} 页
-              </div>
-            )}
-
-            <button
-              onClick={handleLoadNewer}
-              disabled={currentPage === 0}
-              className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <span>加载更新</span>
-              <span>→</span>
-            </button>
-          </div>
-
           {/* 时间轴网格 - 始终显示7列 */}
           <div className="grid grid-cols-7 gap-2 relative">
+            {/* 加载更早数据触发区域 - 仅在最左侧显示 */}
+            {dates.length < 30 && (
+              <div
+                className="absolute left-0 top-0 bottom-0 w-8 z-10 cursor-pointer"
+                onMouseEnter={() => setShowLoadEarlier(true)}
+                onMouseLeave={() => !loadingEarlier && setShowLoadEarlier(false)}
+              >
+                {showLoadEarlier && (
+                  <div className="h-full flex items-center justify-center">
+                    <button
+                      onClick={handleLoadEarlierData}
+                      disabled={loadingEarlier}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-3 rounded-l-lg shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center gap-1"
+                      title="加载更早的7天数据"
+                    >
+                      {loadingEarlier ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                          <span className="text-2xs">加载中</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-lg">←</span>
+                          <span className="text-2xs writing-mode-vertical">加载更早</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {displayDates.map((date, index) => {
               const dayData = sevenDaysData[date];
@@ -2919,7 +2938,13 @@ export default function Home() {
                           >
                             <td className="px-2 py-2 text-gray-600">{index + 1}</td>
                             <td className="px-2 py-2">
-                              <div className="font-medium text-gray-900">{stock.name}</div>
+                              <div
+                                className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer transition-colors"
+                                onClick={() => handleOpenSingleStockChart(stock.name, stock.code, multiBoardModalData.date)}
+                                title="点击查看K线和分时图"
+                              >
+                                {stock.name}
+                              </div>
                               <div className="text-xs text-gray-500">{stock.code}</div>
                             </td>
                             <td className="px-2 py-2 text-center">
@@ -2996,6 +3021,85 @@ export default function Home() {
         </div>
       )}
 
+      {/* 单个个股图表查看弹窗 */}
+      {showSingleStockChartModal && singleStockChartData && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-[95]">
+          <div className="bg-white rounded-xl p-6 w-[90vw] max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+            {/* 弹窗头部 */}
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {singleStockChartData.name} ({singleStockChartData.code})
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {formatDate(singleStockChartData.date)}
+                </p>
+              </div>
+              <button
+                onClick={closeSingleStockChartModal}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 切换按钮 */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setSingleStockChartMode('kline')}
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                  singleStockChartMode === 'kline'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                📊 显示K线
+              </button>
+              <button
+                onClick={() => setSingleStockChartMode('minute')}
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                  singleStockChartMode === 'minute'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                📈 显示分时
+              </button>
+            </div>
+
+            {/* 图表显示区域 */}
+            <div className="flex-1 overflow-auto flex justify-center items-center bg-gray-50 rounded-lg p-4">
+              {singleStockChartMode === 'kline' ? (
+                <img
+                  src={`http://image.sinajs.cn/newchart/daily/${getStockCodeFormat(singleStockChartData.code)}.gif`}
+                  alt={`${singleStockChartData.name}K线图`}
+                  className="max-w-full h-auto rounded border border-gray-300"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+S+e6v+WbvuWKoOi9veWけ+ihjTwvdGV4dD4KPC9zdmc+';
+                  }}
+                />
+              ) : (
+                <img
+                  src={getMinuteChartUrl(singleStockChartData.code, 'snapshot', singleStockChartData.date)}
+                  alt={`${singleStockChartData.name}分时图`}
+                  className="max-w-full h-auto rounded border border-gray-300"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTUwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjlmOWY5Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+5YiG5pe255Wq5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4=';
+                  }}
+                />
+              )}
+            </div>
+
+            {/* 底部提示 */}
+            <div className="mt-4 text-xs text-gray-600 text-center">
+              💡 点击按钮切换K线图或分时图 | 点击背景关闭
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 点击弹窗外部关闭 */}
       {showModal && (
         <div
@@ -3049,6 +3153,12 @@ export default function Home() {
         <div
           className="fixed inset-0 z-[55]"
           onClick={closeMultiBoardModal}
+        />
+      )}
+      {showSingleStockChartModal && (
+        <div
+          className="fixed inset-0 z-[90]"
+          onClick={closeSingleStockChartModal}
         />
       )}
     </div>
