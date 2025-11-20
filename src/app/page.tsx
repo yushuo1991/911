@@ -97,6 +97,10 @@ export default function Home() {
   } | null>(null);
   const [singleStockChartMode, setSingleStockChartMode] = useState<'kline' | 'minute'>('kline');
 
+  // 新增：星期模态框筛选和排序状态
+  const [showOnly10PlusInMultiBoardModal, setShowOnly10PlusInMultiBoardModal] = useState(false);
+  const [multiBoardModalSortMode, setMultiBoardModalSortMode] = useState<'board' | 'return'>('board');
+
 
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
@@ -754,6 +758,43 @@ export default function Home() {
         const bFollowUp = followUpData[b.code] || {};
         const aTotalReturn = Object.values(aFollowUp).reduce((sum, val) => sum + val, 0);
         const bTotalReturn = Object.values(bFollowUp).reduce((sum, val) => sum + val, 0);
+        return bTotalReturn - aTotalReturn; // 降序排列
+      }
+    });
+  };
+
+  // 新增：用于星期模态框的个股排序
+  const getSortedStocksForMultiBoard = (
+    stocks: Array<{
+      name: string;
+      code: string;
+      td_type: string;
+      boardNum: number;
+      sectorName: string;
+      amount: number;
+      limitUpTime: string;
+      globalAmountRank: number | null;
+      followUpData: Record<string, number>;
+    }>,
+    sortMode: 'board' | 'return' = 'board'
+  ) => {
+    return [...stocks].sort((a, b) => {
+      if (sortMode === 'board') {
+        // 按连板数降序，同板数按涨停时间升序
+        if (a.boardNum !== b.boardNum) {
+          return b.boardNum - a.boardNum; // 连板数降序
+        }
+        // 同板数按涨停时间升序（早涨停的在前）
+        const aTime = (a.limitUpTime && String(a.limitUpTime).trim()) || '23:59';
+        const bTime = (b.limitUpTime && String(b.limitUpTime).trim()) || '23:59';
+        if (aTime === '23:59' && bTime === '23:59') {
+          return a.name.localeCompare(b.name, 'zh-CN');
+        }
+        return aTime.localeCompare(bTime);
+      } else {
+        // 按累计收益排序
+        const aTotalReturn = Object.values(a.followUpData).reduce((sum, val) => sum + val, 0);
+        const bTotalReturn = Object.values(b.followUpData).reduce((sum, val) => sum + val, 0);
         return bTotalReturn - aTotalReturn; // 降序排列
       }
     });
@@ -2793,229 +2834,302 @@ export default function Home() {
 
       {/* 连板个股梯队弹窗 - 新增 */}
       {showMultiBoardModal && multiBoardModalData && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
-          <div
-            className="bg-white rounded-lg shadow-2xl w-full max-w-[95vw] max-h-[90vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60]">
+          <div className="bg-white rounded-xl p-4 max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
             {/* 弹窗头部 */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold">
-                  📊 {formatDate(multiBoardModalData.date)} - 连板个股梯队
-                </h2>
-                <p className="text-sm opacity-90 mt-1">
-                  共 {multiBoardModalData.stocks.length} 只连板个股（2板及以上，已过滤ST个股）
-                </p>
-              </div>
+            <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900">
+                📊 连板个股梯队 ({formatDate(multiBoardModalData.date)})
+              </h3>
               <button
                 onClick={closeMultiBoardModal}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors text-xl"
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            {/* 弹窗内容 - 分屏布局 */}
-            <div className="flex h-[calc(90vh-120px)]">
-              {/* 左侧：图表区域 (40%) */}
-              <div className="w-2/5 p-6 bg-gray-50 border-r border-gray-200 overflow-y-auto">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800">
-                  📈 后续5天溢价趋势（3板及以上）
-                </h3>
+            {/* 功能按钮区域 */}
+            <div className="mb-2 flex justify-between items-center">
+              <div className="text-2xs text-gray-600">
+                共 {multiBoardModalData.stocks.length} 只连板个股（2板及以上，已过滤ST），按{multiBoardModalSortMode === 'board' ? '连板数' : '5日累计溢价'}排序
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const sortedStocks = getSortedStocksForMultiBoard(multiBoardModalData.stocks, multiBoardModalSortMode);
+                    // 转换为 StockPerformance[] 格式
+                    const convertedStocks: StockPerformance[] = sortedStocks.map(s => ({
+                      name: s.name,
+                      code: s.code,
+                      td_type: s.td_type,
+                      limitUpTime: s.limitUpTime,
+                      amount: s.amount,
+                      performance: {},
+                      total_return: 0
+                    }));
+                    setMinuteChartMode('realtime');
+                    handleOpenMinuteModal('连板个股梯队', multiBoardModalData.date, convertedStocks);
+                  }}
+                  className="px-2 py-1 rounded text-xs font-medium transition-colors bg-green-600 text-white hover:bg-green-700"
+                >
+                  📊 今日分时
+                </button>
+                <button
+                  onClick={() => {
+                    const sortedStocks = getSortedStocksForMultiBoard(multiBoardModalData.stocks, multiBoardModalSortMode);
+                    const convertedStocks: StockPerformance[] = sortedStocks.map(s => ({
+                      name: s.name,
+                      code: s.code,
+                      td_type: s.td_type,
+                      limitUpTime: s.limitUpTime,
+                      amount: s.amount,
+                      performance: {},
+                      total_return: 0
+                    }));
+                    setMinuteChartMode('snapshot');
+                    handleOpenMinuteModal('连板个股梯队', multiBoardModalData.date, convertedStocks);
+                  }}
+                  className="px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  📷 当日分时
+                </button>
+                <button
+                  onClick={() => {
+                    const sortedStocks = getSortedStocksForMultiBoard(multiBoardModalData.stocks, multiBoardModalSortMode);
+                    const convertedStocks: StockPerformance[] = sortedStocks.map(s => ({
+                      name: s.name,
+                      code: s.code,
+                      td_type: s.td_type,
+                      limitUpTime: s.limitUpTime,
+                      amount: s.amount,
+                      performance: {},
+                      total_return: 0
+                    }));
+                    handleOpenKlineModal('连板个股梯队', multiBoardModalData.date, convertedStocks);
+                  }}
+                  className="px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  📈 显示K线
+                </button>
+                <button
+                  onClick={() => setShowOnly10PlusInMultiBoardModal(!showOnly10PlusInMultiBoardModal)}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    showOnly10PlusInMultiBoardModal
+                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                      : 'bg-gray-100 text-gray-700 border border-gray-300'
+                  }`}
+                >
+                  {showOnly10PlusInMultiBoardModal ? '显示全部个股' : '显示涨幅>10%'}
+                </button>
+              </div>
+            </div>
 
-                {(() => {
-                  // 准备图表数据
-                  const currentDateIndex = dates.indexOf(multiBoardModalData.date);
-                  const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
+            {/* 分屏布局：左侧图表40%，右侧表格60% */}
+            <div className="flex-1 flex gap-4 overflow-hidden">
+              {/* 左侧：图表 */}
+              <div className="w-2/5 border-r pr-4 overflow-auto">
+                <h4 className="text-sm font-semibold mb-3 text-gray-800">📈 个股5天溢价趋势</h4>
+                <div className="h-64">
+                  {(() => {
+                    // 准备图表数据 - 转换为 StockPremiumChart 需要的格式
+                    const currentDateIndex = dates.indexOf(multiBoardModalData.date);
+                    const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
 
-                  if (next5Days.length === 0) {
-                    return (
-                      <div className="text-center text-gray-500 py-8">
-                        暂无后续交易日数据
-                      </div>
-                    );
-                  }
+                    if (next5Days.length === 0) {
+                      return (
+                        <div className="text-center text-gray-500 py-8">
+                          暂无后续交易日数据
+                        </div>
+                      );
+                    }
 
-                  // 转换数据为图表格式（只计算3板以上的个股）
-                  const chartData = next5Days.map(date => {
-                    const dataPoint: any = { date: formatDate(date).slice(5) };
+                    // 转换 multiBoardModalData.stocks 为 StockPerformance[] 格式
+                    const convertedStocks: StockPerformance[] = getSortedStocksForMultiBoard(multiBoardModalData.stocks, multiBoardModalSortMode)
+                      .filter(stock => {
+                        if (!showOnly10PlusInMultiBoardModal) return true;
+                        const totalReturn = Object.values(stock.followUpData).reduce((sum, val) => sum + val, 0);
+                        return totalReturn > 10;
+                      })
+                      .map(s => ({
+                        name: s.name,
+                        code: s.code,
+                        td_type: s.td_type,
+                        limitUpTime: s.limitUpTime,
+                        amount: s.amount,
+                        performance: {},
+                        total_return: 0
+                      }));
 
-                    // 只计算3板及以上连板个股的平均溢价
-                    let totalPremium = 0;
-                    let validCount = 0;
-
+                    // 构建 followUpData 格式
+                    const followUpData: Record<string, Record<string, number>> = {};
                     multiBoardModalData.stocks.forEach(stock => {
-                      // 只计算3板及以上的个股
-                      if (stock.boardNum >= 3 && stock.followUpData[date] !== undefined) {
-                        totalPremium += stock.followUpData[date];
-                        validCount++;
-                      }
+                      followUpData[stock.code] = stock.followUpData;
                     });
 
-                    dataPoint.avgPremium = validCount > 0 ? totalPremium / validCount : 0;
-                    dataPoint.stockCount = validCount;
-
-                    return dataPoint;
-                  });
-
-                  return (
-                    <ResponsiveContainer width="100%" height={400}>
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="date"
-                          tick={{ fontSize: 12 }}
-                          label={{ value: '日期', position: 'insideBottom', offset: -5 }}
-                        />
-                        <YAxis
-                          tick={{ fontSize: 12 }}
-                          label={{ value: '平均溢价(%)', angle: -90, position: 'insideLeft' }}
-                        />
-                        <Tooltip
-                          formatter={(value: any) => `${value.toFixed(2)}%`}
-                          labelFormatter={(label) => `日期: ${label}`}
-                        />
-                        <Legend />
-                        <Line
-                          type="monotone"
-                          dataKey="avgPremium"
-                          stroke="#8b5cf6"
-                          strokeWidth={2}
-                          name="平均溢价"
-                          dot={{ fill: '#8b5cf6', r: 4 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  );
-                })()}
-
-                <div className="mt-4 text-xs text-gray-600">
-                  💡 图表显示3板及以上连板个股的后续表现平均值（已过滤ST个股）
+                    return (
+                      <StockPremiumChart
+                        data={transformSectorStocksToChartData(
+                          convertedStocks,
+                          followUpData,
+                          50,
+                          next5Days
+                        )}
+                        config={{ height: 256, maxStocks: 50, showDailyMax: true }}
+                      />
+                    );
+                  })()}
                 </div>
               </div>
 
-              {/* 右侧：表格区域 (60%) */}
-              <div className="w-3/5 p-6 overflow-y-auto">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-100 sticky top-0 z-10">
-                      <tr>
-                        <th className="px-2 py-2 text-left text-xs font-semibold text-gray-700">#</th>
-                        <th className="px-2 py-2 text-left text-xs font-semibold text-gray-700">股票</th>
-                        <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700">板数</th>
-                        <th className="px-2 py-2 text-left text-xs font-semibold text-gray-700">所属板块</th>
-                        <th className="px-2 py-2 text-right text-xs font-semibold text-gray-700">成交额</th>
-                        {(() => {
-                          const currentDateIndex = dates.indexOf(multiBoardModalData.date);
-                          const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
-                          return next5Days.map(date => (
-                            <th key={date} className="px-2 py-2 text-right text-xs font-semibold text-gray-700">
-                              {formatDate(date).slice(5)}
-                            </th>
-                          ));
-                        })()}
-                        <th className="px-2 py-2 text-right text-xs font-semibold text-gray-700">累计</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {multiBoardModalData.stocks.map((stock, index) => {
+              {/* 右侧：表格 */}
+              <div className="flex-1 overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-white border-b-2">
+                    <tr>
+                      <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">#</th>
+                      <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">股票</th>
+                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">板数</th>
+                      <th className="px-2 py-1.5 text-left text-2xs font-semibold text-gray-700">板块</th>
+                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">成交额</th>
+                      {(() => {
                         const currentDateIndex = dates.indexOf(multiBoardModalData.date);
                         const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
-
-                        // 计算累计涨跌幅
-                        let totalPremium = 0;
-                        next5Days.forEach(date => {
-                          if (stock.followUpData[date] !== undefined) {
-                            totalPremium += stock.followUpData[date];
-                          }
+                        return next5Days.map((followDate) => {
+                          const formattedDate = formatDate(followDate).slice(5);
+                          return (
+                            <th key={followDate} className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">
+                              {formattedDate}
+                            </th>
+                          );
                         });
-
+                      })()}
+                      <th className="px-2 py-1.5 text-center text-2xs font-semibold text-gray-700">累计</th>
+                    </tr>
+                    {/* 板块平均行 */}
+                    <tr className="border-b bg-blue-50">
+                      <th colSpan={5} className="px-2 py-1 text-right text-2xs text-blue-700">板块平均:</th>
+                      {(() => {
+                        const currentDateIndex = dates.indexOf(multiBoardModalData.date);
+                        const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
+                        return next5Days.map((followDate) => {
+                          let totalPremium = 0;
+                          let validCount = 0;
+                          multiBoardModalData.stocks.forEach(stock => {
+                            const performance = stock.followUpData[followDate];
+                            if (performance !== undefined) {
+                              totalPremium += performance;
+                              validCount++;
+                            }
+                          });
+                          const avgPremium = validCount > 0 ? totalPremium / validCount : 0;
+                          return (
+                            <th key={followDate} className="px-2 py-1 text-center">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getPerformanceClass(avgPremium)}`}>
+                                {avgPremium.toFixed(1)}%
+                              </span>
+                            </th>
+                          );
+                        });
+                      })()}
+                      <th className="px-2 py-1 text-center">
+                        <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-blue-100 text-blue-700">
+                          {(() => {
+                            let totalAll = 0;
+                            let countAll = 0;
+                            multiBoardModalData.stocks.forEach(stock => {
+                              const stockTotal = Object.values(stock.followUpData).reduce((sum, val) => sum + val, 0);
+                              totalAll += stockTotal;
+                              countAll++;
+                            });
+                            return countAll > 0 ? (totalAll / countAll).toFixed(1) : '0.0';
+                          })()}%
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getSortedStocksForMultiBoard(multiBoardModalData.stocks, multiBoardModalSortMode)
+                      .filter(stock => {
+                        if (!showOnly10PlusInMultiBoardModal) return true;
+                        const totalReturn = Object.values(stock.followUpData).reduce((sum, val) => sum + val, 0);
+                        return totalReturn > 10;
+                      })
+                      .map((stock, index) => {
+                        const currentDateIndex = dates.indexOf(multiBoardModalData.date);
+                        const next5Days = dates.slice(currentDateIndex + 1, currentDateIndex + 6);
+                        const totalReturn = Object.values(stock.followUpData).reduce((sum, val) => sum + val, 0);
                         return (
-                          <tr
-                            key={stock.code}
-                            className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
-                          >
-                            <td className="px-2 py-2 text-gray-600">{index + 1}</td>
-                            <td className="px-2 py-2">
-                              <div
-                                className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer transition-colors"
-                                onClick={() => handleOpenSingleStockChart(stock.name, stock.code, multiBoardModalData.date)}
-                                title="点击查看K线和分时图"
+                          <tr key={stock.code} className="border-b hover:bg-primary-50 transition">
+                            <td className="px-2 py-1.5 text-2xs text-gray-400">#{index + 1}</td>
+                            <td className="px-2 py-1.5">
+                              <button
+                                className="text-primary-600 hover:text-primary-700 font-medium hover:underline text-xs"
+                                onClick={() => handleStockClick(stock.name, stock.code)}
                               >
                                 {stock.name}
-                              </div>
-                              <div className="text-xs text-gray-500">{stock.code}</div>
+                              </button>
+                              <span className="text-2xs text-gray-400 ml-1">({stock.code})</span>
                             </td>
-                            <td className="px-2 py-2 text-center">
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                stock.boardNum >= 5 ? 'bg-red-100 text-red-700' :
-                                stock.boardNum >= 3 ? 'bg-orange-100 text-orange-700' :
-                                'bg-blue-100 text-blue-700'
+                            <td className="px-2 py-1.5 text-center">
+                              <span className={`text-2xs font-medium ${
+                                stock.boardNum >= 5 ? 'text-red-600' :
+                                stock.boardNum >= 3 ? 'text-orange-600' :
+                                'text-blue-600'
                               }`}>
                                 {stock.boardNum}板
                               </span>
                             </td>
-                            <td className="px-2 py-2 text-gray-700 text-xs">{stock.sectorName}</td>
-                            <td className="px-2 py-2 text-right">
-                              {stock.amount > 0 ? (
-                                <div className="flex flex-col items-end">
-                                  <span className={`text-xs font-medium ${
-                                    stock.globalAmountRank === 1 ? 'text-red-600' :
-                                    stock.globalAmountRank === 2 ? 'text-orange-600' :
-                                    'text-gray-700'
-                                  }`}>
-                                    {stock.amount.toFixed(1)}亿
-                                  </span>
-                                  {stock.globalAmountRank && stock.globalAmountRank <= 10 && (
-                                    <span className="text-2xs text-gray-500">
-                                      #{stock.globalAmountRank}
+                            <td className="px-2 py-1.5 text-2xs text-gray-700">{stock.sectorName}</td>
+                            <td className="px-2 py-1.5 text-center">
+                              {(() => {
+                                if (!stock.amount || stock.amount === 0) {
+                                  return <span className="text-2xs text-gray-700">-</span>;
+                                }
+
+                                // 显示全局排名
+                                let colorClass = 'text-2xs text-gray-700';
+                                if (stock.globalAmountRank === 1) {
+                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-stock-orange-600 text-white font-semibold';
+                                } else if (stock.globalAmountRank === 2) {
+                                  colorClass = 'text-2xs px-1.5 py-0.5 rounded bg-stock-orange-400 text-white font-medium';
+                                }
+
+                                return (
+                                  <div className="flex flex-col items-center">
+                                    <span className={colorClass}>
+                                      {stock.amount.toFixed(2)}亿
                                     </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-gray-400">-</span>
-                              )}
+                                    {stock.globalAmountRank && stock.globalAmountRank <= 10 && (
+                                      <span className="text-2xs text-gray-500">
+                                        #{stock.globalAmountRank}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
-                            {next5Days.map(date => {
-                              const premium = stock.followUpData[date];
+                            {next5Days.slice(0, 5).map((followDate, dayIndex) => {
+                              const performance = stock.followUpData[followDate] || 0;
                               return (
-                                <td key={date} className="px-2 py-2 text-right">
-                                  {premium !== undefined ? (
-                                    <span className={`text-xs font-medium ${
-                                      premium > 0 ? 'text-red-600' :
-                                      premium < 0 ? 'text-green-600' :
-                                      'text-gray-600'
-                                    }`}>
-                                      {premium > 0 ? '+' : ''}{premium.toFixed(1)}%
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-gray-400">-</span>
-                                  )}
+                                <td key={followDate || `day-${dayIndex}`} className="px-2 py-1.5 text-center">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getPerformanceClass(performance)}`}>
+                                    {performance.toFixed(1)}%
+                                  </span>
                                 </td>
                               );
                             })}
-                            <td className="px-2 py-2 text-right">
-                              <span className={`text-xs font-bold ${
-                                totalPremium > 0 ? 'text-red-600' :
-                                totalPremium < 0 ? 'text-green-600' :
-                                'text-gray-600'
-                              }`}>
-                                {totalPremium > 0 ? '+' : ''}{totalPremium.toFixed(1)}%
+                            <td className="px-2 py-1.5 text-center">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${getPerformanceClass(totalReturn)}`}>
+                                {totalReturn.toFixed(1)}%
                               </span>
                             </td>
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
+                  </tbody>
+                </table>
               </div>
-            </div>
-
-            {/* 底部说明 */}
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
-              💡 已过滤ST个股 | 按连板数降序排列，同板数按涨停时间升序 | 成交额显示全局排名（前10名） | 点击背景关闭
             </div>
           </div>
         </div>
