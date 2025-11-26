@@ -1,6 +1,37 @@
 # 版本更新日志
 
 ---
+## [4.21.6] - 2025-11-26
+
+### 🐛 重要Bug修复
+- **修复td_type格式显示问题（Critical）**
+  - 问题：后端API将"13天12板"简化为"12板"，导致前端无法显示完整格式
+  - 根本原因：`src/app/api/stocks/route.ts` 两处代码（第906行和第1049行）调用了 `normalizeBoardType()` 函数，该函数会将完整格式转换为简化格式
+  - 解决方案：移除 `normalizeBoardType()` 调用，直接使用原始 `stock.TDType` 值
+  - 修复位置：
+    1. 单日数据路径（第906行）：`td_type: normalizeBoardType(stock.TDType)` → `td_type: stock.TDType`
+    2. 7天数据路径（第1049行）：`td_type: normalizeBoardType(stock.TDType)` → `td_type: stock.TDType`
+  - 现在会正确保留和显示：
+    - "13天12板" → 显示为 "13天12板"（完整格式）
+    - "2连板" → 显示为 "2连板"（保持原样）
+    - "首板" → 显示为 "首板"（保持原样）
+
+### 🔧 技术说明
+- **数据流向**：外部API → `stock.TDType`（原始格式）→ 前端显示（不再经过规范化转换）
+- **排序逻辑**：`getBoardWeight()` 函数仍然能够正确处理所有格式：
+  - "首板" / "首" → 权重 1
+  - "2连板" / "2板" → 权重 2
+  - "13天12板" → 权重 12（正则提取连板数）
+  - "二板"（中文数字）→ 权重 2（BOARD_WEIGHTS映射）
+- **兼容性**：完全向后兼容，`getBoardWeight()` 支持所有可能的板位格式
+
+### 📊 影响范围
+- 文件：`src/app/api/stocks/route.ts`（第906行、第1049行）
+- 影响功能：所有显示个股板位类型的地方（包括单日数据和7天数据）
+- 数据库：需要清除缓存以获取新格式数据
+- 优先级：非常高（Critical Bug Fix）
+
+---
 ## [4.21.5] - 2025-11-26
 
 ### 🐛 重要Bug修复

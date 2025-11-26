@@ -903,7 +903,7 @@ function convertStockCodeForTushare(stockCode: string): string {
       const stockPerformance: StockPerformance = {
         name: stock.StockName,
         code: stock.StockCode,
-        td_type: normalizeBoardType(stock.TDType),
+        td_type: stock.TDType, // v4.21.6修复：保留原始TDType格式（如"13天12板"），不进行转换
         performance,
         total_return: Math.round(totalReturn * 100) / 100,
         amount: stock.Amount, // v4.8.26修复：添加成交额字段（与7天数据保持一致）
@@ -1046,7 +1046,7 @@ function convertStockCodeForTushare(stockCode: string): string {
           const stockPerformance: StockPerformance = {
             name: stock.StockName,
             code: stock.StockCode,
-            td_type: normalizeBoardType(stock.TDType),
+            td_type: stock.TDType, // v4.21.6修复：保留原始TDType格式（如"13天12板"），不进行转换
             performance: { [day]: 10.0 }, // 涨停日当天固定为10%
             total_return: Math.round(totalReturn * 100) / 100,
             amount: realAmount, // v4.8.18修改：使用Tushare真实成交额（亿元）
