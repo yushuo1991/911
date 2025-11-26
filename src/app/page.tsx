@@ -3069,7 +3069,7 @@ export default function Home() {
                                 stock.boardNum >= 3 ? 'text-orange-600' :
                                 'text-blue-600'
                               }`}>
-                                {stock.boardNum}板
+                                {stock.td_type}
                               </span>
                             </td>
                             <td className="px-2 py-1.5 text-2xs text-gray-700">{stock.sectorName}</td>
