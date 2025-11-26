@@ -438,30 +438,19 @@ export default function Home() {
     // 按板块组织数据，按板块涨停数排序，板块内按状态优先、涨停时间次要排序
     const sectorData: { sectorName: string; stocks: any[]; avgPremium: number; }[] = [];
     Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
-      const sectorStocks = stocks.map(stock => {
-        const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
+      const followUpDataMap = dayData.followUpData[sectorName] || {};
+
+      // v4.21.4修复：使用统一的排序函数，支持连板排序和涨幅排序切换
+      const sortedStocks = getSortedStocksForSector(stocks, followUpDataMap, sectorModalSortMode);
+
+      const sectorStocks = sortedStocks.map(stock => {
+        const followUpData = followUpDataMap[stock.code] || {};
         const totalReturn = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
         return {
           ...stock,
           followUpData,
           totalReturn
         };
-      });
-
-      // v4.8.25修复：板块内个股按状态优先、涨停时间次要排序
-      sectorStocks.sort((a, b) => {
-        const aBoardWeight = getBoardWeight(a.td_type);
-        const bBoardWeight = getBoardWeight(b.td_type);
-        
-        // 首要条件：按状态排序
-        if (aBoardWeight !== bBoardWeight) {
-          return bBoardWeight - aBoardWeight; // 降序排列，高板在前
-        }
-        
-        // 次要条件：状态相同时，按涨停时间排序（越早越在前）
-        const aTime = a.limitUpTime || '23:59';
-        const bTime = b.limitUpTime || '23:59';
-        return aTime.localeCompare(bTime); // 时间升序，早的在前
       });
 
       // 计算板块平均溢价
@@ -530,9 +519,14 @@ export default function Home() {
     dates.forEach(date => {
       const dayData = sevenDaysData[date];
       // v4.8.7修复：即使该日期没有该板块的涨停个股，也显示该日期（stocks为空数组）
+      // v4.21.4修复：添加连板排序，确保个股按连板数降序+涨停时间升序排列
+      const rawStocks = (dayData && dayData.categories[sectorName]) ? dayData.categories[sectorName] : [];
+      const followUpData = (dayData && dayData.followUpData[sectorName]) || {};
+      const sortedStocks = rawStocks.length > 0 ? getSortedStocksForSector(rawStocks, followUpData, sectorModalSortMode) : [];
+
       dailyBreakdown.push({
         date,
-        stocks: (dayData && dayData.categories[sectorName]) ? dayData.categories[sectorName] : []
+        stocks: sortedStocks
       });
     });
 
@@ -2120,13 +2114,11 @@ export default function Home() {
                 <tbody>
                   <tr>
                     {selected7DayLadderData.dailyBreakdown.map((day, dayIndex) => {
-                      // 使用真实API数据中的td_type字段获取连板数
-                      const sortedStocks = day.stocks
-                        .map(stock => ({
-                          ...stock,
-                          boardCount: getBoardWeight(stock.td_type) // 使用真实API数据
-                        }))
-                        .sort((a, b) => b.boardCount - a.boardCount); // 按板数降序排序（高板在上）
+                      // v4.21.4修复：stocks已在handleRankingBadgeClick中排序（按连板数+涨停时间），这里只添加boardCount用于显示
+                      const stocksWithBoardCount = day.stocks.map(stock => ({
+                        ...stock,
+                        boardCount: getBoardWeight(stock.td_type)
+                      }));
 
                       return (
                         <td
@@ -2134,7 +2126,7 @@ export default function Home() {
                           className="border border-gray-300 px-2 py-2 align-top"
                         >
                           <div className="space-y-1">
-                            {sortedStocks.map((stock, stockIndex) => (
+                            {stocksWithBoardCount.map((stock, stockIndex) => (
                               <div
                                 key={stock.code}
                                 className="flex items-center justify-between text-2xs bg-white border border-gray-200 rounded px-1.5 py-0.5 hover:border-blue-300 hover:bg-blue-50"
