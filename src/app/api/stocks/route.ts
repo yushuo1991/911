@@ -100,6 +100,54 @@ import { NextRequest, NextResponse } from 'next/server';
     }
   }
 
+  // 中文数字转阿拉伯数字的板位转换函数
+  function normalizeBoardType(tdType: string): string {
+    if (!tdType) return '1板';
+
+    // 中文数字到阿拉伯数字的映射
+    const chineseToArabic: Record<string, string> = {
+      '首': '1',
+      '一': '1',
+      '二': '2',
+      '三': '3',
+      '四': '4',
+      '五': '5',
+      '六': '6',
+      '七': '7',
+      '八': '8',
+      '九': '9',
+      '十': '10'
+    };
+
+    // 如果包含"板"字，提取板位数字
+    if (tdType.includes('板')) {
+      // 匹配中文数字+板，如"二板"、"三板"
+      for (const [chinese, arabic] of Object.entries(chineseToArabic)) {
+        if (tdType.includes(chinese + '板')) {
+          return arabic + '板';
+        }
+      }
+      // 匹配"首板"
+      if (tdType.includes('首板')) {
+        return '1板';
+      }
+      // 如果已经是阿拉伯数字形式（如"2板"），直接返回
+      const arabicMatch = tdType.match(/(\d+)板/);
+      if (arabicMatch) {
+        return arabicMatch[0];
+      }
+    }
+
+    // 处理连板类型（如"2连板"）
+    const lianbanMatch = tdType.match(/(\d+)连板/);
+    if (lianbanMatch) {
+      return lianbanMatch[1] + '板';
+    }
+
+    // 默认返回首板
+    return '1板';
+  }
+
   // 全局缓存实例
   const stockCache = new StockDataCache();
 
@@ -855,7 +903,7 @@ function convertStockCodeForTushare(stockCode: string): string {
       const stockPerformance: StockPerformance = {
         name: stock.StockName,
         code: stock.StockCode,
-        td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
+        td_type: normalizeBoardType(stock.TDType),
         performance,
         total_return: Math.round(totalReturn * 100) / 100,
         amount: stock.Amount, // v4.8.26修复：添加成交额字段（与7天数据保持一致）
@@ -998,7 +1046,7 @@ function convertStockCodeForTushare(stockCode: string): string {
           const stockPerformance: StockPerformance = {
             name: stock.StockName,
             code: stock.StockCode,
-            td_type: stock.TDType.replace('首板', '1').replace('首', '1'),
+            td_type: normalizeBoardType(stock.TDType),
             performance: { [day]: 10.0 }, // 涨停日当天固定为10%
             total_return: Math.round(totalReturn * 100) / 100,
             amount: realAmount, // v4.8.18修改：使用Tushare真实成交额（亿元）
