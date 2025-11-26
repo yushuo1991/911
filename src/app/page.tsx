@@ -1145,7 +1145,7 @@ export default function Home() {
                                 stock.td_type.includes('2') ? 'text-orange-600' :
                                 'text-gray-600'
                               }`}>
-                                {stock.td_type.replace('连板', '板')}
+                                {stock.td_type}
                               </span>
                             </td>
                             <td className="px-2 py-1.5 text-center">
@@ -1744,7 +1744,7 @@ export default function Home() {
                                   stock.td_type.includes('2') ? 'bg-orange-100 text-orange-700' :
                                   'bg-gray-200 text-gray-700'
                                 }`}>
-                                  {stock.td_type.replace('首板', '1').replace('首', '1').replace('连板', '').replace('板', '')}
+                                  {stock.td_type}
                                 </span>
                               </td>
                               <td className="px-0.5 py-0.5 text-center">
@@ -2229,7 +2229,7 @@ export default function Home() {
                             stock.td_type.includes('2') ? 'text-orange-600' :
                             'text-gray-600'
                           }`}>
-                            {stock.td_type.replace('连板', '板')}
+                            {stock.td_type}
                           </span>
                         </td>
                         {followUpDates.slice(0, 5).map((followDate, dayIndex) => {
