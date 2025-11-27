@@ -99,26 +99,28 @@ export default function Home() {
     const dayData = sevenDaysData?.[date];
     if (!dayData) return;
 
-    // 收集所有2板及以上的个股
+    // 收集所有2板及以上的个股（过滤ST和其他板块）
     const allStocks: any[] = [];
-    Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
-      stocks.forEach(stock => {
-        const boardNum = getBoardWeight(stock.td_type);
-        if (boardNum >= 2) {
-          const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
-          const total_return = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
+    Object.entries(dayData.categories)
+      .filter(([sectorName]) => sectorName !== '其他' && sectorName !== 'ST板块')
+      .forEach(([sectorName, stocks]) => {
+        stocks.forEach(stock => {
+          const boardNum = getBoardWeight(stock.td_type);
+          if (boardNum >= 2) {
+            const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
+            const total_return = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
 
-          allStocks.push({
-            ...stock,
-            sectorName,
-            boardNum,
-            globalAmountRank: null, // 可以计算全局排名
-            followUpData,
-            total_return,
-          });
-        }
+            allStocks.push({
+              ...stock,
+              sectorName,
+              boardNum,
+              globalAmountRank: null, // 可以计算全局排名
+              followUpData,
+              total_return,
+            });
+          }
+        });
       });
-    });
 
     setMultiBoardData({
       date,
