@@ -156,8 +156,8 @@ export const useStockData = () => {
   /**
    * Refresh current data
    */
-  const refreshData = useCallback(() => {
-    fetch7DaysData(dateRange);
+  const refreshData = useCallback(async () => {
+    await fetch7DaysData(dateRange);
   }, [dateRange, fetch7DaysData]);
 
   // Initial data fetch on mount
