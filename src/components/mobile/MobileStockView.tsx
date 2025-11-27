@@ -171,16 +171,25 @@ export default function MobileStockView({
               </div>
             )}
 
-            {/* 日期卡片列表 */}
-            {dates.map((date) => {
-              const dayData = sevenDaysData?.[date];
-              if (!dayData) return null;
-              return (
-                <MobileDayCard key={date} date={date} dayData={dayData}
-                  isExpanded={expandedDates.has(date)} onToggle={handleToggle}
-                  onSectorClick={onSectorClick} onWeekdayClick={onWeekdayClick} />
-              );
-            })}
+            {/* 横向滑动日期卡片列表 */}
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+              {dates.map((date) => {
+                const dayData = sevenDaysData?.[date];
+                if (!dayData) return null;
+                return (
+                  <div key={date} className="flex-shrink-0 w-[85vw] snap-start">
+                    <MobileDayCard
+                      date={date}
+                      dayData={dayData}
+                      isExpanded={expandedDates.has(date)}
+                      onToggle={handleToggle}
+                      onSectorClick={onSectorClick}
+                      onWeekdayClick={onWeekdayClick}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
         {dates.length > 0 && (

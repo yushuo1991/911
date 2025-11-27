@@ -124,7 +124,7 @@ export default function Home() {
               sectorName,
               boardNum,
               globalAmountRank: null, // 可以计算全局排名
-              followUpData,
+              performance: followUpData, // 修复：使用performance字段名
               total_return,
             });
           }

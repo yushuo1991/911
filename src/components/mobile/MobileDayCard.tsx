@@ -99,7 +99,7 @@ export default function MobileDayCard({
         </div>
 
         {/* 统计数据（始终显示） */}
-        <div className="grid grid-cols-4 gap-2 mt-2 text-center">
+        <div className="grid grid-cols-2 gap-2 mt-2 text-center">
           <div>
             <div className="text-2xs text-gray-600">涨停</div>
             <div className="text-sm font-semibold text-red-600">{stats.total_stocks}</div>
@@ -107,18 +107,6 @@ export default function MobileDayCard({
           <div>
             <div className="text-2xs text-gray-600">板块</div>
             <div className="text-sm font-semibold text-blue-600">{stats.category_count}</div>
-          </div>
-          <div>
-            <div className="text-2xs text-gray-600">金额</div>
-            <div className="text-sm font-semibold text-green-600">
-              {(totalAmount / 100000000).toFixed(0)}亿
-            </div>
-          </div>
-          <div>
-            <div className="text-2xs text-gray-600">平均溢价</div>
-            <div className={`text-sm font-semibold ${getPerformanceColorClass(stats.profit_ratio)}`}>
-              {stats.profit_ratio.toFixed(1)}%
-            </div>
           </div>
         </div>
       </div>
