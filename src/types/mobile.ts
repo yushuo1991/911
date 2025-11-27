@@ -70,14 +70,14 @@ export interface MobileStockViewProps {
  * Props for MobileModal component
  */
 export interface MobileModalProps {
-  show: boolean;
+  isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  fullScreen?: boolean;
+  size?: 'full' | 'large' | 'medium' | 'small';
   showCloseButton?: boolean;
-  headerContent?: React.ReactNode;
-  footerContent?: React.ReactNode;
+  headerActions?: React.ReactNode;
+  preventBackdropClose?: boolean;
 }
 
 /**
