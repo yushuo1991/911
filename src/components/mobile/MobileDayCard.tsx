@@ -33,10 +33,9 @@ export default function MobileDayCard({
 
   // 计算统计数据
   const stats = dayData.stats || {
-    totalStocks: 0,
-    totalSectors: 0,
-    totalAmount: 0,
-    avgPremium: 0,
+    total_stocks: 0,
+    category_count: 0,
+    profit_ratio: 0,
   };
 
   // 获取星期几
@@ -50,6 +49,12 @@ export default function MobileDayCard({
     6: '周六',
   };
   const weekday = weekdayMap[new Date(date).getDay()] || '';
+
+  // 计算总金额（从所有板块的股票中累加）
+  const totalAmount = Object.values(dayData.categories || {}).reduce(
+    (sum, stocks) => sum + stocks.reduce((stockSum, s) => stockSum + (s.amount || 0), 0),
+    0
+  );
 
   // 获取板块列表（按涨停数量倒序）
   const sectors = Object.entries(dayData.categories || {})
@@ -96,22 +101,22 @@ export default function MobileDayCard({
         <div className="grid grid-cols-4 gap-2 mt-2 text-center">
           <div>
             <div className="text-2xs text-gray-600">涨停</div>
-            <div className="text-sm font-semibold text-red-600">{stats.totalStocks}</div>
+            <div className="text-sm font-semibold text-red-600">{stats.total_stocks}</div>
           </div>
           <div>
             <div className="text-2xs text-gray-600">板块</div>
-            <div className="text-sm font-semibold text-blue-600">{stats.totalSectors}</div>
+            <div className="text-sm font-semibold text-blue-600">{stats.category_count}</div>
           </div>
           <div>
             <div className="text-2xs text-gray-600">金额</div>
             <div className="text-sm font-semibold text-green-600">
-              {(stats.totalAmount / 100000000).toFixed(0)}亿
+              {(totalAmount / 100000000).toFixed(0)}亿
             </div>
           </div>
           <div>
             <div className="text-2xs text-gray-600">平均溢价</div>
-            <div className={`text-sm font-semibold ${getPerformanceColorClass(stats.avgPremium)}`}>
-              {stats.avgPremium.toFixed(1)}%
+            <div className={`text-sm font-semibold ${getPerformanceColorClass(stats.profit_ratio)}`}>
+              {stats.profit_ratio.toFixed(1)}%
             </div>
           </div>
         </div>
