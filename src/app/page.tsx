@@ -7,6 +7,7 @@ import MobileSectorModal from '@/components/mobile/MobileSectorModal';
 import MobileMultiBoardModal from '@/components/mobile/MobileMultiBoardModal';
 import MobileKlineModal from '@/components/mobile/MobileKlineModal';
 import MobileMinuteModal from '@/components/mobile/MobileMinuteModal';
+import Mobile7DayRankingModal from '@/components/mobile/Mobile7DayRankingModal';
 import DesktopStockTracker from '@/components/desktop/DesktopStockTracker';
 import { StockPerformance } from '@/types/stock';
 import { useState } from 'react';
@@ -61,6 +62,8 @@ export default function Home() {
     stocks: StockPerformance[];
     mode: 'realtime' | 'snapshot';
   } | null>(null);
+
+  const [show7DayRankingModal, setShow7DayRankingModal] = useState(false);
 
   // 数据加载由 useStockData hook 自动处理，无需手动调用
 
@@ -159,6 +162,7 @@ export default function Home() {
         onSectorClick={handleSectorClick}
         onWeekdayClick={handleWeekdayClick}
         onRefresh={refreshData}
+        on7DayRanking={() => setShow7DayRankingModal(true)}
         maxDays={30}
       />
 
@@ -241,6 +245,20 @@ export default function Home() {
           date={minuteData.date}
           stocks={minuteData.stocks}
           mode={minuteData.mode}
+        />
+      )}
+
+      {/* 7天排行弹窗 */}
+      {sevenDaysData && (
+        <Mobile7DayRankingModal
+          isOpen={show7DayRankingModal}
+          onClose={() => setShow7DayRankingModal(false)}
+          sevenDaysData={sevenDaysData}
+          dates={dates}
+          onSectorClick={(sectorName) => {
+            console.log('Sector clicked in 7-day ranking:', sectorName);
+            // TODO: 可以在这里打开该板块的7天阶梯modal
+          }}
         />
       )}
     </>

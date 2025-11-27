@@ -63,6 +63,7 @@ export interface MobileStockViewProps {
   onSectorClick?: (sectorName: string, date: string, stocks: StockPerformance[], followUpData: Record<string, Record<string, number>>) => void;
   onWeekdayClick?: (date: string, weekday: string) => void;
   onRefresh?: () => Promise<void>;
+  on7DayRanking?: () => void;
   maxDays?: number;
 }
 

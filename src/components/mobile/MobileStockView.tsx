@@ -19,6 +19,7 @@ export default function MobileStockView({
   onSectorClick,
   onWeekdayClick,
   onRefresh,
+  on7DayRanking,
   maxDays = 30,
 }: MobileStockViewProps) {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(
@@ -100,11 +101,11 @@ export default function MobileStockView({
           >
             {showTrendPanel ? '▼ 收起趋势' : '📊 数据趋势'}
           </button>
-          <button onClick={expandAll} className="flex-1 px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded hover:bg-gray-200 active:bg-gray-300 transition-colors">
-            ▼ 全部展开
-          </button>
-          <button onClick={collapseAll} className="flex-1 px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded hover:bg-gray-200 active:bg-gray-300 transition-colors">
-            ▶ 全部折叠
+          <button
+            onClick={on7DayRanking}
+            className="flex-1 px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded hover:bg-gray-200 active:bg-gray-300 transition-colors"
+          >
+            🏆 7天排行
           </button>
         </div>
         {showLoadEarlier && dates.length < maxDays && (

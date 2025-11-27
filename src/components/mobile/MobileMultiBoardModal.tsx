@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import MobileModal from './MobileModal';
 import MobileStockCard from './MobileStockCard';
-import MobilePremiumChart from './MobilePremiumChart';
+import StockPremiumChart, { StockPremiumData } from '@/components/StockPremiumChart';
 import { StockPerformance } from '@/types/stock';
 import { getPerformanceColorClass, getBoardWeight } from '@/lib/utils';
 
@@ -87,20 +87,23 @@ export default function MobileMultiBoardModal({
     return acc;
   }, {} as Record<number, { count: number; totalReturn: number }>);
 
-  // 准备曲线图数据（基于followUpDates的平均溢价）
-  const chartData = followUpDates.map((followDate, index) => {
-    const dayPerformances = stocks
-      .map(s => s.performance?.[followDate] || 0)
-      .filter(p => p !== 0);
-    const avgPremium = dayPerformances.length > 0
-      ? dayPerformances.reduce((sum, p) => sum + p, 0) / dayPerformances.length
-      : 0;
-    return {
-      date: `T+${index + 1}`,
-      avgPremium,
-      stockCount: dayPerformances.length,
-    };
-  });
+  // 准备个股溢价曲线图数据（和PC端一致）
+  const stockChartData = useMemo((): StockPremiumData[] => {
+    // 为每个股票准备溢价数据
+    return stocks.map(stock => {
+      const premiums = followUpDates.map(followDate => ({
+        date: followDate,
+        premium: stock.performance?.[followDate] || 0,
+      }));
+
+      return {
+        stockCode: stock.code,
+        stockName: stock.name,
+        premiums,
+        totalReturn: stock.total_return || 0,
+      };
+    }).sort((a, b) => b.totalReturn - a.totalReturn); // 按总涨幅降序排列
+  }, [stocks, followUpDates]);
 
   return (
     <MobileModal
@@ -180,11 +183,19 @@ export default function MobileMultiBoardModal({
           </div>
         </div>
 
-        {/* 溢价趋势曲线图（点击统计卡片显示） */}
-        {showChart && chartData.length > 0 && (
+        {/* 个股溢价趋势曲线图（点击统计卡片显示） */}
+        {showChart && stockChartData.length > 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-3 mb-4">
-            <div className="text-xs font-semibold text-gray-700 mb-2">📈 后续溢价趋势</div>
-            <MobilePremiumChart data={chartData} height={180} />
+            <div className="text-xs font-semibold text-gray-700 mb-2">📈 个股后续溢价趋势</div>
+            <StockPremiumChart
+              data={stockChartData}
+              config={{
+                height: 250,
+                showGrid: true,
+                showLegend: true,
+                maxStocks: 10,
+              }}
+            />
           </div>
         )}
 
