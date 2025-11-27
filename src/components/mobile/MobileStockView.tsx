@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { SevenDaysData } from '@/types/stock';
 import { MobileStockViewProps } from '@/types/mobile';
 import MobileDayCard from './MobileDayCard';
+import MobileTrendPanel from './MobileTrendPanel';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 /**
@@ -24,6 +25,7 @@ export default function MobileStockView({
     new Set(dates.length > 0 ? [dates[0]] : [])
   );
   const [showLoadEarlier, setShowLoadEarlier] = useState(false);
+  const [showTrendPanel, setShowTrendPanel] = useState(false); // 控制趋势面板显示
 
   // 下拉刷新
   const {
@@ -88,6 +90,16 @@ export default function MobileStockView({
           </button>
         </div>
         <div className="px-4 pb-2 flex items-center gap-2">
+          <button
+            onClick={() => setShowTrendPanel(!showTrendPanel)}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              showTrendPanel
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300'
+            }`}
+          >
+            {showTrendPanel ? '▼ 收起趋势' : '📊 数据趋势'}
+          </button>
           <button onClick={expandAll} className="flex-1 px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded hover:bg-gray-200 active:bg-gray-300 transition-colors">
             ▼ 全部展开
           </button>
@@ -151,6 +163,14 @@ export default function MobileStockView({
         )}
         {dates.length > 0 && (
           <div className="space-y-3">
+            {/* 数据趋势面板（可展开/收起） */}
+            {showTrendPanel && (
+              <div className="bg-gradient-to-b from-blue-50 to-white rounded-lg p-4 border-2 border-blue-200 shadow-md">
+                <MobileTrendPanel sevenDaysData={sevenDaysData} dates={dates} />
+              </div>
+            )}
+
+            {/* 日期卡片列表 */}
             {dates.map((date) => {
               const dayData = sevenDaysData?.[date];
               if (!dayData) return null;
