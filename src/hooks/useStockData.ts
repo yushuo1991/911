@@ -27,10 +27,12 @@ export const useStockData = () => {
 
     try {
       const endDate = getTodayString();
+      // Get base URL for fetch - use window.location.origin in browser, or empty for server-side
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
       // If range <= 7, single API call
       if (range <= 7) {
-        const response = await fetch(`/api/stocks?date=${endDate}&mode=7days`);
+        const response = await fetch(`${baseUrl}/api/stocks?date=${endDate}&mode=7days`);
         const result = await response.json();
 
         if (result.success) {
@@ -48,7 +50,7 @@ export const useStockData = () => {
         const segments = Math.ceil(range / 7);
 
         for (let i = 0; i < segments; i++) {
-          const response = await fetch(`/api/stocks?date=${currentEndDate}&mode=7days`);
+          const response = await fetch(`${baseUrl}/api/stocks?date=${currentEndDate}&mode=7days`);
           const result = await response.json();
 
           if (result.success) {
@@ -110,8 +112,11 @@ export const useStockData = () => {
         newEndDate.setDate(newEndDate.getDate() - 1);
         const endDateStr = newEndDate.toISOString().split('T')[0];
 
+        // Get base URL for fetch
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
         // Load earlier 7 days
-        const response = await fetch(`/api/stocks?date=${endDateStr}&mode=7days`);
+        const response = await fetch(`${baseUrl}/api/stocks?date=${endDateStr}&mode=7days`);
         const result = await response.json();
 
         if (result.success) {
