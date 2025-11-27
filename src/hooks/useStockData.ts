@@ -167,7 +167,9 @@ export const useStockData = () => {
 
   // Initial data fetch on mount
   useEffect(() => {
-    fetch7DaysData(7);
+    if (typeof window !== 'undefined') {
+      fetch7DaysData(7);
+    }
   }, [fetch7DaysData]);
 
   return {
