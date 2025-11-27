@@ -141,7 +141,7 @@ export default function MobileDayCard({
                   key={sector.name}
                   onClick={() => {
                     const stocks = dayData.categories?.[sector.name] || [];
-                    const followUpData = dayData.followUpData || {};
+                    const followUpData = dayData.followUpData?.[sector.name] || {};
                     onSectorClick?.(sector.name, date, stocks, followUpData);
                   }}
                   className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
