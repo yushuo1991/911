@@ -108,7 +108,7 @@ export default function Home() {
       stocks.forEach(stock => {
         const boardNum = getBoardWeight(stock.td_type);
         if (boardNum >= 2) {
-          const followUpData = dayData.followUpData?.[stock.code] || {};
+          const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
           const total_return = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
 
           allStocks.push({
