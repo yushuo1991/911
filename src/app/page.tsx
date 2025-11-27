@@ -62,10 +62,7 @@ export default function Home() {
     mode: 'realtime' | 'snapshot';
   } | null>(null);
 
-  // 初始加载数据
-  useState(() => {
-    fetch7DaysData();
-  });
+  // 数据加载由 useStockData hook 自动处理，无需手动调用
 
   // 获取后续5日日期
   const getFollowUpDates = (currentDate: string): string[] => {
