@@ -171,13 +171,13 @@ export default function MobileStockView({
               </div>
             )}
 
-            {/* 横向滑动日期卡片列表 */}
-            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+            {/* 双列网格日期卡片列表 */}
+            <div className="grid grid-cols-2 gap-2">
               {dates.map((date) => {
                 const dayData = sevenDaysData?.[date];
                 if (!dayData) return null;
                 return (
-                  <div key={date} className="flex-shrink-0 w-[85vw] snap-start">
+                  <div key={date}>
                     <MobileDayCard
                       date={date}
                       dayData={dayData}
