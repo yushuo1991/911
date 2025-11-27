@@ -182,6 +182,7 @@ export default function MobileSectorModal({
                 showGrid: true,
                 showLegend: true,
                 maxStocks: 10,
+                showDailyMax: true,
               }}
             />
           </div>

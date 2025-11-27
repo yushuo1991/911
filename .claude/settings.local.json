@@ -84,7 +84,8 @@
       "Bash(else echo \"File not found\")",
       "Bash(sshpass -p \"gJ75hNHdy90TA4qGo9\" ssh -o StrictHostKeyChecking=no root@107.173.154.147 \"curl -s http://localhost:3000/api/clear-cache && echo && pm2 restart stock-tracker\")",
       "Bash(sshpass -p \"gJ75hNHdy90TA4qGo9\" ssh -o StrictHostKeyChecking=no root@107.173.154.147 \"pm2 status\")",
-      "Bash(do echo \"推送尝试 $i/5...\")"
+      "Bash(do echo \"推送尝试 $i/5...\")",
+      "Bash(sshpass -p \"gJ75hNHdy90TA4qGo9\" ssh -o StrictHostKeyChecking=no root@107.173.154.147 \"cd /www/wwwroot/stock-tracker && git status && git log --oneline -3\")"
     ],
     "deny": [],
     "ask": []

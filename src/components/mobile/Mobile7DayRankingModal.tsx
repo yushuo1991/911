@@ -24,6 +24,46 @@ interface Mobile7DayRankingModalProps {
   onSectorClick?: (sectorName: string) => void;
 }
 
+/**
+ * 自定义标签：显示每日最高值板块名称
+ */
+const CustomDot = (props: any) => {
+  const { cx, cy, payload, dataKey, dailyMaxInfo } = props;
+
+  if (!dailyMaxInfo) return <circle cx={cx} cy={cy} r={3} fill={props.fill} stroke={props.stroke} strokeWidth={2} />;
+
+  // 找到当前日期的最高值信息
+  const maxInfo = dailyMaxInfo.find((info: any) => info.date === payload.date);
+  if (!maxInfo) return <circle cx={cx} cy={cy} r={3} fill={props.fill} stroke={props.stroke} strokeWidth={2} />;
+
+  // 检查当前数据点是否是最高值
+  const currentValue = payload[dataKey];
+  const sectorName = dataKey;
+
+  if (sectorName === maxInfo.maxSectorName && typeof currentValue === 'number' && currentValue > 0) {
+    return (
+      <g>
+        {/* 绘制原始的点 */}
+        <circle cx={cx} cy={cy} r={4} fill={props.fill} stroke={props.stroke} strokeWidth={2} />
+        {/* 添加文字标注 */}
+        <text
+          x={cx}
+          y={cy - 10}
+          textAnchor="middle"
+          fill="#dc2626"
+          fontSize="10"
+          fontWeight="600"
+          className="select-none"
+        >
+          {sectorName}
+        </text>
+      </g>
+    );
+  }
+
+  return <circle cx={cx} cy={cy} r={3} fill={props.fill} stroke={props.stroke} strokeWidth={2} />;
+};
+
 export default function Mobile7DayRankingModal({
   isOpen,
   onClose,
@@ -102,6 +142,30 @@ export default function Mobile7DayRankingModal({
     });
   }, [sectorRanking, dates]);
 
+  // 计算每日最高值（用于标注）
+  const dailyMaxInfo = useMemo(() => {
+    if (chartData.length === 0) return [];
+
+    return chartData.map(dataPoint => {
+      let maxValue = -Infinity;
+      let maxSectorName = '';
+
+      sectorRanking.forEach(sector => {
+        const value = dataPoint[sector.name];
+        if (typeof value === 'number' && value > maxValue) {
+          maxValue = value;
+          maxSectorName = sector.name;
+        }
+      });
+
+      return {
+        date: dataPoint.date,
+        maxValue,
+        maxSectorName
+      };
+    });
+  }, [chartData, sectorRanking]);
+
   // 图表颜色
   const colors = [
     '#ef4444', // 鲜红色 (第1名)
@@ -148,7 +212,7 @@ export default function Mobile7DayRankingModal({
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart
                   data={chartData}
-                  margin={{ top: 10, right: 10, left: -10, bottom: 5 }}
+                  margin={{ top: 20, right: 10, left: -10, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
                   <XAxis
@@ -181,7 +245,12 @@ export default function Mobile7DayRankingModal({
                       dataKey={sector.name}
                       stroke={colors[index]}
                       strokeWidth={2}
-                      dot={{ fill: colors[index], strokeWidth: 2, r: 3 }}
+                      dot={(props) => (
+                        <CustomDot
+                          {...props}
+                          dailyMaxInfo={dailyMaxInfo}
+                        />
+                      )}
                       activeDot={{ r: 5 }}
                       name={sector.name}
                     />
