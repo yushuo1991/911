@@ -50,7 +50,11 @@ export function getBoardWeight(boardType: string): number {
   const tianbanMatch = boardType.match(/\d+天(\d+)板/);
   if (tianbanMatch) return parseInt(tianbanMatch[1]);
 
-  // 处理纯板数：二板、三板等
+  // 处理纯数字+板类型：2板、3板、4板等
+  const numbanMatch = boardType.match(/^(\d+)板$/);
+  if (numbanMatch) return parseInt(numbanMatch[1]);
+
+  // 处理中文数字+板：二板、三板等
   return BOARD_WEIGHTS[boardType as BoardType] || 1;
 }
 
