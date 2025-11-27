@@ -164,7 +164,7 @@ export default function MobileStockView({
         {dates.length > 0 && (
           <div className="space-y-3">
             {/* 数据趋势面板（可展开/收起） */}
-            {showTrendPanel && (
+            {showTrendPanel && sevenDaysData && (
               <div className="bg-gradient-to-b from-blue-50 to-white rounded-lg p-4 border-2 border-blue-200 shadow-md">
                 <MobileTrendPanel sevenDaysData={sevenDaysData} dates={dates} />
               </div>
