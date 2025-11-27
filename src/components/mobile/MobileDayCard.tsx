@@ -56,8 +56,9 @@ export default function MobileDayCard({
     0
   );
 
-  // 获取板块列表（按涨停数量倒序）
+  // 获取板块列表（按涨停数量倒序，过滤ST和其他板块）
   const sectors = Object.entries(dayData.categories || {})
+    .filter(([sectorName]) => sectorName !== '其他' && sectorName !== 'ST板块')
     .map(([sectorName, stocks]) => ({
       name: sectorName,
       count: stocks.length,

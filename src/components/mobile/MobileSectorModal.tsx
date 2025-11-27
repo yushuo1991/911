@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import MobileModal from './MobileModal';
 import MobileStockCard from './MobileStockCard';
+import MobilePremiumChart from './MobilePremiumChart';
 import { StockPerformance } from '@/types/stock';
 import { getPerformanceColorClass } from '@/lib/utils';
 
@@ -42,6 +43,7 @@ export default function MobileSectorModal({
 }: MobileSectorModalProps) {
   const [filterOver10, setFilterOver10] = useState(false);
   const [sortMode, setSortMode] = useState<'board' | 'return'>('board');
+  const [showChart, setShowChart] = useState(false); // 控制曲线图显示
 
   // 筛选和排序
   const processedStocks = stocks
@@ -72,6 +74,21 @@ export default function MobileSectorModal({
       : 0,
     totalAmount: stocks.reduce((sum, s) => sum + (s.amount || 0), 0),
   };
+
+  // 准备曲线图数据（基于followUpDates的平均溢价）
+  const chartData = followUpDates.map((followDate, index) => {
+    const dayPerformances = stocks
+      .map(s => s.performance?.[followDate] || 0)
+      .filter(p => p !== 0);
+    const avgPremium = dayPerformances.length > 0
+      ? dayPerformances.reduce((sum, p) => sum + p, 0) / dayPerformances.length
+      : 0;
+    return {
+      date: `T+${index + 1}`,
+      avgPremium,
+      stockCount: dayPerformances.length,
+    };
+  });
 
   return (
     <MobileModal
@@ -111,8 +128,17 @@ export default function MobileSectorModal({
       }
     >
       <div className="p-4">
-        {/* 统计信息卡片 */}
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 mb-4">
+        {/* 统计信息卡片（可点击显示/隐藏曲线图） */}
+        <div
+          onClick={() => setShowChart(!showChart)}
+          className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 mb-4 cursor-pointer active:bg-blue-200 transition-colors"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold text-gray-700">📊 板块统计</div>
+            <div className="text-xs text-blue-600">
+              {showChart ? '▼ 收起曲线' : '► 查看曲线'}
+            </div>
+          </div>
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
               <div className="text-2xs text-gray-600 mb-1">个股</div>
@@ -141,6 +167,14 @@ export default function MobileSectorModal({
             </div>
           </div>
         </div>
+
+        {/* 溢价趋势曲线图（点击统计卡片显示） */}
+        {showChart && chartData.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-3 mb-4">
+            <div className="text-xs font-semibold text-gray-700 mb-2">📈 后续溢价趋势</div>
+            <MobilePremiumChart data={chartData} height={180} />
+          </div>
+        )}
 
         {/* 筛选和排序工具栏 */}
         <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-200">

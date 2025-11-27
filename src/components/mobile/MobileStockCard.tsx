@@ -79,35 +79,6 @@ export default function MobileStockCard({
         </div>
       </div>
 
-      {/* 中部：基本信息 */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {/* 涨停时间 */}
-        <div>
-          <div className="text-2xs text-gray-500">涨停时间</div>
-          <div className="text-sm font-medium text-gray-900 mt-0.5">
-            {stock.limitUpTime || '--'}
-          </div>
-        </div>
-
-        {/* 成交额 */}
-        <div>
-          <div className="text-2xs text-gray-500">成交额</div>
-          <div className="text-sm font-medium text-gray-900 mt-0.5">
-            {stock.amount ? `${(stock.amount / 100000000).toFixed(1)}亿` : '--'}
-          </div>
-        </div>
-
-        {/* 全局排名 */}
-        {globalAmountRank !== undefined && globalAmountRank !== null && (
-          <div>
-            <div className="text-2xs text-gray-500">金额排名</div>
-            <div className="text-sm font-medium text-orange-600 mt-0.5">
-              #{globalAmountRank}
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* 底部：5日表现数据（横向滚动） */}
       {followUpDates.length > 0 && (
         <div className="border-t border-gray-100 pt-2">

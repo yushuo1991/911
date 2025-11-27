@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import MobileModal from './MobileModal';
 import MobileStockCard from './MobileStockCard';
+import MobilePremiumChart from './MobilePremiumChart';
 import { StockPerformance } from '@/types/stock';
 import { getPerformanceColorClass, getBoardWeight } from '@/lib/utils';
 
@@ -45,6 +46,7 @@ export default function MobileMultiBoardModal({
 }: MobileMultiBoardModalProps) {
   const [filterOver10, setFilterOver10] = useState(false);
   const [sortMode, setSortMode] = useState<'board' | 'return'>('board');
+  const [showChart, setShowChart] = useState(false); // 控制曲线图显示
 
   // 筛选和排序
   const processedStocks = stocks
@@ -85,6 +87,21 @@ export default function MobileMultiBoardModal({
     return acc;
   }, {} as Record<number, { count: number; totalReturn: number }>);
 
+  // 准备曲线图数据（基于followUpDates的平均溢价）
+  const chartData = followUpDates.map((followDate, index) => {
+    const dayPerformances = stocks
+      .map(s => s.performance?.[followDate] || 0)
+      .filter(p => p !== 0);
+    const avgPremium = dayPerformances.length > 0
+      ? dayPerformances.reduce((sum, p) => sum + p, 0) / dayPerformances.length
+      : 0;
+    return {
+      date: `T+${index + 1}`,
+      avgPremium,
+      stockCount: dayPerformances.length,
+    };
+  });
+
   return (
     <MobileModal
       isOpen={isOpen}
@@ -123,8 +140,17 @@ export default function MobileMultiBoardModal({
       }
     >
       <div className="p-4">
-        {/* 统计信息卡片 */}
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-4 mb-4">
+        {/* 统计信息卡片（可点击显示/隐藏曲线图） */}
+        <div
+          onClick={() => setShowChart(!showChart)}
+          className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-4 mb-4 cursor-pointer active:bg-red-100 transition-colors"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold text-gray-700">📊 梯队统计</div>
+            <div className="text-xs text-red-600">
+              {showChart ? '▼ 收起曲线' : '► 查看曲线'}
+            </div>
+          </div>
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
               <div className="text-2xs text-gray-600 mb-1">个股</div>
@@ -153,6 +179,14 @@ export default function MobileMultiBoardModal({
             </div>
           </div>
         </div>
+
+        {/* 溢价趋势曲线图（点击统计卡片显示） */}
+        {showChart && chartData.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-3 mb-4">
+            <div className="text-xs font-semibold text-gray-700 mb-2">📈 后续溢价趋势</div>
+            <MobilePremiumChart data={chartData} height={180} />
+          </div>
+        )}
 
         {/* 板位分布（简化图表） */}
         {Object.keys(boardDistribution).length > 0 && (
