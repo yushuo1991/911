@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SevenDaysData } from '@/types/stock';
 import { MobileStockViewProps } from '@/types/mobile';
 import MobileDayCard from './MobileDayCard';
@@ -22,12 +22,15 @@ export default function MobileStockView({
   on7DayRanking,
   maxDays = 30,
 }: MobileStockViewProps) {
-  // 所有日期默认展开
   const [expandedDates, setExpandedDates] = useState<Set<string>>(
     new Set(dates)
   );
   const [showLoadEarlier, setShowLoadEarlier] = useState(false);
   const [showTrendPanel, setShowTrendPanel] = useState(false); // 控制趋势面板显示
+  const scrollContainerRef = useRef<HTMLDivElement>(null); // 横向滚动容器引用
+
+  // 反转日期数组（最新日期在前）
+  const reversedDates = [...dates].reverse();
 
   // 下拉刷新
   const {
@@ -46,12 +49,23 @@ export default function MobileStockView({
     maxPullDistance: 120,
     resistance: 0.6,
   });
+
   // 当dates变化时，自动展开所有日期
   useEffect(() => {
     if (dates.length > 0) {
       setExpandedDates(new Set(dates));
     }
   }, [dates]);
+
+  // 自动滚动到第一个（最新）日期
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer && reversedDates.length > 0) {
+      setTimeout(() => {
+        scrollContainer.scrollTo({ left: 0, behavior: 'smooth' });
+      }, 100);
+    }
+  }, [reversedDates.length]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -171,9 +185,10 @@ export default function MobileStockView({
                 <MobileTrendPanel sevenDaysData={sevenDaysData} dates={dates} />
               </div>
             )}
+
             {/* 全屏横向滑动日期卡片 */}
-            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
-              {dates.map((date) => {
+            <div ref={scrollContainerRef} className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+              {reversedDates.map((date) => {
                 const dayData = sevenDaysData?.[date];
                 if (!dayData) return null;
                 return (

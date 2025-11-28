@@ -65,7 +65,7 @@ export default function MobileDayCard({
       avgPremium: stocks.length > 0
         ? stocks.reduce((sum, s) => sum + (s.total_return || 0), 0) / stocks.length
         : 0,
-      totalAmount: stocks.reduce((sum, s) => sum + (s.amount || 0), 0),
+      totalAmount: dayData.sectorAmounts?.[sectorName] || 0, // 使用sectorAmounts字段
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10); // 只显示前10个板块
@@ -157,10 +157,8 @@ export default function MobileDayCard({
                       <div className="text-sm font-semibold text-red-600">{sector.count}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-gray-500">溢价</div>
-                      <div className={`text-sm font-semibold ${getPerformanceColorClass(sector.avgPremium)}`}>
-                        {sector.avgPremium.toFixed(1)}%
-                      </div>
+                      <div className="text-xs text-gray-500">金额</div>
+                      <div className="text-sm font-semibold text-green-600">{sector.totalAmount.toFixed(1)}亿</div>
                     </div>
                     <div className="text-gray-400">›</div>
                   </div>
