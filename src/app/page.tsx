@@ -276,9 +276,17 @@ export default function Home() {
           sectorName={sector7DayLadderData.sectorName}
           sevenDaysData={sevenDaysData}
           dates={dates}
-          onStockClick={(stock, date) => {
-            // 可以实现点击个股查看K线/分时图的逻辑
-            console.log('Stock clicked:', stock.name, date);
+          onDateClick={(sectorName, date, stocks) => {
+            // 关闭7天梯队弹窗
+            setShowSector7DayLadderModal(false);
+
+            // 获取完整的板块数据并打开板块详情弹窗
+            const dayData = sevenDaysData[date];
+            if (dayData && dayData.categories[sectorName]) {
+              const fullStocks = dayData.categories[sectorName];
+              const followUpData = dayData.followUpData[sectorName] || {};
+              handleSectorClick(sectorName, date, fullStocks, followUpData);
+            }
           }}
         />
       )}

@@ -1,18 +1,18 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import MobileModal from './MobileModal';
-import MobileStockCard from './MobileStockCard';
 import { SevenDaysData, StockPerformance } from '@/types/stock';
-import { formatDate, getPerformanceColorClass } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 
 /**
  * 移动端板块7天历史梯队弹窗
  *
  * 功能：
  * - 显示指定板块在7天内的所有个股
- * - 按日期分组显示
- * - 显示每只个股的表现数据
+ * - 横向滑动查看不同日期（最新日期在前）
+ * - 纵列显示：只显示个股和板数，不显示溢价
+ * - 点击日期标题查看完整板块详情
  * - 和PC端逻辑一致
  */
 
@@ -22,7 +22,7 @@ interface MobileSector7DayLadderModalProps {
   sectorName: string;
   sevenDaysData: SevenDaysData;
   dates: string[];
-  onStockClick?: (stock: StockPerformance, date: string) => void;
+  onDateClick?: (sectorName: string, date: string, stocks: StockPerformance[]) => void;
 }
 
 export default function MobileSector7DayLadderModal({
@@ -31,9 +31,11 @@ export default function MobileSector7DayLadderModal({
   sectorName,
   sevenDaysData,
   dates,
-  onStockClick,
+  onDateClick,
 }: MobileSector7DayLadderModalProps) {
-  // 收集该板块7天内的所有数据
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // 收集该板块7天内的所有数据（反转后最新日期在前）
   const sectorDailyData = useMemo(() => {
     if (!sevenDaysData || !dates || dates.length === 0) return [];
 
@@ -44,41 +46,39 @@ export default function MobileSector7DayLadderModal({
           date,
           stocks: [],
           totalStocks: 0,
-          avgReturn: 0,
-          totalAmount: 0,
         };
       }
 
       const stocks = dayData.categories[sectorName] || [];
-      const totalStocks = stocks.length;
-      const avgReturn = totalStocks > 0
-        ? stocks.reduce((sum, s) => sum + (s.total_return || 0), 0) / totalStocks
-        : 0;
-      const totalAmount = stocks.reduce((sum, s) => sum + (s.amount || 0), 0);
-
       return {
         date,
-        stocks: stocks.sort((a, b) => (b.total_return || 0) - (a.total_return || 0)),
-        totalStocks,
-        avgReturn,
-        totalAmount,
+        stocks: stocks.sort((a, b) => {
+          // 按板数排序（降序），相同板数按涨停时间排序
+          const aBoard = a.td_type || '';
+          const bBoard = b.td_type || '';
+          if (aBoard !== bBoard) return bBoard.localeCompare(aBoard);
+          return (a.limitUpTime || '').localeCompare(b.limitUpTime || '');
+        }),
+        totalStocks: stocks.length,
       };
-    }).reverse(); // 从最新日期开始显示
+    }).reverse(); // 最新日期在前
   }, [sevenDaysData, dates, sectorName]);
+
+  // 自动滚动到第一个（最新）日期
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer && sectorDailyData.length > 0 && isOpen) {
+      setTimeout(() => {
+        scrollContainer.scrollTo({ left: 0, behavior: 'smooth' });
+      }, 100);
+    }
+  }, [sectorDailyData.length, isOpen]);
 
   // 计算总统计
   const totalStats = useMemo(() => {
     const allStocks = sectorDailyData.flatMap(d => d.stocks);
-    const totalCount = allStocks.length;
-    const avgReturn = totalCount > 0
-      ? allStocks.reduce((sum, s) => sum + (s.total_return || 0), 0) / totalCount
-      : 0;
-    const totalAmount = allStocks.reduce((sum, s) => sum + (s.amount || 0), 0);
-
     return {
-      totalCount,
-      avgReturn,
-      totalAmount,
+      totalCount: allStocks.length,
       daysWithData: sectorDailyData.filter(d => d.totalStocks > 0).length,
     };
   }, [sectorDailyData]);
@@ -87,14 +87,14 @@ export default function MobileSector7DayLadderModal({
     <MobileModal
       isOpen={isOpen}
       onClose={onClose}
-      title={`${sectorName} - 7天历史`}
+      title={`${sectorName} - 7天涨停个股梯队`}
       size="large"
     >
       <div className="p-4">
         {/* 总体统计 */}
-        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 mb-4">
-          <h4 className="text-xs font-semibold text-gray-700 mb-3">📊 7天总体统计</h4>
-          <div className="grid grid-cols-4 gap-3 text-center">
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-3 mb-4">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">📊 7天总体统计</h4>
+          <div className="grid grid-cols-2 gap-3 text-center">
             <div>
               <div className="text-2xs text-gray-600 mb-1">累计个股</div>
               <div className="text-lg font-bold text-purple-600">
@@ -107,33 +107,44 @@ export default function MobileSector7DayLadderModal({
                 {totalStats.daysWithData}
               </div>
             </div>
-            <div>
-              <div className="text-2xs text-gray-600 mb-1">平均溢价</div>
-              <div className={`text-lg font-bold ${getPerformanceColorClass(totalStats.avgReturn)}`}>
-                {totalStats.avgReturn.toFixed(1)}%
-              </div>
-            </div>
-            <div>
-              <div className="text-2xs text-gray-600 mb-1">总金额</div>
-              <div className="text-lg font-bold text-orange-600">
-                {(totalStats.totalAmount / 100000000).toFixed(0)}亿
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* 按日期分组的个股列表 */}
-        <div className="space-y-3">
+        {/* 提示信息 */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3">
+          <p className="text-2xs text-blue-700 text-center">
+            💡 提示：点击任意日期列表头部可查看该日板块完整详情
+          </p>
+        </div>
+
+        {/* 横向滑动日期列表 */}
+        <div
+          ref={scrollContainerRef}
+          className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200"
+        >
           {sectorDailyData.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="w-full text-center py-8">
               <div className="text-4xl mb-2">📊</div>
               <div className="text-sm text-gray-500">暂无数据</div>
             </div>
           ) : (
             sectorDailyData.map((dayData, dayIndex) => (
-              <div key={dayData.date} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                {/* 日期标题栏 */}
-                <div className="bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2">
+              <div
+                key={dayData.date}
+                className="flex-shrink-0 w-[85vw] snap-start bg-white rounded-lg border-2 border-gray-200 overflow-hidden"
+              >
+                {/* 日期标题栏 - 可点击查看详情 */}
+                <div
+                  onClick={() => {
+                    const stocks = dayData.stocks.map(stock => ({
+                      ...stock,
+                      performance: {},
+                      total_return: 0,
+                    }));
+                    onDateClick?.(sectorName, dayData.date, stocks);
+                  }}
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 px-3 py-2 cursor-pointer active:opacity-80 transition-opacity"
+                >
                   <div className="flex items-center justify-between text-white">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold">
@@ -143,63 +154,42 @@ export default function MobileSector7DayLadderModal({
                         <span className="bg-white/20 text-2xs px-1.5 py-0.5 rounded">最新</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-2xs">
+                    <div className="flex items-center gap-2 text-2xs">
                       <span>{dayData.totalStocks}只</span>
-                      <span className={dayData.avgReturn >= 0 ? 'text-yellow-200' : 'text-green-200'}>
-                        均{dayData.avgReturn.toFixed(1)}%
-                      </span>
-                      <span>{(dayData.totalAmount / 100000000).toFixed(1)}亿</span>
+                      <span>›</span>
                     </div>
                   </div>
                 </div>
 
-                {/* 个股列表 */}
+                {/* 个股列表 - 纵列显示 */}
                 {dayData.stocks.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-gray-400">
+                  <div className="p-4 text-center text-xs text-gray-400">
                     该板块当日无涨停个股
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-gray-100 max-h-[500px] overflow-y-auto">
                     {dayData.stocks.map((stock, stockIndex) => (
                       <div
                         key={`${stock.code}-${dayData.date}`}
-                        onClick={() => onStockClick?.(stock, dayData.date)}
-                        className="p-3 hover:bg-blue-50 active:bg-blue-100 transition-colors cursor-pointer"
+                        className="p-2 hover:bg-blue-50"
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          {/* 左侧：股票信息 */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs text-gray-500">#{stockIndex + 1}</span>
-                              <span className="text-sm font-semibold text-gray-900 truncate">
-                                {stock.name}
-                              </span>
-                              {stock.td_type && (
-                                <span className="flex-shrink-0 text-2xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">
-                                  {stock.td_type}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-2xs text-gray-500">
-                              <span>{stock.code}</span>
-                              {stock.limitUpTime && (
-                                <span>⏰ {stock.limitUpTime}</span>
-                              )}
-                              {stock.amount && (
-                                <span>💰 {(stock.amount / 100000000).toFixed(2)}亿</span>
-                              )}
-                            </div>
+                        <div className="flex items-center justify-between gap-2">
+                          {/* 左侧：排名和股票信息 */}
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="text-2xs text-gray-500 flex-shrink-0">
+                              #{stockIndex + 1}
+                            </span>
+                            <span className="text-xs font-medium text-gray-900 truncate">
+                              {stock.name}
+                            </span>
                           </div>
 
-                          {/* 右侧：5日溢价 */}
-                          <div className="flex-shrink-0 text-right">
-                            <div className={`text-base font-bold ${getPerformanceColorClass(stock.total_return || 0)}`}>
-                              {stock.total_return !== undefined && stock.total_return !== null
-                                ? `${stock.total_return >= 0 ? '+' : ''}${stock.total_return.toFixed(1)}%`
-                                : '-'}
-                            </div>
-                            <div className="text-2xs text-gray-500">5日溢价</div>
-                          </div>
+                          {/* 右侧：板数 */}
+                          {stock.td_type && (
+                            <span className="flex-shrink-0 text-2xs px-2 py-0.5 rounded bg-red-100 text-red-700 font-semibold">
+                              {stock.td_type}
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
