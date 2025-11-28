@@ -22,8 +22,9 @@ export default function MobileStockView({
   on7DayRanking,
   maxDays = 30,
 }: MobileStockViewProps) {
+  // 所有日期默认展开
   const [expandedDates, setExpandedDates] = useState<Set<string>>(
-    new Set(dates.length > 0 ? [dates[0]] : [])
+    new Set(dates)
   );
   const [showLoadEarlier, setShowLoadEarlier] = useState(false);
   const [showTrendPanel, setShowTrendPanel] = useState(false); // 控制趋势面板显示
@@ -45,10 +46,10 @@ export default function MobileStockView({
     maxPullDistance: 120,
     resistance: 0.6,
   });
-
+  // 当dates变化时，自动展开所有日期
   useEffect(() => {
-    if (dates.length > 0 && !expandedDates.has(dates[0])) {
-      setExpandedDates(new Set([dates[0]]));
+    if (dates.length > 0) {
+      setExpandedDates(new Set(dates));
     }
   }, [dates]);
 
@@ -170,14 +171,13 @@ export default function MobileStockView({
                 <MobileTrendPanel sevenDaysData={sevenDaysData} dates={dates} />
               </div>
             )}
-
-            {/* 双列网格日期卡片列表 */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* 全屏横向滑动日期卡片 */}
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
               {dates.map((date) => {
                 const dayData = sevenDaysData?.[date];
                 if (!dayData) return null;
                 return (
-                  <div key={date}>
+                  <div key={date} className="flex-shrink-0 w-[96vw] snap-start">
                     <MobileDayCard
                       date={date}
                       dayData={dayData}
