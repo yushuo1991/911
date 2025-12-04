@@ -47,6 +47,7 @@ export default function MobileMultiBoardModal({
   const [filterOver10, setFilterOver10] = useState(false);
   const [sortMode, setSortMode] = useState<'board' | 'return'>('board');
   const [showChart, setShowChart] = useState(false); // 控制曲线图显示
+  const [showDebug, setShowDebug] = useState(true); // v4.29.3: 默认显示调试信息
 
   // 筛选和排序
   const processedStocks = stocks
@@ -143,6 +144,44 @@ export default function MobileMultiBoardModal({
       }
     >
       <div className="p-4">
+        {/* v4.29.3: 调试信息面板 */}
+        {showDebug && (
+          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-4 text-xs">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-bold text-yellow-800">🐛 调试信息 (v4.29.3)</div>
+              <button
+                onClick={() => setShowDebug(false)}
+                className="text-yellow-600 hover:text-yellow-800"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-1 text-yellow-900">
+              <div>接收到的stocks数量: {stocks.length}</div>
+              <div>td_type分布:</div>
+              <div className="pl-2">
+                {Object.entries(
+                  stocks.reduce((acc, s) => {
+                    const type = s.td_type || '未知';
+                    acc[type] = (acc[type] || 0) + 1;
+                    return acc;
+                  }, {} as Record<string, number>)
+                ).map(([type, count]) => (
+                  <div key={type}>• {type}: {count}只</div>
+                ))}
+              </div>
+              <div className="mt-2">
+                样本股票 (前5只):
+                {stocks.slice(0, 5).map(s => (
+                  <div key={s.code} className="pl-2">
+                    • {s.name}: "{s.td_type}" (板位{(s as any).boardNum || '?'})
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 统计信息卡片（可点击显示/隐藏曲线图） */}
         <div
           onClick={() => setShowChart(!showChart)}

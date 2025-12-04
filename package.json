@@ -1,6 +1,6 @@
 {
   "name": "stock-tracker-vercel",
-  "version": "4.29.2",
+  "version": "4.29.3",
   "description": "涨停板跟踪系统 - 支持GitHub Actions自动部署",
   "private": true,
   "scripts": {
