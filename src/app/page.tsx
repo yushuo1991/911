@@ -108,22 +108,43 @@ export default function Home() {
     const dayData = sevenDaysData?.[date];
     if (!dayData) return;
 
-    // 诊断日志：查看所有板块和股票的td_type
-    console.log(`[诊断] 日期: ${date}, 所有板块:`, Object.keys(dayData.categories));
+    // v4.29.4诊断：详细分析所有板块
+    console.log(`[诊断v4.29.4] 日期: ${date}`);
+    console.log(`[诊断] 所有板块:`, Object.keys(dayData.categories));
+
+    // 统计被排除的板块
+    const excludedSectorStocks: any[] = [];
+    const includedSectorStocks: any[] = [];
+
     Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
-      const tdTypes = stocks.map(s => s.td_type);
-      console.log(`[诊断] 板块"${sectorName}"的td_type列表:`, tdTypes);
+      const isExcluded = sectorName === '其他' || sectorName === 'ST板块';
+      console.log(`[诊断] 板块"${sectorName}" (${isExcluded ? '❌排除' : '✓包含'}): ${stocks.length}只股票`);
+      stocks.forEach(s => {
+        const boardNum = getBoardWeight(s.td_type);
+        const stockInfo = { name: s.name, td_type: s.td_type, boardNum, sector: sectorName };
+        if (isExcluded) {
+          excludedSectorStocks.push(stockInfo);
+        } else {
+          includedSectorStocks.push(stockInfo);
+        }
+      });
     });
+
+    console.log(`[诊断] 排除板块中的股票: ${excludedSectorStocks.length}只`, excludedSectorStocks.filter(s => s.boardNum >= 2));
+    console.log(`[诊断] 包含板块中的股票: ${includedSectorStocks.length}只`);
 
     // 收集所有2板及以上的个股（过滤ST和其他板块）
     const allStocks: any[] = [];
-    const filteredStocks: any[] = []; // 诊断：被过滤掉的股票
+    const filteredStocks: any[] = []; // 诊断：boardNum<2被过滤掉的股票
     Object.entries(dayData.categories)
       .filter(([sectorName]) => sectorName !== '其他' && sectorName !== 'ST板块')
       .forEach(([sectorName, stocks]) => {
         stocks.forEach(stock => {
           const boardNum = getBoardWeight(stock.td_type);
-          console.log(`[诊断] ${stock.name} (${sectorName}): td_type="${stock.td_type}", boardNum=${boardNum}`);
+          // v4.29.4：增强诊断，显示td_type和解析出的boardNum
+          if (stock.td_type.includes('连板') || stock.td_type.includes('天')) {
+            console.log(`[诊断] ${stock.name} (${sectorName}): "${stock.td_type}" => boardNum=${boardNum}`);
+          }
 
           if (boardNum >= 2) {
             const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
@@ -144,8 +165,18 @@ export default function Home() {
       });
 
     console.log(`[诊断] 通过筛选的股票数量: ${allStocks.length}`);
-    console.log(`[诊断] 被过滤的股票 (boardNum < 2):`, filteredStocks);
-    console.log(`[诊断] 通过筛选的股票:`, allStocks.map(s => ({ name: s.name, td_type: s.td_type, boardNum: s.boardNum })));
+    console.log(`[诊断] boardNum<2被过滤:`, filteredStocks);
+    console.log(`[诊断] 通过筛选的股票详情:`, allStocks.map(s => ({
+      name: s.name,
+      td_type: s.td_type,
+      boardNum: s.boardNum,
+      sector: s.sectorName
+    })));
+
+    // v4.29.4：统计连板股票
+    const lianbanStocks = allStocks.filter(s => s.td_type.includes('连板'));
+    const tianbanStocks = allStocks.filter(s => s.td_type.includes('天') && s.td_type.includes('板'));
+    console.log(`[诊断总结] 连板股票: ${lianbanStocks.length}只, X天Y板股票: ${tianbanStocks.length}只`);
 
     setMultiBoardData({
       date,
