@@ -39,23 +39,26 @@ export function formatTradingDate(tradingDate: string): string {
 }
 
 export function getBoardWeight(boardType: string): number {
+  // v4.29.2修复：去除空格，提高板位识别准确性
+  const trimmedType = (boardType || '').trim();
+
   // 处理各种板位类型，提取板位数字
-  if (boardType === '首板' || boardType === '首') return 1;
+  if (trimmedType === '首板' || trimmedType === '首') return 1;
 
   // 处理连板类型：2连板、3连板等
-  const lianbanMatch = boardType.match(/(\d+)连板/);
+  const lianbanMatch = trimmedType.match(/(\d+)连板/);
   if (lianbanMatch) return parseInt(lianbanMatch[1]);
 
   // 处理X天Y板类型：5天4板、3天2板等
-  const tianbanMatch = boardType.match(/\d+天(\d+)板/);
+  const tianbanMatch = trimmedType.match(/\d+天(\d+)板/);
   if (tianbanMatch) return parseInt(tianbanMatch[1]);
 
   // 处理纯数字+板类型：2板、3板、4板等
-  const numbanMatch = boardType.match(/^(\d+)板$/);
+  const numbanMatch = trimmedType.match(/^(\d+)板$/);
   if (numbanMatch) return parseInt(numbanMatch[1]);
 
   // 处理中文数字+板：二板、三板等
-  return BOARD_WEIGHTS[boardType as BoardType] || 1;
+  return BOARD_WEIGHTS[trimmedType as BoardType] || 1;
 }
 
 export function getBoardClass(boardType: string): string {
