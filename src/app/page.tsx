@@ -108,13 +108,23 @@ export default function Home() {
     const dayData = sevenDaysData?.[date];
     if (!dayData) return;
 
+    // 诊断日志：查看所有板块和股票的td_type
+    console.log(`[诊断] 日期: ${date}, 所有板块:`, Object.keys(dayData.categories));
+    Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
+      const tdTypes = stocks.map(s => s.td_type);
+      console.log(`[诊断] 板块"${sectorName}"的td_type列表:`, tdTypes);
+    });
+
     // 收集所有2板及以上的个股（过滤ST和其他板块）
     const allStocks: any[] = [];
+    const filteredStocks: any[] = []; // 诊断：被过滤掉的股票
     Object.entries(dayData.categories)
       .filter(([sectorName]) => sectorName !== '其他' && sectorName !== 'ST板块')
       .forEach(([sectorName, stocks]) => {
         stocks.forEach(stock => {
           const boardNum = getBoardWeight(stock.td_type);
+          console.log(`[诊断] ${stock.name} (${sectorName}): td_type="${stock.td_type}", boardNum=${boardNum}`);
+
           if (boardNum >= 2) {
             const followUpData = dayData.followUpData[sectorName]?.[stock.code] || {};
             const total_return = Object.values(followUpData).reduce((sum, val) => sum + val, 0);
@@ -127,9 +137,15 @@ export default function Home() {
               performance: followUpData, // 修复：使用performance字段名
               total_return,
             });
+          } else {
+            filteredStocks.push({ name: stock.name, td_type: stock.td_type, boardNum });
           }
         });
       });
+
+    console.log(`[诊断] 通过筛选的股票数量: ${allStocks.length}`);
+    console.log(`[诊断] 被过滤的股票 (boardNum < 2):`, filteredStocks);
+    console.log(`[诊断] 通过筛选的股票:`, allStocks.map(s => ({ name: s.name, td_type: s.td_type, boardNum: s.boardNum })));
 
     setMultiBoardData({
       date,
