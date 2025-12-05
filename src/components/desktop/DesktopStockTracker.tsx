@@ -316,9 +316,8 @@ export default function Home() {
 
     Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
       stocks.forEach(stock => {
-        // 解析连板数
-        const boardMatch = stock.td_type.match(/(\d+)板/);
-        const boardNum = boardMatch ? parseInt(boardMatch[1]) : 1;
+        // v4.29.6修复：使用getBoardWeight函数正确解析连板数（修复连板股票丢失bug）
+        const boardNum = getBoardWeight(stock.td_type);
 
         // 只收集2板及以上的个股，并且过滤ST个股
         if (boardNum >= 2 && !stock.name.toUpperCase().includes('ST')) {
