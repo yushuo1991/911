@@ -154,8 +154,9 @@ export async function getValidTradingDays(startDate: string, count: number = 5):
   const tradingDays: string[] = [];
 
   // 计算查询范围（考虑节假日影响，扩大查询范围）
+  // v4.30.1修复：扩大到7倍查询范围，确保能获取足够的交易日（特别是跨年、长假期时）
   const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + Math.max(count * 5, 30)); // 扩大5倍查询范围，最少30天
+  endDate.setDate(endDate.getDate() + Math.max(count * 7, 45)); // 扩大7倍查询范围，最少45天
 
   const startDateStr = startDate.replace(/-/g, '');
   const endDateStr = endDate.toISOString().split('T')[0].replace(/-/g, '');
