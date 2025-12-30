@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
   import { generateTradingDays, generateMockPerformance, sortStocksByBoard, calculateStats } from '@/lib/utils';
   import { stockDatabase } from '@/lib/database';
   import { get7TradingDaysFromCalendar, getValidTradingDays } from '@/lib/enhanced-trading-calendar';
+  import { limitUpClient } from '@/lib/limit-up-client';
+  import { tushareClient } from '@/lib/tushare-client';
+  import { toTushareCode, formatDateToCompact } from '@/lib/stock-code-utils';
 
   const TUSHARE_TOKEN = process.env.TUSHARE_TOKEN || '';
 
@@ -251,148 +254,11 @@ import { NextRequest, NextResponse } from 'next/server';
     try {
       console.log(`[API] 尝试获取${date}的涨停个股数据`);
 
-      const url = 'https://apphis.longhuvip.com/w1/api/index.php';
+      // 使用limitUpClient获取数据
+      const stocks = await limitUpClient.getLimitUpStocks(date);
 
-      // 构建POST请求数据 - 使用正确的参数名和日期格式
-      const formData = new URLSearchParams({
-        Date: date.replace(/-/g, ''),  // 大写Date，转换为YYYYMMDD格式
-        Index: '0',
-        PhoneOSNew: '2',
-        VerSion: '5.21.0.1',
-        a: 'GetPlateInfo_w38',
-        apiv: 'w42',
-        c: 'HisLimitResumption',
-        st: '20'
-      });
-
-      console.log(`[API] 请求URL: ${url}`);
-      console.log(`[API] 请求参数: ${formData.toString()}`);
-
-      // 设置15秒超时
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
-          'Accept': '*/*',
-          'User-Agent': 'lhb/5.21.1 (com.kaipanla.www; build:1; iOS 18.6.2) Alamofire/4.9.1',
-          'Accept-Language': 'zh-Hans-CN;q=1.0, en-CN;q=0.9',
-          'Accept-Encoding': 'gzip, deflate',
-          'Connection': 'keep-alive'
-        },
-        body: formData,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const responseText = await response.text();
-      console.log(`[API] 响应状态: ${response.status}`);
-      console.log(`[API] 响应头: ${JSON.stringify(Object.fromEntries(response.headers))}`);
-      console.log(`[API] 完整响应: ${responseText}`);
-
-      let data: LimitUpApiResponse;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error(`[API] JSON解析失败: ${parseError}`);
-        console.error(`[API] 响应内容: ${responseText}`);
-        throw new Error(`API返回的不是有效的JSON格式`);
-      }
-
-      // 处理API返回的list数据格式
-      if (data.list && Array.isArray(data.list)) {
-        const stocks: Stock[] = [];
-
-        data.list.forEach(category => {
-          const zsName = category.ZSName || '未分类';
-
-          if (category.StockList && Array.isArray(category.StockList)) {
-            // 逆序处理股票列表，让首板股票显示在最下面
-            const reversedStockList = [...category.StockList].reverse();
-            reversedStockList.forEach((stockData: any[]) => {
-              // stockData是一个数组，索引说明：
-              // [0]: 股票代码, [1]: 股票名称, [9]: 板位类型
-              // [6]: 成交额（元）- v4.8.8新增
-              // [7]: 涨停时间（格式：HH:MM）- v4.8.24新增
-              const rawStockCode = stockData[0];
-              const stockCode = normalizeStockCode(rawStockCode); // v4.20.2：规范化代码
-              const stockName = stockData[1];
-              const tdType = stockData[9] || '首板';
-              const amountInYuan = parseFloat(stockData[6]) || 0; // 成交额（元）
-              const amountInYi = amountInYuan / 100000000; // 转换为亿元
-              const limitUpTime = stockData[7] || '09:30'; // 涨停时间，默认9:30
-
-              // 调试日志：记录前3个股票的完整数组结构
-              if (stocks.length < 3) {
-                console.log(`[API] stockData数组结构 [${stockName}]:`, JSON.stringify(stockData.slice(0, 15)));
-                console.log(`[API] 涨停时间 (索引7): ${stockData[7]}, 板位类型 (索引9): ${stockData[9]}`);
-              }
-
-              stocks.push({
-                StockName: stockName,
-                StockCode: stockCode,
-                ZSName: zsName,
-                TDType: tdType,
-                Amount: Math.round(amountInYi * 100) / 100, // 保留2位小数
-                LimitUpTime: limitUpTime // v4.8.24新增：涨停时间
-              });
-            });
-          }
-        });
-
-        if (stocks.length > 0) {
-          console.log(`[API] 成功解析list数据，${stocks.length}只股票`);
-          // v4.8.25诊断：检查前5个股票的涨停时间分布
-          const timeDistribution = new Map<string, number>();
-          stocks.slice(0, Math.min(20, stocks.length)).forEach(stock => {
-            const time = stock.LimitUpTime || 'undefined';
-            timeDistribution.set(time, (timeDistribution.get(time) || 0) + 1);
-          });
-          console.log(`[API] 前20个股票涨停时间分布:`, Object.fromEntries(timeDistribution));
-          return stocks;
-        }
-      }
-
-      // 兼容处理原有的数据格式
-      if (data.data && Array.isArray(data.data)) {
-        console.log(`[API] 成功获取直接数据，${data.data.length}只股票`);
-        return data.data;
-      } else if (data.List && Array.isArray(data.List)) {
-        const stocks: Stock[] = [];
-        data.List.forEach(list => {
-          if (list.TD && Array.isArray(list.TD)) {
-            list.TD.forEach(td => {
-              if (td.Stock && Array.isArray(td.Stock)) {
-                td.Stock.forEach(stock => {
-                  const zsName = stock.ZSName || td.ZSName || list.ZSName || '未分类';
-                  const tdType = stock.TDType || td.TDType || '首板';
-
-                  stocks.push({
-                    StockName: stock.StockName,
-                    StockCode: stock.StockID,
-                    ZSName: zsName,
-                    TDType: tdType
-                  });
-                });
-              }
-            });
-          }
-        });
-
-        if (stocks.length > 0) {
-          console.log(`[API] 成功解析列表数据，${stocks.length}只股票`);
-          return stocks;
-        }
-      }
-
-      throw new Error('API返回数据格式异常');
+      console.log(`[API] 成功获取数据，${stocks.length}只股票`);
+      return stocks;
 
     } catch (error) {
       const err = error as any;
@@ -453,17 +319,9 @@ function normalizeStockCode(rawCode: string): string {
   return code;
 }
 
-// 转换股票代码格式为Tushare格式
+// 转换股票代码格式为Tushare格式 (使用统一工具函数)
 function convertStockCodeForTushare(stockCode: string): string {
-  // 股票代码格式转换：000001 -> 000001.SZ, 600000 -> 600000.SH
-  if (stockCode.startsWith('60') || stockCode.startsWith('68') || stockCode.startsWith('51')) {
-    return `${stockCode}.SH`; // 上交所
-  } else if (stockCode.startsWith('00') || stockCode.startsWith('30') || stockCode.startsWith('12')) {
-    return `${stockCode}.SZ`; // 深交所
-  } else if (stockCode.startsWith('43') || stockCode.startsWith('83') || stockCode.startsWith('87')) {
-    return `${stockCode}.BJ`; // 北交所
-  }
-  return `${stockCode}.SZ`; // 默认深交所
+  return toTushareCode(stockCode);
 }
 
   // v4.8.18新增：使用Tushare API批量获取个股真实成交额

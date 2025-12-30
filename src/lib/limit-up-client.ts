@@ -13,12 +13,12 @@ interface LimitUpStock {
 }
 
 interface LimitUpApiResponse {
-  code: number;
-  msg: string;
-  data: {
-    Count: number;
-    DataInfoList: LimitUpStock[];
-  };
+  list?: Array<{
+    ZSName: string;
+    StockList: Array<any>;
+  }>;
+  data?: Array<any>;
+  List?: Array<any>;
 }
 
 /**
@@ -26,7 +26,7 @@ interface LimitUpApiResponse {
  */
 class LimitUpClient {
   private static instance: LimitUpClient;
-  private readonly API_URL = 'https://flash-api.10jqka.com.cn/api/v1/stock_rank/real_time/limit_up';
+  private readonly API_URL = 'https://apphis.longhuvip.com/w1/api/index.php';
 
   // 涨停数据缓存 (5分钟)
   private cache: Map<string, { data: LimitUpStock[]; timestamp: number }> = new Map();
@@ -60,12 +60,26 @@ class LimitUpClient {
       // 转换日期格式：YYYY-MM-DD -> YYYYMMDD
       const dateParam = date.replace(/-/g, '');
 
-      const response = await fetch(`${this.API_URL}?date=${dateParam}`, {
-        method: 'GET',
+      // 构建POST请求数据
+      const formData = new URLSearchParams({
+        Date: dateParam,
+        Index: '0',
+        PhoneOSNew: '2',
+        VerSion: '5.21.0.1',
+        a: 'GetPlateInfo_w38',
+        apiv: 'w42',
+        c: 'HisLimitResumption',
+        st: '20'
+      });
+
+      const response = await fetch(this.API_URL, {
+        method: 'POST',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+          'Accept': '*/*',
+          'User-Agent': 'lhb/5.21.1 (com.kaipanla.www; build:1; iOS 18.6.2) Alamofire/4.9.1',
         },
+        body: formData,
         signal: AbortSignal.timeout(15000), // 15秒超时
       });
 
@@ -75,32 +89,53 @@ class LimitUpClient {
 
       const result: LimitUpApiResponse = await response.json();
 
-      if (result.code !== 0 || !result.data) {
-        throw new Error(`涨停API错误: ${result.msg || '未知错误'}`);
+      // 解析list格式数据
+      const stocks: LimitUpStock[] = [];
+
+      if (result.list && Array.isArray(result.list)) {
+        result.list.forEach(category => {
+          const zsName = category.ZSName || '其他';
+
+          if (category.StockList && Array.isArray(category.StockList)) {
+            const reversedStockList = [...category.StockList].reverse();
+            reversedStockList.forEach((stockData: any[]) => {
+              const stockCode = stockData[0];
+              const stockName = stockData[1];
+              const tdType = stockData[9] || '首板';
+              const amountInYuan = parseFloat(stockData[6]) || 0;
+              const amountInYi = amountInYuan / 100000000;
+              const limitUpTime = stockData[7] || '09:30';
+
+              // 数据清洗：过滤无效数据
+              if (
+                stockCode &&
+                stockName &&
+                !stockName.includes('退市') &&
+                !stockCode.startsWith('4') &&
+                !stockCode.startsWith('8')
+              ) {
+                stocks.push({
+                  StockCode: stockCode,
+                  StockName: stockName,
+                  ZSName: zsName,
+                  TDType: tdType,
+                  Amount: Math.round(amountInYi * 100) / 100,
+                  LimitUpTime: limitUpTime
+                });
+              }
+            });
+          }
+        });
       }
-
-      const data = result.data.DataInfoList || [];
-
-      // 数据清洗：过滤掉无效数据
-      const cleanedData = data.filter((stock) => {
-        return (
-          stock.StockCode &&
-          stock.StockName &&
-          stock.TDType &&
-          !stock.StockName.includes('退市') &&
-          !stock.StockCode.startsWith('4') && // 过滤北交所
-          !stock.StockCode.startsWith('8') // 过滤北交所
-        );
-      });
 
       // 存入缓存
       this.cache.set(cacheKey, {
-        data: cleanedData,
+        data: stocks,
         timestamp: Date.now(),
       });
 
-      console.log(`[LimitUpClient] 涨停数据查询成功: ${date}, 共${cleanedData.length}只`);
-      return cleanedData;
+      console.log(`[LimitUpClient] 涨停数据查询成功: ${date}, 共${stocks.length}只`);
+      return stocks;
     } catch (error) {
       console.error(`[LimitUpClient] 涨停数据查询失败 (${date}):`, error);
       throw error;

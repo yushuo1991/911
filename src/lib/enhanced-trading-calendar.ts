@@ -1,6 +1,8 @@
 // ===== 增强的交易日历管理系统 =====
 // 完整实现Tushare trade_cal接口集成，替换所有基于周末判断的简单日期逻辑
 
+import { tushareClient } from './tushare-client';
+
 // 交易日历缓存结构
 interface TradingCalendarCache {
   data: Map<string, boolean>;
@@ -12,24 +14,6 @@ interface TradingCalendarCache {
 class TradingCalendarManager {
   private cache: TradingCalendarCache | null = null;
   private readonly CACHE_DURATION = 4 * 60 * 60 * 1000; // 4小时缓存
-  private readonly TUSHARE_TOKEN = '2876ea85cb005fb5fa17c809a98174f2d5aae8b1f830110a5ead6211';
-  private requestTimes: number[] = [];
-  private readonly MAX_REQUESTS_PER_MINUTE = 60; // 保守的频率限制
-
-  // 频率控制
-  private async checkAndWait(): Promise<void> {
-    const now = Date.now();
-    this.requestTimes = this.requestTimes.filter(time => now - time < 60000);
-
-    if (this.requestTimes.length >= this.MAX_REQUESTS_PER_MINUTE) {
-      const oldestRequest = Math.min(...this.requestTimes);
-      const waitTime = 60000 - (now - oldestRequest) + 1000;
-      console.log(`[交易日历] 频率控制等待: ${waitTime}ms`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-
-    this.requestTimes.push(now);
-  }
 
   // 获取交易日历（带智能缓存和错误处理）
   async getTradingCalendar(startDate: string, endDate: string): Promise<Map<string, boolean>> {
@@ -42,81 +26,34 @@ class TradingCalendarManager {
     }
 
     try {
-      // 频率控制
-      await this.checkAndWait();
-
       console.log(`[交易日历] 从Tushare获取交易日历: ${startDate} ~ ${endDate}`);
 
-      // 添加超时控制
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      // 使用tushareClient获取交易日历
+      const calendarItems = await tushareClient.getTradingCalendar(startDate, endDate);
 
-      const response = await fetch('https://api.tushare.pro', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          api_name: 'trade_cal',
-          token: this.TUSHARE_TOKEN,
-          params: {
-            exchange: 'SSE',
-            start_date: startDate,
-            end_date: endDate,
-            is_open: '1' // 只获取交易日
-          },
-          fields: 'cal_date'
-        }),
-        signal: controller.signal
+      // 过滤交易日（is_open === 1）
+      const tradingDays = calendarItems.filter(item => item.is_open === 1);
+
+      console.log(`[交易日历] 成功获取${tradingDays.length}条交易日历数据`);
+
+      // 构建新缓存
+      const calendarData = new Map<string, boolean>();
+      tradingDays.forEach(item => {
+        calendarData.set(item.cal_date, true); // 只有交易日才被设置
       });
 
-      clearTimeout(timeoutId);
+      // 更新缓存
+      this.cache = {
+        data: calendarData,
+        timestamp: now,
+        expiry: now + this.CACHE_DURATION
+      };
 
-      if (!response.ok) {
-        throw new Error(`Tushare交易日历API HTTP error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // 检查频率限制
-      if (data.msg && data.msg.includes('每分钟最多访问该接口')) {
-        console.log(`[交易日历] Tushare频率限制: ${data.msg}`);
-        throw new Error('RATE_LIMIT');
-      }
-
-      if (data.code === 0 && data.data && data.data.items) {
-        console.log(`[交易日历] 成功获取${data.data.items.length}条交易日历数据`);
-
-        // 构建新缓存
-        const calendarData = new Map<string, boolean>();
-        data.data.items.forEach((item: any[]) => {
-          const calDate = item[0]; // cal_date
-          calendarData.set(calDate, true); // 只有交易日才会被返回
-        });
-
-        // 更新缓存
-        this.cache = {
-          data: calendarData,
-          timestamp: now,
-          expiry: now + this.CACHE_DURATION
-        };
-
-        console.log(`[交易日历] 缓存更新完成，包含${calendarData.size}个交易日`);
-        return calendarData;
-
-      } else {
-        throw new Error(`交易日历API返回无效数据: ${JSON.stringify(data)}`);
-      }
+      console.log(`[交易日历] 缓存更新完成，包含${calendarData.size}个交易日`);
+      return calendarData;
 
     } catch (error) {
-      const err = error as any;
-      if (err.name === 'AbortError') {
-        console.error(`[交易日历] 请求超时`);
-      } else if (err.message === 'RATE_LIMIT') {
-        console.error(`[交易日历] 频率限制`);
-      } else {
-        console.error(`[交易日历] 获取失败:`, error);
-      }
+      console.error(`[交易日历] 获取失败:`, error);
 
       // 返回空缓存，将降级到周末过滤逻辑
       return new Map();
