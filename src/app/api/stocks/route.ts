@@ -23,10 +23,24 @@ import { NextRequest, NextResponse } from 'next/server';
     private cache = new Map<string, CacheEntry>();
     private sevenDaysCache = new Map<string, SevenDaysCacheEntry>();
     private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24小时
-    private readonly SEVEN_DAYS_CACHE_DURATION = 5 * 60 * 1000; // 7天数据缓存5分钟（v4.8.9修复：浏览器缓存问题）
 
     private getCacheKey(stockCode: string, tradingDays: string[]): string {
       return `${stockCode}:${tradingDays.join(',')}`;
+    }
+
+    /**
+     * 智能计算7天缓存的TTL
+     * - 包含当天数据：30分钟（数据可能更新）
+     * - 历史数据：24小时（不会变化）
+     */
+    private getSevenDaysCacheTTL(dates: string[]): number {
+      const today = new Date().toISOString().split('T')[0];
+      const hasToday = dates.includes(today);
+
+      if (hasToday) {
+        return 30 * 60 * 1000; // 30分钟
+      }
+      return 24 * 60 * 60 * 1000; // 24小时
     }
 
     get(stockCode: string, tradingDays: string[]): Record<string, number> | null {
@@ -79,16 +93,18 @@ import { NextRequest, NextResponse } from 'next/server';
       return entry.data;
     }
 
-    set7DaysCache(cacheKey: string, data: Record<string, any>): void {
+    set7DaysCache(cacheKey: string, data: Record<string, any>, dates: string[]): void {
       const now = Date.now();
+      const ttl = this.getSevenDaysCacheTTL(dates);
 
       this.sevenDaysCache.set(cacheKey, {
         data,
         timestamp: now,
-        expiry: now + this.SEVEN_DAYS_CACHE_DURATION
+        expiry: now + ttl
       });
 
-      console.log(`[7天缓存] 存储数据: ${cacheKey}`);
+      const ttlMinutes = Math.round(ttl / 60000);
+      console.log(`[7天缓存] 存储数据: ${cacheKey}, TTL: ${ttlMinutes}分钟`);
     }
 
     getStats(): { size: number; hitRate: number; sevenDaysSize: number } {
@@ -980,8 +996,8 @@ function convertStockCodeForTushare(stockCode: string): string {
       if (dbCachedResult) {
         console.log(`[API] 使用7天数据库缓存数据`);
 
-        // 存储到内存缓存
-        stockCache.set7DaysCache(cacheKey, dbCachedResult.data);
+        // 存储到内存缓存（使用智能TTL）
+        stockCache.set7DaysCache(cacheKey, dbCachedResult.data, dbCachedResult.dates);
 
         return NextResponse.json({
           success: true,
@@ -1105,8 +1121,8 @@ function convertStockCodeForTushare(stockCode: string): string {
 
     console.log(`[API] 7天数据处理完成，存储到缓存`);
 
-    // 缓存7天数据结果到内存，减少后续API调用
-    stockCache.set7DaysCache(cacheKey, result);
+    // 缓存7天数据结果到内存，减少后续API调用（使用智能TTL）
+    stockCache.set7DaysCache(cacheKey, result, sevenDays);
 
     // 也缓存到数据库
     try {

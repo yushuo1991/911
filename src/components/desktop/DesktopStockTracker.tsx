@@ -161,6 +161,35 @@ export default function Home() {
     setLoading(true);
     setError(null);
 
+    // 前端缓存检查（localStorage）
+    const cacheKey = `stock-7days-${range}-${getTodayString()}`;
+    const CACHE_TTL = 5 * 60 * 1000; // 5分钟
+
+    try {
+      // 尝试从localStorage读取缓存
+      const cachedData = localStorage.getItem(cacheKey);
+      if (cachedData) {
+        const { data, dates: cachedDates, timestamp } = JSON.parse(cachedData);
+        const age = Date.now() - timestamp;
+
+        // 5分钟内复用缓存
+        if (age < CACHE_TTL) {
+          console.log(`[前端缓存] 命中缓存，缓存时间: ${Math.round(age / 1000)}秒前`);
+          setSevenDaysData(data);
+          setDates(cachedDates);
+          setDateRange(range);
+          setLoading(false);
+          return;
+        } else {
+          console.log(`[前端缓存] 缓存已过期，重新获取数据`);
+          localStorage.removeItem(cacheKey);
+        }
+      }
+    } catch (cacheError) {
+      console.warn('[前端缓存] 读取缓存失败:', cacheError);
+      // 缓存读取失败不影响正常流程，继续执行
+    }
+
     try {
       const endDate = getTodayString();
       // 如果range > 7，需要批量获取多个7天数据段
@@ -172,6 +201,18 @@ export default function Home() {
           setSevenDaysData(result.data);
           setDates(result.dates || []);
           setDateRange(range);
+
+          // 存储到localStorage
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({
+              data: result.data,
+              dates: result.dates || [],
+              timestamp: Date.now()
+            }));
+            console.log(`[前端缓存] 数据已缓存`);
+          } catch (cacheError) {
+            console.warn('[前端缓存] 存储缓存失败:', cacheError);
+          }
         } else {
           setError(result.error || '获取数据失败');
         }

@@ -1,0 +1,56 @@
+name: Data Preload Cron
+
+# 每个工作日北京时间16:10执行（UTC 08:10）
+on:
+  schedule:
+    - cron: '10 8 * * 1-5'  # 周一到周五 UTC 08:10 = 北京时间 16:10
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  preload-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Preload Recent 6 Days Data
+        run: |
+          echo "⏰ 触发数据预加载任务..."
+          echo "📅 北京时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+
+          # 调用预加载API
+          response=$(curl -s -w "\n%{http_code}" \
+            -X POST "https://bk.yushuo.click/api/cron?action=preload_recent" \
+            -H "Authorization: Bearer cron-token-2025" \
+            --max-time 300)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP状态码: $http_code"
+          echo "响应内容: $body"
+
+          if [ "$http_code" = "200" ]; then
+            echo "✅ 数据预加载成功"
+          else
+            echo "❌ 数据预加载失败"
+            exit 1
+          fi
+
+      - name: Preload Current Day Full Data
+        run: |
+          echo "📊 预加载当天完整7天数据..."
+
+          today=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
+
+          response=$(curl -s -w "\n%{http_code}" \
+            -X GET "https://bk.yushuo.click/api/stocks?date=${today}&mode=7days" \
+            --max-time 120)
+
+          http_code=$(echo "$response" | tail -n1)
+
+          echo "HTTP状态码: $http_code"
+
+          if [ "$http_code" = "200" ]; then
+            echo "✅ 7天数据缓存预热成功"
+          else
+            echo "⚠️  7天数据缓存预热失败（可能是数据库问题）"
+          fi
