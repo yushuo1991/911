@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { SevenDaysData, DayData, SectorSummary, StockPerformance } from '@/types/stock';
 import { getPerformanceClass, getPerformanceColorClass, getTodayString, formatDate, getBoardWeight } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
@@ -100,6 +100,9 @@ export default function Home() {
   // 新增：星期模态框筛选和排序状态
   const [showOnly10PlusInMultiBoardModal, setShowOnly10PlusInMultiBoardModal] = useState(false);
   const [multiBoardModalSortMode, setMultiBoardModalSortMode] = useState<'board' | 'return'>('board');
+
+  // 新增：7天板块高度弹窗状态
+  const [showSectorHeightModal, setShowSectorHeightModal] = useState(false);
 
 
   // generate7TradingDays 函数已移除
@@ -630,6 +633,15 @@ export default function Home() {
     setSingleStockChartData(null);
   };
 
+  // 打开7天板块高度弹窗
+  const handleOpenSectorHeightModal = () => {
+    setShowSectorHeightModal(true);
+  };
+
+  // 关闭7天板块高度弹窗
+  const closeSectorHeightModal = () => {
+    setShowSectorHeightModal(false);
+  };
 
   // 处理日期列点击 - 显示该日期个股的后续5天溢价详情
   const handleDateColumnClick = (date: string, stocks: StockPerformance[], sectorName: string) => {
@@ -853,6 +865,134 @@ export default function Home() {
     return rankedSectors;
   }, [sevenDaysData, dates]);
 
+  // 新增：7天板块高度数据处理
+  const getSectorHeightData = useMemo(() => {
+    if (!sevenDaysData || !dates || dates.length === 0) return [];
+
+    // Step 1: 收集所有板块的最高板信息
+    const sectorMap = new Map<string, {
+      sectorName: string;
+      dailyData: Array<{
+        date: string;
+        highestStock: {
+          code: string;
+          name: string;
+          boardNum: number;
+          td_type: string;
+        } | null;
+        maxBoardNum: number;
+      }>;
+      peakBoardNum: number;
+      peakStockCode: string;
+      peakStockName: string;
+      peakDate: string;
+    }>();
+
+    // Step 2: 遍历每一天，找出每个板块的最高板个股
+    dates.forEach(date => {
+      const dayData = sevenDaysData[date];
+      if (!dayData) return;
+
+      Object.entries(dayData.categories).forEach(([sectorName, stocks]) => {
+        // 排除"其他"和"ST板块"
+        if (sectorName === '其他' || sectorName === 'ST板块') return;
+
+        // 找出该板块当天的最高板个股
+        let maxBoardNum = 0;
+        let highestStock: any = null;
+
+        stocks.forEach(stock => {
+          const boardNum = getBoardWeight(stock.td_type);
+          if (boardNum > maxBoardNum) {
+            maxBoardNum = boardNum;
+            highestStock = {
+              code: stock.code,
+              name: stock.name,
+              boardNum: boardNum,
+              td_type: stock.td_type
+            };
+          }
+        });
+
+        // 初始化板块数据
+        if (!sectorMap.has(sectorName)) {
+          sectorMap.set(sectorName, {
+            sectorName,
+            dailyData: [],
+            peakBoardNum: 0,
+            peakStockCode: '',
+            peakStockName: '',
+            peakDate: ''
+          });
+        }
+
+        const sectorData = sectorMap.get(sectorName)!;
+
+        // 更新峰值板数
+        if (maxBoardNum > sectorData.peakBoardNum) {
+          sectorData.peakBoardNum = maxBoardNum;
+          sectorData.peakStockCode = highestStock?.code || '';
+          sectorData.peakStockName = highestStock?.name || '';
+          sectorData.peakDate = date;
+        }
+
+        // 添加当天数据
+        sectorData.dailyData.push({
+          date,
+          highestStock,
+          maxBoardNum
+        });
+      });
+    });
+
+    // Step 3: 筛选峰值≥4的板块
+    const filteredSectors = Array.from(sectorMap.values())
+      .filter(sector => sector.peakBoardNum >= 4)
+      .sort((a, b) => b.peakBoardNum - a.peakBoardNum);
+
+    // Step 4: 为每个板块补充追踪股票的完整数据
+    filteredSectors.forEach(sector => {
+      // 从峰值日开始追踪那只股票
+      const trackedStockCode = sector.peakStockCode;
+      const trackedStockName = sector.peakStockName;
+
+      sector.dailyData.forEach((dayData) => {
+        const date = dayData.date;
+        const dayDataObj = sevenDaysData[date];
+        if (!dayDataObj) return;
+
+        // 检查追踪的股票是否在当天涨停
+        const sectorStocks = dayDataObj.categories[sector.sectorName] || [];
+        const trackedStockInList = sectorStocks.find(s => s.code === trackedStockCode);
+
+        if (trackedStockInList) {
+          // 股票在涨停列表中，说明连续涨停
+          (dayData as any).isLimitUp = true;
+          (dayData as any).trackedStockCode = trackedStockCode;
+          (dayData as any).trackedStockName = trackedStockName;
+          (dayData as any).boardNum = getBoardWeight(trackedStockInList.td_type);
+          (dayData as any).changePercent = null;
+        } else {
+          // 股票不在涨停列表中，说明断板
+          (dayData as any).isLimitUp = false;
+          (dayData as any).trackedStockCode = trackedStockCode;
+          (dayData as any).trackedStockName = trackedStockName;
+          (dayData as any).boardNum = null;
+
+          // 从峰值日的followUpData中获取涨跌幅
+          const peakDayData = sevenDaysData[sector.peakDate];
+          const sectorFollowUpData = peakDayData?.followUpData[sector.sectorName];
+          const stockFollowUpData = sectorFollowUpData?.[trackedStockCode];
+          const changePercent = stockFollowUpData?.[date];
+
+          (dayData as any).changePercent = changePercent !== undefined ? changePercent : null;
+        }
+      });
+    });
+
+    return filteredSectors;
+  }, [sevenDaysData, dates]);
+
   // v4.8.24新增：准备板块曲线图数据
   const prepareSectorChartData = useMemo(() => {
     if (!sevenDaysData || !dates || dates.length === 0) return [];
@@ -945,6 +1085,196 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-3">
+      {/* 7天板块高度弹窗 - 新增 */}
+      {showSectorHeightModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl p-6 w-[98vw] max-w-[98vw] max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
+            <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900">
+                📊 7天板块高度走势（最高板≥4）
+              </h3>
+              <button
+                onClick={closeSectorHeightModal}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4 bg-blue-50 rounded-lg p-3">
+              <h4 className="text-sm font-semibold text-blue-800 mb-2">📊 图表说明</h4>
+              <ul className="text-blue-700 text-xs space-y-1">
+                <li>• <strong>实线</strong>：个股连续涨停期间，Y轴为板位高度（如4板、5板）</li>
+                <li>• <strong>虚线</strong>：个股断板后，Y轴为每日涨跌幅%（数值直接标注在数据点旁）</li>
+                <li>• <strong>断点</strong>：几天几板情况下（如4天3板），未涨停的那天折线有断点</li>
+                <li>• <strong>追踪逻辑</strong>：追踪7天内达到最高板的个股（如第1天A股票4板，第2天B股票5板，则追踪B股票）</li>
+              </ul>
+            </div>
+
+            {/* 图表区域 */}
+            <div className="flex-1 overflow-auto">
+              {getSectorHeightData.length > 0 ? (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6">
+                  <ResponsiveContainer width="100%" height={500}>
+                    <LineChart
+                      data={(() => {
+                        // 转换数据为Recharts格式
+                        const chartData: any[] = [];
+
+                        dates.forEach((date, dateIndex) => {
+                          const dataPoint: any = {
+                            date: formatDate(date).slice(5), // MM-DD格式
+                            fullDate: date
+                          };
+
+                          getSectorHeightData.forEach(sector => {
+                            const dayData = sector.dailyData.find(d => d.date === date);
+                            if (!dayData) return;
+
+                            const isLimitUp = (dayData as any).isLimitUp;
+                            const boardNum = (dayData as any).boardNum;
+                            const changePercent = (dayData as any).changePercent;
+
+                            if (isLimitUp && boardNum !== null) {
+                              // 实线：连续涨停，显示板位高度
+                              dataPoint[`${sector.sectorName}_solid`] = boardNum;
+                              dataPoint[`${sector.sectorName}_dashed`] = null;
+                            } else if (!isLimitUp && changePercent !== null) {
+                              // 虚线：断板后，显示涨跌幅%
+                              dataPoint[`${sector.sectorName}_solid`] = null;
+                              dataPoint[`${sector.sectorName}_dashed`] = changePercent;
+                            } else {
+                              // 数据缺失，两者都为null（产生断点）
+                              dataPoint[`${sector.sectorName}_solid`] = null;
+                              dataPoint[`${sector.sectorName}_dashed`] = null;
+                            }
+                          });
+
+                          chartData.push(dataPoint);
+                        });
+
+                        return chartData;
+                      })()}
+                      margin={{ top: 20, right: 80, bottom: 20, left: 80 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12 }}
+                        label={{ value: '日期', position: 'insideBottom', offset: -10 }}
+                      />
+                      <YAxis
+                        yAxisId="board"
+                        tick={{ fontSize: 12 }}
+                        domain={[0, 'dataMax + 1']}
+                        label={{ value: '板位高度', angle: -90, position: 'insideLeft', style: { fontSize: 14, fontWeight: 'bold' } }}
+                      />
+                      <YAxis
+                        yAxisId="percent"
+                        orientation="right"
+                        tick={{ fontSize: 12 }}
+                        domain={['dataMin - 2', 'dataMax + 2']}
+                        label={{ value: '涨跌幅(%)', angle: 90, position: 'insideRight', style: { fontSize: 14, fontWeight: 'bold' } }}
+                      />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                        labelStyle={{ fontWeight: 'bold', marginBottom: '8px' }}
+                      />
+                      <Legend
+                        wrapperStyle={{ paddingTop: '20px' }}
+                        iconType="line"
+                      />
+
+                      {/* 为每个板块渲染两条线 */}
+                      {getSectorHeightData.map((sector, index) => {
+                        const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+                        const color = colors[index % colors.length];
+
+                        return (
+                          <Fragment key={sector.sectorName}>
+                            {/* 实线：连续涨停期间的板位高度 */}
+                            <Line
+                              yAxisId="board"
+                              type="monotone"
+                              dataKey={`${sector.sectorName}_solid`}
+                              stroke={color}
+                              strokeWidth={3}
+                              dot={{ fill: color, r: 5 }}
+                              name={`${sector.sectorName}${sector.peakBoardNum} (${sector.peakStockName})`}
+                              connectNulls={false}
+                            />
+
+                            {/* 虚线：断板后的涨跌幅% */}
+                            <Line
+                              yAxisId="percent"
+                              type="monotone"
+                              dataKey={`${sector.sectorName}_dashed`}
+                              stroke={color}
+                              strokeWidth={2}
+                              strokeDasharray="5 5"
+                              dot={{ fill: color, r: 4 }}
+                              name={`${sector.sectorName} 断板`}
+                              connectNulls={false}
+                              label={(props: any) => {
+                                const { x, y, value } = props;
+                                if (value === null || value === undefined) return null;
+
+                                return (
+                                  <text
+                                    x={x}
+                                    y={y - 10}
+                                    textAnchor="middle"
+                                    fill="#6b7280"
+                                    fontSize="10"
+                                    fontWeight="600"
+                                  >
+                                    {value > 0 ? '+' : ''}{value.toFixed(1)}%
+                                  </text>
+                                );
+                              }}
+                            />
+                          </Fragment>
+                        );
+                      })}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="text-5xl mb-4">📊</div>
+                  <p className="text-lg font-semibold">暂无数据</p>
+                  <p className="text-sm mt-2">7天内没有板块最高板≥4的股票</p>
+                </div>
+              )}
+            </div>
+
+            {/* 底部统计 */}
+            {getSectorHeightData.length > 0 && (
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-blue-600">
+                    {getSectorHeightData.length}
+                  </div>
+                  <div className="text-xs text-blue-700 mt-1">活跃板块数</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-green-600">
+                    {Math.max(...getSectorHeightData.map(s => s.peakBoardNum))}
+                  </div>
+                  <div className="text-xs text-green-700 mt-1">最高板数</div>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-purple-600">
+                    {getSectorHeightData[0]?.sectorName || '-'}
+                  </div>
+                  <div className="text-xs text-purple-700 mt-1">领涨板块</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 板块个股梯队弹窗 - 新：分屏布局 */}
       {showSectorModal && selectedSectorData && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[60]">
@@ -2610,6 +2940,15 @@ export default function Home() {
               </span>
             </label>
 
+            {/* 7天板块高度按钮 - 新增 */}
+            <button
+              onClick={handleOpenSectorHeightModal}
+              disabled={loading || !sevenDaysData}
+              className="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            >
+              📊 7天板块高度
+            </button>
+
             {/* 板块7天涨停排行按钮 */}
             <button
               onClick={() => setShowSectorRankingModal(true)}
@@ -3210,6 +3549,12 @@ export default function Home() {
         <div
           className="fixed inset-0 z-[95]"
           onClick={closeModal}
+        />
+      )}
+      {showSectorHeightModal && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={closeSectorHeightModal}
         />
       )}
       {showSectorModal && (
