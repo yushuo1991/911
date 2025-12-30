@@ -967,11 +967,23 @@ export default function Home() {
 
         if (trackedStockInList) {
           // 股票在涨停列表中，说明连续涨停
-          (dayData as any).isLimitUp = true;
-          (dayData as any).trackedStockCode = trackedStockCode;
-          (dayData as any).trackedStockName = trackedStockName;
-          (dayData as any).boardNum = getBoardWeight(trackedStockInList.td_type);
-          (dayData as any).changePercent = null;
+          const boardNum = getBoardWeight(trackedStockInList.td_type);
+
+          // 只显示板位≥4的数据点，<4的显示为断点
+          if (boardNum >= 4) {
+            (dayData as any).isLimitUp = true;
+            (dayData as any).trackedStockCode = trackedStockCode;
+            (dayData as any).trackedStockName = trackedStockName;
+            (dayData as any).boardNum = boardNum;
+            (dayData as any).changePercent = null;
+          } else {
+            // 板位<4，设为null（产生断点）
+            (dayData as any).isLimitUp = false;
+            (dayData as any).trackedStockCode = trackedStockCode;
+            (dayData as any).trackedStockName = trackedStockName;
+            (dayData as any).boardNum = null;
+            (dayData as any).changePercent = null;
+          }
         } else {
           // 股票不在涨停列表中，说明断板
           (dayData as any).isLimitUp = false;
@@ -1088,34 +1100,32 @@ export default function Home() {
       {/* 7天板块高度弹窗 - 新增 */}
       {showSectorHeightModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[98vw] max-w-[98vw] max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
-            <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900">
+          <div className="bg-white rounded-xl p-4 w-[96vw] max-w-[96vw] max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
+            <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
+              <h3 className="text-base font-bold text-gray-900">
                 📊 7天板块高度走势（最高板≥4）
               </h3>
               <button
                 onClick={closeSectorHeightModal}
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition-colors text-lg"
               >
                 ✕
               </button>
             </div>
 
-            <div className="mb-4 bg-blue-50 rounded-lg p-3">
-              <h4 className="text-sm font-semibold text-blue-800 mb-2">📊 图表说明</h4>
-              <ul className="text-blue-700 text-xs space-y-1">
-                <li>• <strong>实线</strong>：个股连续涨停期间，Y轴为板位高度（如4板、5板）</li>
-                <li>• <strong>虚线</strong>：个股断板后，Y轴为每日涨跌幅%（数值直接标注在数据点旁）</li>
-                <li>• <strong>断点</strong>：几天几板情况下（如4天3板），未涨停的那天折线有断点</li>
-                <li>• <strong>追踪逻辑</strong>：追踪7天内达到最高板的个股（如第1天A股票4板，第2天B股票5板，则追踪B股票）</li>
-              </ul>
+            <div className="mb-2 bg-blue-50 rounded-lg p-2">
+              <div className="text-blue-700 text-xs space-y-0.5">
+                <span className="inline-block mr-3">• <strong>实线</strong>：连续涨停（左Y轴=板位）</span>
+                <span className="inline-block mr-3">• <strong>虚线</strong>：断板后（右Y轴=涨跌幅%）</span>
+                <span className="inline-block">• <strong>峰值标记</strong>：最高板个股名称</span>
+              </div>
             </div>
 
             {/* 图表区域 */}
             <div className="flex-1 overflow-auto">
               {getSectorHeightData.length > 0 ? (
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6">
-                  <ResponsiveContainer width="100%" height={500}>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3">
+                  <ResponsiveContainer width="100%" height={380}>
                     <LineChart
                       data={(() => {
                         // 转换数据为Recharts格式
@@ -1155,33 +1165,29 @@ export default function Home() {
 
                         return chartData;
                       })()}
-                      margin={{ top: 20, right: 80, bottom: 20, left: 80 }}
+                      margin={{ top: 30, right: 90, bottom: 20, left: 70 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis
                         dataKey="date"
-                        tick={{ fontSize: 12 }}
-                        label={{ value: '日期', position: 'insideBottom', offset: -10 }}
+                        tick={{ fontSize: 11 }}
+                        label={{ value: '日期', position: 'insideBottom', offset: -8, fontSize: 12 }}
                       />
                       <YAxis
                         yAxisId="board"
-                        tick={{ fontSize: 12 }}
+                        tick={{ fontSize: 11 }}
                         domain={[0, 'dataMax + 1']}
-                        label={{ value: '板位高度', angle: -90, position: 'insideLeft', style: { fontSize: 14, fontWeight: 'bold' } }}
+                        label={{ value: '板位高度', angle: -90, position: 'insideLeft', style: { fontSize: 12, fontWeight: 'bold' } }}
                       />
                       <YAxis
                         yAxisId="percent"
                         orientation="right"
-                        tick={{ fontSize: 12 }}
+                        tick={{ fontSize: 11 }}
                         domain={['dataMin - 2', 'dataMax + 2']}
-                        label={{ value: '涨跌幅(%)', angle: 90, position: 'insideRight', style: { fontSize: 14, fontWeight: 'bold' } }}
-                      />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '8px', border: '1px solid #e5e7eb' }}
-                        labelStyle={{ fontWeight: 'bold', marginBottom: '8px' }}
+                        label={{ value: '涨跌幅(%)', angle: 90, position: 'insideRight', style: { fontSize: 12, fontWeight: 'bold' } }}
                       />
                       <Legend
-                        wrapperStyle={{ paddingTop: '20px' }}
+                        wrapperStyle={{ paddingTop: '10px', fontSize: '11px' }}
                         iconType="line"
                       />
 
@@ -1198,10 +1204,32 @@ export default function Home() {
                               type="monotone"
                               dataKey={`${sector.sectorName}_solid`}
                               stroke={color}
-                              strokeWidth={3}
-                              dot={{ fill: color, r: 5 }}
-                              name={`${sector.sectorName}${sector.peakBoardNum} (${sector.peakStockName})`}
+                              strokeWidth={2.5}
+                              dot={{ fill: color, r: 4 }}
+                              name={`${sector.sectorName}${sector.peakBoardNum}`}
                               connectNulls={false}
+                              label={(props: any) => {
+                                const { x, y, value, index: dataIndex } = props;
+                                if (value === null || value === undefined) return null;
+
+                                // 只在峰值日显示个股名称
+                                const currentDate = dates[dataIndex];
+                                if (currentDate === sector.peakDate) {
+                                  return (
+                                    <text
+                                      x={x}
+                                      y={y - 12}
+                                      textAnchor="middle"
+                                      fill={color}
+                                      fontSize="10"
+                                      fontWeight="700"
+                                    >
+                                      {sector.peakStockName}
+                                    </text>
+                                  );
+                                }
+                                return null;
+                              }}
                             />
 
                             {/* 虚线：断板后的涨跌幅% */}
@@ -1212,7 +1240,7 @@ export default function Home() {
                               stroke={color}
                               strokeWidth={2}
                               strokeDasharray="5 5"
-                              dot={{ fill: color, r: 4 }}
+                              dot={{ fill: color, r: 3 }}
                               name={`${sector.sectorName} 断板`}
                               connectNulls={false}
                               label={(props: any) => {
@@ -1222,10 +1250,10 @@ export default function Home() {
                                 return (
                                   <text
                                     x={x}
-                                    y={y - 10}
+                                    y={y - 8}
                                     textAnchor="middle"
                                     fill="#6b7280"
-                                    fontSize="10"
+                                    fontSize="9"
                                     fontWeight="600"
                                   >
                                     {value > 0 ? '+' : ''}{value.toFixed(1)}%
@@ -1240,34 +1268,34 @@ export default function Home() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <div className="text-5xl mb-4">📊</div>
-                  <p className="text-lg font-semibold">暂无数据</p>
-                  <p className="text-sm mt-2">7天内没有板块最高板≥4的股票</p>
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-3">📊</div>
+                  <p className="text-base font-semibold">暂无数据</p>
+                  <p className="text-xs mt-1">7天内没有板块最高板≥4的股票</p>
                 </div>
               )}
             </div>
 
             {/* 底部统计 */}
             {getSectorHeightData.length > 0 && (
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                <div className="bg-blue-50 rounded-lg p-3 text-center">
-                  <div className="text-xl font-bold text-blue-600">
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <div className="bg-blue-50 rounded-lg p-2 text-center">
+                  <div className="text-lg font-bold text-blue-600">
                     {getSectorHeightData.length}
                   </div>
-                  <div className="text-xs text-blue-700 mt-1">活跃板块数</div>
+                  <div className="text-[10px] text-blue-700 mt-0.5">活跃板块</div>
                 </div>
-                <div className="bg-green-50 rounded-lg p-3 text-center">
-                  <div className="text-xl font-bold text-green-600">
-                    {Math.max(...getSectorHeightData.map(s => s.peakBoardNum))}
+                <div className="bg-green-50 rounded-lg p-2 text-center">
+                  <div className="text-lg font-bold text-green-600">
+                    {Math.max(...getSectorHeightData.map(s => s.peakBoardNum))}板
                   </div>
-                  <div className="text-xs text-green-700 mt-1">最高板数</div>
+                  <div className="text-[10px] text-green-700 mt-0.5">最高板数</div>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-3 text-center">
-                  <div className="text-xl font-bold text-purple-600">
+                <div className="bg-purple-50 rounded-lg p-2 text-center">
+                  <div className="text-lg font-bold text-purple-600 truncate px-1">
                     {getSectorHeightData[0]?.sectorName || '-'}
                   </div>
-                  <div className="text-xs text-purple-700 mt-1">领涨板块</div>
+                  <div className="text-[10px] text-purple-700 mt-0.5">领涨板块</div>
                 </div>
               </div>
             )}
