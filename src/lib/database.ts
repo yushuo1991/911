@@ -171,6 +171,41 @@ export class StockDatabase {
         console.log('[数据库升级] amount 字段添加成功');
       }
 
+      // v4.30.2新增：优化查询索引
+      // 检查并添加 idx_date_sector 复合索引（优化按日期+板块查询）
+      const [dateSectorIndices] = await this.pool.execute(`
+        SHOW INDEX FROM stock_data WHERE Key_name = 'idx_date_sector'
+      `);
+
+      if (Array.isArray(dateSectorIndices) && dateSectorIndices.length === 0) {
+        console.log('[数据库升级] 添加 idx_date_sector 复合索引...');
+        try {
+          await this.pool.execute(`
+            CREATE INDEX idx_date_sector ON stock_data (trade_date, sector_name)
+          `);
+          console.log('[数据库升级] idx_date_sector 索引添加成功');
+        } catch (err) {
+          console.warn('[数据库升级] idx_date_sector 索引添加失败:', err);
+        }
+      }
+
+      // 检查并添加 idx_stock_perf 复合索引（优化followUpData查询）
+      const [stockPerfIndices] = await this.pool.execute(`
+        SHOW INDEX FROM stock_performance WHERE Key_name = 'idx_stock_perf'
+      `);
+
+      if (Array.isArray(stockPerfIndices) && stockPerfIndices.length === 0) {
+        console.log('[数据库升级] 添加 idx_stock_perf 复合索引...');
+        try {
+          await this.pool.execute(`
+            CREATE INDEX idx_stock_perf ON stock_performance (base_date, stock_code, performance_date)
+          `);
+          console.log('[数据库升级] idx_stock_perf 索引添加成功');
+        } catch (err) {
+          console.warn('[数据库升级] idx_stock_perf 索引添加失败:', err);
+        }
+      }
+
       console.log('[数据库升级] 数据库升级检查完成');
     } catch (error) {
       console.error('[数据库升级] 数据库升级失败:', error);
