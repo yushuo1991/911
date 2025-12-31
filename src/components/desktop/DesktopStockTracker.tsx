@@ -674,8 +674,13 @@ export default function Home() {
     setSingleStockChartData(null);
   };
 
-  // 打开7天板块高度弹窗
-  const handleOpenSectorHeightModal = () => {
+  // 打开15天板块高度弹窗
+  const handleOpenSectorHeightModal = async () => {
+    // 检查当前数据天数，如果不足15天，自动加载更多
+    if (dates.length < 15) {
+      console.log(`[15天板块高度] 当前仅有${dates.length}天数据，自动加载至15天`);
+      await fetchSevenDaysData(15);
+    }
     setShowSectorHeightModal(true);
   };
 
@@ -1144,7 +1149,7 @@ export default function Home() {
           <div className="bg-white rounded-xl p-4 w-[96vw] max-w-[96vw] max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
             <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
               <h3 className="text-base font-bold text-gray-900">
-                📊 7天板块高度走势（最高板≥4）
+                📊 近15天板块高度走势（最高板≥4）
               </h3>
               <button
                 onClick={closeSectorHeightModal}
@@ -1312,34 +1317,10 @@ export default function Home() {
                 <div className="text-center py-8 text-gray-500">
                   <div className="text-4xl mb-3">📊</div>
                   <p className="text-base font-semibold">暂无数据</p>
-                  <p className="text-xs mt-1">7天内没有板块最高板≥4的股票</p>
+                  <p className="text-xs mt-1">15天内没有板块最高板≥4的股票</p>
                 </div>
               )}
             </div>
-
-            {/* 底部统计 */}
-            {getSectorHeightData.length > 0 && (
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <div className="bg-blue-50 rounded-lg p-2 text-center">
-                  <div className="text-lg font-bold text-blue-600">
-                    {getSectorHeightData.length}
-                  </div>
-                  <div className="text-[10px] text-blue-700 mt-0.5">活跃板块</div>
-                </div>
-                <div className="bg-green-50 rounded-lg p-2 text-center">
-                  <div className="text-lg font-bold text-green-600">
-                    {Math.max(...getSectorHeightData.map(s => s.peakBoardNum))}板
-                  </div>
-                  <div className="text-[10px] text-green-700 mt-0.5">最高板数</div>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-2 text-center">
-                  <div className="text-lg font-bold text-purple-600 truncate px-1">
-                    {getSectorHeightData[0]?.sectorName || '-'}
-                  </div>
-                  <div className="text-[10px] text-purple-700 mt-0.5">领涨板块</div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -3015,7 +2996,7 @@ export default function Home() {
               disabled={loading || !sevenDaysData}
               className="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
-              📊 7天板块高度
+              📊 15天板块高度
             </button>
 
             {/* 板块7天涨停排行按钮 */}
