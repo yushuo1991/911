@@ -675,13 +675,18 @@ export default function Home() {
   };
 
   // 打开15天板块高度弹窗
-  const handleOpenSectorHeightModal = async () => {
-    // 检查当前数据天数，如果不足15天，自动加载更多
-    if (dates.length < 15) {
-      console.log(`[15天板块高度] 当前仅有${dates.length}天数据，自动加载至15天`);
-      await fetch7DaysData(15);
-    }
+  const handleOpenSectorHeightModal = () => {
+    // 直接打开弹窗，使用当前已有数据
     setShowSectorHeightModal(true);
+
+    // 如果数据不足15天，在后台异步加载更多数据
+    if (dates.length < 15) {
+      console.log(`[15天板块高度] 当前有${dates.length}天数据，后台加载至15天`);
+      // 不等待加载完成，让用户先看到现有数据
+      fetch7DaysData(15).catch(err => {
+        console.error('[15天板块高度] 后台加载失败:', err);
+      });
+    }
   };
 
   // 关闭7天板块高度弹窗
@@ -1213,7 +1218,13 @@ export default function Home() {
                       })()}
                       margin={{ top: 30, right: 90, bottom: 20, left: 70 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#cbd5e1"
+                        strokeWidth={1}
+                        horizontal={true}
+                        vertical={true}
+                      />
                       <XAxis
                         dataKey="date"
                         tick={{ fontSize: 11 }}
