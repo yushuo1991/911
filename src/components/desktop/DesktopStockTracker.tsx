@@ -679,7 +679,7 @@ export default function Home() {
     // 检查当前数据天数，如果不足15天，自动加载更多
     if (dates.length < 15) {
       console.log(`[15天板块高度] 当前仅有${dates.length}天数据，自动加载至15天`);
-      await fetchSevenDaysData(15);
+      await fetch7DaysData(15);
     }
     setShowSectorHeightModal(true);
   };
