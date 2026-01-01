@@ -1313,15 +1313,7 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="mb-2 bg-blue-50 rounded-lg p-2">
-              <div className="text-blue-700 text-xs space-y-0.5">
-                <span className="inline-block mr-3">• <strong>实线</strong>：连续涨停（Y轴=板位高度）</span>
-                <span className="inline-block mr-3">• <strong>虚线</strong>：断板后（Y轴=相对坐标，±10%=±1板位）</span>
-                <span className="inline-block">• <strong>峰值标记</strong>：板块名 个股名 板位（只显示最新涨停日）</span>
-              </div>
-            </div>
-
-            {/* v4.8.30新增：过滤器区域 */}
+            {/* v4.8.31优化：板位过滤器区域（移除板块过滤） */}
             <div className="mb-2 flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-semibold text-gray-700">板位过滤：</label>
@@ -1339,23 +1331,6 @@ export default function Home() {
                   <option value="6">≥6板</option>
                   <option value="7">≥7板</option>
                   <option value="8">≥8板</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-gray-700">板块过滤：</label>
-                <select
-                  value={sectorHeightFilters.selectedSector ?? 'all'}
-                  onChange={(e) => {
-                    const value = e.target.value === 'all' ? null : e.target.value;
-                    setSectorHeightFilters(prev => ({ ...prev, selectedSector: value }));
-                  }}
-                  className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[150px]"
-                >
-                  <option value="all">全部</option>
-                  {getAllSectorNames.map(sector => (
-                    <option key={sector} value={sector}>{sector}</option>
-                  ))}
                 </select>
               </div>
 
@@ -1380,10 +1355,10 @@ export default function Home() {
                       data={prepareChartData}
                       margin={{ top: 40, right: 100, bottom: 30, left: 80 }}
                     >
+                      {/* v4.8.31优化：网格背景设置成更清晰的实线网格 */}
                       <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="#cbd5e1"
-                        strokeWidth={1}
+                        stroke="#d1d5db"
+                        strokeWidth={0.8}
                         horizontal={true}
                         vertical={true}
                       />
@@ -1612,6 +1587,15 @@ export default function Home() {
                       })()}
                     </LineChart>
                   </ResponsiveContainer>
+
+                  {/* v4.8.31新增：说明文字移到图表下方 */}
+                  <div className="mt-3 bg-blue-50 rounded-lg p-2 border border-blue-200">
+                    <div className="text-blue-700 text-xs space-y-0.5">
+                      <span className="inline-block mr-3">• <strong>实线</strong>：连续涨停（Y轴=板位高度）</span>
+                      <span className="inline-block mr-3">• <strong>虚线</strong>：断板后（Y轴=相对坐标，±10%=±1板位）</span>
+                      <span className="inline-block">• <strong>峰值标记</strong>：板块名 个股名 板位（只显示最新涨停日）</span>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
