@@ -704,6 +704,7 @@ function convertStockCodeForTushare(stockCode: string): string {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const mode = searchParams.get('mode'); // 新增：支持不同模式
+    const rangeParam = searchParams.get('range'); // v4.8.31新增：支持范围参数
 
     if (!date) {
       return NextResponse.json(
@@ -713,8 +714,15 @@ function convertStockCodeForTushare(stockCode: string): string {
     }
 
     try {
-      // 支持单日模式和7天模式
+      // v4.8.31增强：支持单日模式、7天模式、多天模式
       if (mode === '7days') {
+        const range = rangeParam ? parseInt(rangeParam) : 7;
+
+        // 如果range > 7，调用新的批量获取逻辑
+        if (range > 7) {
+          return await getMultiDaysData(date, range);
+        }
+
         return await get7DaysData(date);
       } else {
         return await getSingleDayData(date);
@@ -1006,3 +1014,190 @@ function convertStockCodeForTushare(stockCode: string): string {
 
   // generate7TradingDays 函数已移除
   // 现在使用 get7TradingDaysFromCalendar 从 Tushare 获取真实交易日历（包含节假日信息）
+
+  // v4.8.31新增：多天数据获取逻辑（支持7天以上的范围）
+  async function getMultiDaysData(endDate: string, range: number) {
+    console.log(`[API] 开始处理${range}天数据，结束日期: ${endDate}`);
+
+    // 使用Tushare交易日历获取真实的N个交易日（排除节假日）
+    const multiDays = await getValidTradingDays(
+      new Date(new Date(endDate).getTime() - range * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      range
+    );
+    console.log(`[API] ${range}天交易日（已排除节假日）: ${multiDays.slice(0, 5).join(', ')}... (共${multiDays.length}天)`);
+
+    // 检查多天数据缓存（内存优先）
+    const cacheKey = `${range}days:${multiDays.join(',')}:${endDate}`;
+    const memoryCachedResult = stockCache.get7DaysCache(cacheKey);
+
+    if (memoryCachedResult) {
+      console.log(`[API] 使用${range}天内存缓存数据`);
+      return NextResponse.json({
+        success: true,
+        data: memoryCachedResult,
+        dates: multiDays,
+        cached: true
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+    }
+
+    // 检查数据库缓存
+    try {
+      const dbCachedResult = await stockDatabase.get7DaysCache(cacheKey);
+      if (dbCachedResult) {
+        console.log(`[API] 使用${range}天数据库缓存数据`);
+
+        // 存储到内存缓存（使用智能TTL）
+        stockCache.set7DaysCache(cacheKey, dbCachedResult.data, dbCachedResult.dates);
+
+        return NextResponse.json({
+          success: true,
+          data: dbCachedResult.data,
+          dates: dbCachedResult.dates,
+          cached: true
+        }, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+      }
+    } catch (dbError) {
+      console.log(`[数据库] 获取${range}天缓存失败: ${dbError}`);
+    }
+
+    const result: Record<string, any> = {};
+
+    // 为每一天获取数据（与get7DaysData逻辑相同）
+    for (const day of multiDays) {
+      try {
+        console.log(`[API] 处理日期: ${day}`);
+
+        // 获取当天涨停股票
+        const limitUpStocks = await getLimitUpStocks(day);
+
+        if (!limitUpStocks || limitUpStocks.length === 0) {
+          result[day] = {
+            date: day,
+            categories: {},
+            stats: { total_stocks: 0, category_count: 0, profit_ratio: 0 },
+            followUpData: {}
+          };
+          continue;
+        }
+
+        // 使用Tushare API批量获取真实成交额
+        const stockCodes = limitUpStocks.map(s => s.StockCode);
+        const realAmounts = await getBatchStockAmount(stockCodes, day);
+        console.log(`[API] 获取${day}的真实成交额，覆盖${realAmounts.size}只股票`);
+
+        // 获取该天后5个交易日（用于溢价计算）
+        const followUpDays = await getValidTradingDays(day, 5);
+
+        // 按分类整理数据
+        const categories: Record<string, StockPerformance[]> = {};
+        const followUpData: Record<string, Record<string, Record<string, number>>> = {};
+        const sectorAmounts: Record<string, number> = {};
+
+        for (const stock of limitUpStocks) {
+          const category = stock.ZSName || '其他';
+
+          // 获取后续5日表现（传入baseDate用于数据库缓存）
+          const followUpPerformance = await getStockPerformance(stock.StockCode, followUpDays, day);
+          const totalReturn = Object.values(followUpPerformance).reduce((sum, val) => sum + val, 0);
+
+          // 使用Tushare真实成交额替代API假数据
+          const realAmount = realAmounts.get(stock.StockCode) || 0;
+
+          const stockPerformance: StockPerformance = {
+            name: stock.StockName,
+            code: stock.StockCode,
+            td_type: stock.TDType,
+            performance: { [day]: 10.0 }, // 涨停日当天固定为10%
+            total_return: Math.round(totalReturn * 100) / 100,
+            amount: realAmount,
+            limitUpTime: stock.LimitUpTime
+          };
+
+          if (!categories[category]) {
+            categories[category] = [];
+            sectorAmounts[category] = 0;
+          }
+          categories[category].push(stockPerformance);
+
+          // 使用真实成交额累加板块成交额
+          if (realAmount > 0) {
+            sectorAmounts[category] += realAmount;
+          }
+
+          // 存储后续表现数据
+          if (!followUpData[category]) {
+            followUpData[category] = {};
+          }
+          followUpData[category][stock.StockCode] = followUpPerformance;
+        }
+
+        // 排序
+        Object.keys(categories).forEach(category => {
+          categories[category] = sortStocksByBoard(categories[category]);
+        });
+
+        // 计算统计数据
+        const stats = calculateStats(categories);
+
+        // 四舍五入板块成交额到两位小数
+        Object.keys(sectorAmounts).forEach(category => {
+          sectorAmounts[category] = Math.round(sectorAmounts[category] * 100) / 100;
+        });
+
+        result[day] = {
+          date: day,
+          categories,
+          stats,
+          followUpData,
+          sectorAmounts
+        };
+
+      } catch (error) {
+        console.error(`[API] 处理${day}数据失败:`, error);
+        result[day] = {
+          date: day,
+          categories: {},
+          stats: { total_stocks: 0, category_count: 0, profit_ratio: 0 },
+          followUpData: {}
+        };
+      }
+    }
+
+    console.log(`[API] ${range}天数据处理完成，存储到缓存`);
+
+    // 缓存多天数据结果到内存，减少后续API调用（使用智能TTL）
+    stockCache.set7DaysCache(cacheKey, result, multiDays);
+
+    // 也缓存到数据库
+    try {
+      await stockDatabase.cache7DaysData(cacheKey, result, multiDays);
+      console.log(`[数据库] ${range}天数据已缓存到数据库`);
+    } catch (dbError) {
+      console.log(`[数据库] ${range}天数据缓存失败: ${dbError}`);
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+      dates: multiDays,
+      cached: false
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+  }

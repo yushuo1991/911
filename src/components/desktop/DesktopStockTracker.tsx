@@ -209,69 +209,28 @@ export default function Home() {
 
     try {
       const endDate = getTodayString();
-      // 如果range > 7，需要批量获取多个7天数据段
-      if (range <= 7) {
-        const response = await fetch(`/api/stocks?date=${endDate}&mode=7days`);
-        const result = await response.json();
+      // v4.8.31优化：使用后端统一处理，支持range参数（7天或15天）
+      const response = await fetch(`/api/stocks?date=${endDate}&mode=7days&range=${range}`);
+      const result = await response.json();
 
-        if (result.success) {
-          setSevenDaysData(result.data);
-          setDates(result.dates || []);
-          setDateRange(range);
+      if (result.success) {
+        setSevenDaysData(result.data);
+        setDates(result.dates || []);
+        setDateRange(range);
 
-          // 存储到localStorage
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify({
-              data: result.data,
-              dates: result.dates || [],
-              timestamp: Date.now()
-            }));
-            console.log(`[前端缓存] 数据已缓存`);
-          } catch (cacheError) {
-            console.warn('[前端缓存] 存储缓存失败:', cacheError);
-          }
-        } else {
-          setError(result.error || '获取数据失败');
+        // 存储到localStorage
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            data: result.data,
+            dates: result.dates || [],
+            timestamp: Date.now()
+          }));
+          console.log(`[前端缓存] ${range}天数据已缓存${result.cached ? '（来自后端缓存）' : ''}`);
+        } catch (cacheError) {
+          console.warn('[前端缓存] 存储缓存失败:', cacheError);
         }
       } else {
-        // 批量获取多个7天数据段（最多30天）
-        const allData: SevenDaysData = {};
-        const allDates: string[] = [];
-        let currentEndDate = endDate;
-        const segments = Math.ceil(range / 7);
-
-        for (let i = 0; i < segments; i++) {
-          const response = await fetch(`/api/stocks?date=${currentEndDate}&mode=7days`);
-          const result = await response.json();
-
-          if (result.success) {
-            // 合并数据
-            Object.assign(allData, result.data);
-            // 合并日期并去重
-            result.dates.forEach((date: string) => {
-              if (!allDates.includes(date)) {
-                allDates.push(date);
-              }
-            });
-
-            // 计算下一个段的结束日期（当前段的第一天的前一天）
-            if (result.dates && result.dates.length > 0) {
-              const firstDate = new Date(result.dates[0]);
-              firstDate.setDate(firstDate.getDate() - 1);
-              currentEndDate = firstDate.toISOString().split('T')[0];
-            }
-          } else {
-            console.warn(`获取第${i+1}段数据失败:`, result.error);
-            break;
-          }
-        }
-
-        // 按日期排序（最新的在最右边）
-        allDates.sort();
-
-        setSevenDaysData(allData);
-        setDates(allDates.slice(-range)); // 只保留最后range天
-        setDateRange(range);
+        setError(result.error || '获取数据失败');
       }
     } catch (err) {
       setError('网络请求失败');
