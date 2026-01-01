@@ -1332,8 +1332,9 @@ export default function Home() {
       {/* 7天板块高度弹窗 - 新增 */}
       {showSectorHeightModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-4 w-[96vw] max-w-[96vw] max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
-            <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
+          {/* v4.8.31优化：弹窗接近全屏，高度自适应，不需要滚动 */}
+          <div className="bg-white rounded-xl p-4 w-[98vw] max-w-[98vw] h-[96vh] overflow-hidden shadow-2xl flex flex-col">
+            <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200 flex-shrink-0">
               <h3 className="text-base font-bold text-gray-900">
                 📊 近15天板块高度走势（最高板≥4）
               </h3>
@@ -1345,8 +1346,8 @@ export default function Home() {
               </button>
             </div>
 
-            {/* v4.8.31优化：板位过滤器区域（移除板块过滤） */}
-            <div className="mb-2 flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2">
+            {/* v4.8.31优化：板位过滤器区域（紧凑显示） */}
+            <div className="mb-2 flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-semibold text-gray-700">板位过滤：</label>
                 <select
@@ -1371,19 +1372,20 @@ export default function Home() {
               </div>
             </div>
 
-            {/* v4.8.30新增：超量提示 */}
+            {/* v4.8.31优化：超量提示（紧凑显示） */}
             {getHighBoardStockTrackers.length > MAX_DISPLAY_STOCKS && (
-              <div className="mb-2 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-xs text-yellow-800">
+              <div className="mb-2 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-xs text-yellow-800 flex-shrink-0">
                 <strong>💡 提示：</strong>共有 <strong>{getHighBoardStockTrackers.length}</strong> 只股票，当前显示前 <strong>{MAX_DISPLAY_STOCKS}</strong> 只。请使用板位或板块过滤器缩小范围。
               </div>
             )}
 
-            {/* 图表区域 */}
-            <div className="flex-1 overflow-auto">
+            {/* v4.8.31优化：图表区域 - 使用flex-1自动填充剩余空间，无需手动设置高度 */}
+            <div className="flex-1 overflow-hidden">
               {displayTrackers.length > 0 ? (
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3">
-                  {/* v4.8.31优化：增加图表高度 420→650 */}
-                  <ResponsiveContainer width="100%" height={650}>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3 h-full flex flex-col">
+                  {/* v4.8.31优化：图表使用100%高度自适应 */}
+                  <div className="flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                       data={prepareChartData}
                       margin={{ top: 40, right: 100, bottom: 30, left: 80 }}
@@ -1588,13 +1590,14 @@ export default function Home() {
                       })()}
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
 
-                  {/* v4.8.31新增：说明文字移到图表下方 */}
-                  <div className="mt-3 bg-blue-50 rounded-lg p-2 border border-blue-200">
-                    <div className="text-blue-700 text-xs space-y-0.5">
-                      <span className="inline-block mr-3">• <strong>实线</strong>：连续涨停期间（Y轴=板位高度）</span>
-                      <span className="inline-block mr-3">• <strong>虚线</strong>：断板后（Y轴=相对位置，从最后板位开始，±10%涨跌幅=±1单位）</span>
-                      <span className="inline-block">• <strong>峰值标记</strong>：板块名 个股名 板位（只显示最新涨停日）</span>
+                  {/* v4.8.31优化：说明文字紧凑显示，不占用过多空间 */}
+                  <div className="mt-2 bg-blue-50 rounded-lg p-1.5 border border-blue-200 flex-shrink-0">
+                    <div className="text-blue-700 text-[10px] flex flex-wrap gap-x-3">
+                      <span>• <strong>实线</strong>：连续涨停（Y=板位）</span>
+                      <span>• <strong>虚线</strong>：断板后（Y=相对位置，±10%=±1）</span>
+                      <span>• <strong>峰值标记</strong>：板块 个股 板位</span>
                     </div>
                   </div>
                 </div>

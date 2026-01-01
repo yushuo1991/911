@@ -1019,11 +1019,90 @@ function convertStockCodeForTushare(stockCode: string): string {
   async function getMultiDaysData(endDate: string, range: number) {
     console.log(`[API] 开始处理${range}天数据，结束日期: ${endDate}`);
 
-    // 使用Tushare交易日历获取真实的N个交易日（排除节假日）
-    const multiDays = await getValidTradingDays(
-      new Date(new Date(endDate).getTime() - range * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      range
-    );
+    // v4.8.31修复：使用向前追溯逻辑获取最近N个交易日（类似get7TradingDaysFromCalendar）
+    // 直接调用enhanced-trading-calendar中的函数获取真实交易日
+    let multiDays: string[] = [];
+
+    if (range <= 7) {
+      // 使用7天专用函数（包含16:00判断逻辑）
+      multiDays = await get7TradingDaysFromCalendar(endDate);
+    } else {
+      // v4.8.31新增：对于>7天的请求，向前追溯获取N个交易日
+      const tradingDays: string[] = [];
+
+      // 计算查询范围（向前追溯足够天数确保包含N个交易日）
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - Math.max(range * 5, 100)); // range * 5倍缓冲，最少100天
+
+      const startDateStr = startDate.toISOString().split('T')[0].replace(/-/g, '');
+      const endDateStr = endDate.replace(/-/g, '');
+
+      console.log(`[API] ${range}天交易日查询范围: ${startDateStr} ~ ${endDateStr}`);
+
+      try {
+        // 获取交易日历（导入tradingCalendarManager）
+        const { tradingCalendarManager } = await import('@/lib/enhanced-trading-calendar');
+        const calendar = await tradingCalendarManager.getTradingCalendar(startDateStr, endDateStr);
+
+        if (calendar.size > 0) {
+          // 使用真实交易日历，从endDate向前查找
+          let currentDate = new Date(endDate);
+
+          // 向前追溯查找N个交易日
+          while (tradingDays.length < range) {
+            const dateStr = currentDate.getFullYear().toString() +
+              (currentDate.getMonth() + 1).toString().padStart(2, '0') +
+              currentDate.getDate().toString().padStart(2, '0');
+
+            if (calendar.has(dateStr)) {
+              // 转换为YYYY-MM-DD格式
+              const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+              tradingDays.unshift(formattedDate); // 添加到开头（保持从旧到新的顺序）
+              console.log(`[API] 添加交易日: ${formattedDate}`);
+            }
+
+            currentDate.setDate(currentDate.getDate() - 1);
+
+            // 防止无限循环
+            if (currentDate < startDate) {
+              console.warn(`[API] 查询范围不足，仅找到${tradingDays.length}个交易日`);
+              break;
+            }
+          }
+
+          multiDays = tradingDays;
+        } else {
+          // 降级到周末+节假日过滤
+          console.log(`[API] 降级到周末+节假日过滤逻辑`);
+          let currentDate = new Date(endDate);
+
+          while (tradingDays.length < range) {
+            const formattedDate = currentDate.toISOString().split('T')[0];
+
+            // 排除周末（这里简化处理，实际应该调用isLikelyHoliday）
+            if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+              tradingDays.unshift(formattedDate);
+            }
+
+            currentDate.setDate(currentDate.getDate() - 1);
+            if (currentDate < startDate) break;
+          }
+
+          multiDays = tradingDays;
+        }
+      } catch (error) {
+        console.error(`[API] 获取交易日历失败:`, error);
+        // 最终兜底：简单向前推N * 2天
+        for (let i = range * 2; i >= 0; i--) {
+          const date = new Date(endDate);
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split('T')[0];
+          tradingDays.push(dateStr);
+        }
+        multiDays = tradingDays.slice(-range); // 取最后range天
+      }
+    }
+
     console.log(`[API] ${range}天交易日（已排除节假日）: ${multiDays.slice(0, 5).join(', ')}... (共${multiDays.length}天)`);
 
     // 检查多天数据缓存（内存优先）
