@@ -1038,11 +1038,37 @@ export default function Home() {
             break;
           }
 
-          // 从峰值日（或首次4板日）的followUpData获取涨跌幅
+          // v4.8.31优化：从多个可能的基准日获取涨跌幅数据
+          // 原逻辑只从峰值日/首次4板日获取，但followUpData只有后续5天
+          // 新逻辑：遍历所有可能的基准日，找到包含目标日期的followUpData
+          let changePercent: number | undefined = undefined;
+
+          // 尝试1：从峰值日或首次4板日获取
           const baseDayData = sevenDaysData[peakDate] || sevenDaysData[firstHighBoardDate];
           const sectorFollowUpData = baseDayData?.followUpData[sectorName];
           const stockFollowUpData = sectorFollowUpData?.[stockCode];
-          const changePercent = stockFollowUpData?.[currentDate];
+          changePercent = stockFollowUpData?.[currentDate];
+
+          // 尝试2：如果未找到，遍历所有已加载的日期，寻找包含目标日期的followUpData
+          if (changePercent === undefined) {
+            for (const baseDate of dates) {
+              const dayData = sevenDaysData[baseDate];
+              if (!dayData) continue;
+
+              const sectorData = dayData.followUpData[sectorName];
+              if (!sectorData) continue;
+
+              const stockData = sectorData[stockCode];
+              if (!stockData) continue;
+
+              const foundChangePercent = stockData[currentDate];
+              if (foundChangePercent !== undefined) {
+                changePercent = foundChangePercent;
+                console.log(`[15天板块高度] 从${baseDate}的followUpData找到${stockCode}在${currentDate}的涨跌幅: ${changePercent}%`);
+                break;
+              }
+            }
+          }
 
           if (changePercent !== undefined) {
             const relativeBoardPosition = lastBoardNum + (changePercent / 10);
