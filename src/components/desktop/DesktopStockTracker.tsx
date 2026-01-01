@@ -1136,6 +1136,24 @@ export default function Home() {
     return Array.from(sectorSet).sort();
   }, [sevenDaysData, dates]);
 
+  // v4.8.31新增：全局板块颜色映射（确保筛选前后颜色一致）
+  const sectorColorMap = useMemo(() => {
+    const colors = [
+      '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
+      '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
+    ];
+
+    const colorMap = new Map<string, string>();
+    // 基于所有追踪器（未筛选）创建颜色映射，确保颜色固定
+    const allUniqueSectors = Array.from(new Set(getHighBoardStockTrackers.map(t => t.sectorName)));
+    allUniqueSectors.sort(); // 排序确保一致性
+    allUniqueSectors.forEach((sector, index) => {
+      colorMap.set(sector, colors[index % colors.length]);
+    });
+
+    return colorMap;
+  }, [getHighBoardStockTrackers]);
+
   // v4.8.30新增：性能优化 - 限制最大显示数量
   const MAX_DISPLAY_STOCKS = 30;
   const displayTrackers = useMemo(() => {
@@ -1145,6 +1163,26 @@ export default function Home() {
     // 显示前30只，提示用户使用过滤器
     return getHighBoardStockTrackers.slice(0, MAX_DISPLAY_STOCKS);
   }, [getHighBoardStockTrackers]);
+
+  // v4.8.31新增：计算Y轴最大值（用于生成连续刻度）
+  const yAxisMaxValue = useMemo(() => {
+    if (displayTrackers.length === 0) return 10;
+
+    // 找到所有数据点的最大值（包括连板和断板）
+    let max = 0;
+    displayTrackers.forEach(tracker => {
+      tracker.lifecycle.forEach(point => {
+        if (point.type === 'continuous' && point.boardNum) {
+          max = Math.max(max, point.boardNum);
+        } else if (point.type === 'broken' && point.relativeBoardPosition) {
+          max = Math.max(max, point.relativeBoardPosition);
+        }
+      });
+    });
+
+    // 向上取整到最近的整数，并加1作为缓冲
+    return Math.ceil(max) + 1;
+  }, [displayTrackers]);
 
   // v4.8.30新增：准备Recharts图表数据（个股维度）
   const prepareChartData = useMemo(() => {
@@ -1168,9 +1206,16 @@ export default function Home() {
           // 连续涨停 → 实线
           dataPoint[`${key}_solid`] = lifecyclePoint.boardNum;
 
-          // v4.8.31修复：如果是最后一个涨停日，同时设置虚线起点，确保平滑连接
-          if (lifecyclePoint.isLatest) {
-            dataPoint[`${key}_dashed`] = lifecyclePoint.boardNum;
+          // v4.8.31修复：检查下一天是否断板，如果是则设置虚线起点
+          const nextDate = dates[dateIndex + 1];
+          if (nextDate) {
+            const nextPoint = tracker.lifecycle.find(lc => lc.date === nextDate);
+            if (nextPoint && nextPoint.type === 'broken') {
+              // 下一天断板，设置虚线起点为当前板位
+              dataPoint[`${key}_dashed`] = lifecyclePoint.boardNum;
+            } else {
+              dataPoint[`${key}_dashed`] = null;
+            }
           } else {
             dataPoint[`${key}_dashed`] = null;
           }
@@ -1355,11 +1400,12 @@ export default function Home() {
                         tick={{ fontSize: 11 }}
                         label={{ value: '日期', position: 'insideBottom', offset: -10, fontSize: 12 }}
                       />
-                      {/* v4.8.31修复：统一使用左Y轴，确保实线虚线连接 */}
+                      {/* v4.8.31优化：Y轴使用连续整数刻度，方便对位置 */}
                       <YAxis
                         yAxisId="left"
                         tick={{ fontSize: 11 }}
-                        domain={[0, 'dataMax + 1']}
+                        domain={[0, yAxisMaxValue]}
+                        ticks={Array.from({ length: yAxisMaxValue + 1 }, (_, i) => i)}
                         label={{
                           value: '板位高度 / 相对坐标',
                           angle: -90,
@@ -1379,22 +1425,13 @@ export default function Home() {
                         }}
                         iconType="line"
                         content={(props: any) => {
-                          // v4.8.31新增：自定义图例，只显示板块名称，支持点击筛选
-                          const colors = [
-                            '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
-                            '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
-                          ];
-
-                          const sectorColorMap = new Map<string, string>();
+                          // v4.8.31优化：使用全局颜色映射，确保筛选前后颜色一致
                           const uniqueSectors = Array.from(new Set(displayTrackers.map((t: any) => t.sectorName)));
-                          uniqueSectors.forEach((sector: string, index: number) => {
-                            sectorColorMap.set(sector, colors[index % colors.length]);
-                          });
 
                           return (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
                               {uniqueSectors.map((sector: string) => {
-                                const color = sectorColorMap.get(sector) || colors[0];
+                                const color = sectorColorMap.get(sector) || '#ef4444';
                                 const isSelected = sectorHeightFilters.selectedSector === sector;
 
                                 return (
@@ -1464,22 +1501,10 @@ export default function Home() {
 
                       {/* 为每只股票渲染两条线（实线+虚线） */}
                       {(() => {
-                        // v4.8.31新增：按板块名称分配颜色，相同板块使用同一种颜色
-                        const colors = [
-                          '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
-                          '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
-                        ];
-
-                        // 创建板块名称到颜色的映射
-                        const sectorColorMap = new Map<string, string>();
-                        const uniqueSectors = Array.from(new Set(displayTrackers.map(t => t.sectorName)));
-                        uniqueSectors.forEach((sector, index) => {
-                          sectorColorMap.set(sector, colors[index % colors.length]);
-                        });
-
+                        // v4.8.31优化：使用全局颜色映射，确保筛选前后颜色一致
                         return displayTrackers.map((tracker, index) => {
                           const key = `${tracker.sectorName}_${tracker.stockName}`;
-                          const color = sectorColorMap.get(tracker.sectorName) || colors[0];
+                          const color = sectorColorMap.get(tracker.sectorName) || '#ef4444';
 
                           return (
                             <Fragment key={tracker.stockCode}>
