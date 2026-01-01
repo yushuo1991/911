@@ -145,3 +145,37 @@ export const CATEGORY_EMOJIS: Record<string, string> = {
   '金融': '💰',
   '其他': '📊',
 };
+
+// v4.8.30新增：15天板块高度走势 - 个股维度追踪
+// 单个高板股票的追踪数据
+export interface HighBoardStockTracker {
+  stockCode: string;           // 股票代码
+  stockName: string;           // 股票名称
+  sectorName: string;          // 所属板块
+  peakBoardNum: number;        // 历史最高板位（例如：5）
+  peakDate: string;            // 达到峰值的日期（例如：2024-12-10）
+  lifecycle: LifecyclePoint[]; // 生命周期追踪数据（从峰值日开始的每一天）
+}
+
+// 生命周期中的单个数据点
+export interface LifecyclePoint {
+  date: string;                // 日期
+  type: 'continuous' | 'broken' | 'terminated';  // 数据点类型
+
+  // 连续涨停期间的数据（type='continuous'时有效）
+  boardNum?: number;           // 当前板位（例如：5板 -> 6板 -> 7板）
+  isLatest?: boolean;          // 是否是连续涨停的最新一天（用于标记显示）
+
+  // 断板后的数据（type='broken'时有效）
+  changePercent?: number;      // 涨跌幅%（例如：+8.5, -12.3）
+  relativeBoardPosition?: number; // 相对坐标（例如：5板+8.5% = 5.85）
+
+  // 终止标记（type='terminated'时表示追踪结束）
+  terminationReason?: 'max_duration' | 'data_unavailable';
+}
+
+// 板块高度走势过滤器状态
+export interface SectorHeightFilters {
+  minBoardNum: number | null;  // 最低板位过滤（null表示全部，4表示≥4板）
+  selectedSector: string | null; // 选中的板块（null表示全部）
+}

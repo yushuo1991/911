@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo, Fragment } from 'react';
-import { SevenDaysData, DayData, SectorSummary, StockPerformance } from '@/types/stock';
+import {
+  SevenDaysData,
+  DayData,
+  SectorSummary,
+  StockPerformance,
+  HighBoardStockTracker,
+  LifecyclePoint,
+  SectorHeightFilters
+} from '@/types/stock';
 import { getPerformanceClass, getPerformanceColorClass, getTodayString, formatDate, getBoardWeight } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 import StockPremiumChart, { StockPremiumData } from '@/components/StockPremiumChart';
@@ -103,6 +111,12 @@ export default function Home() {
 
   // 新增：7天板块高度弹窗状态
   const [showSectorHeightModal, setShowSectorHeightModal] = useState(false);
+
+  // v4.8.30新增：板块高度走势过滤器状态
+  const [sectorHeightFilters, setSectorHeightFilters] = useState<SectorHeightFilters>({
+    minBoardNum: 4,  // 默认显示≥4板
+    selectedSector: null  // 默认显示全部板块
+  });
 
 
   // generate7TradingDays 函数已移除
@@ -916,30 +930,19 @@ export default function Home() {
     return rankedSectors;
   }, [sevenDaysData, dates]);
 
-  // 新增：7天板块高度数据处理
-  const getSectorHeightData = useMemo(() => {
+  // v4.8.30重构：从板块维度改为个股维度追踪
+  const getHighBoardStockTrackers = useMemo(() => {
     if (!sevenDaysData || !dates || dates.length === 0) return [];
 
-    // Step 1: 收集所有板块的最高板信息
-    const sectorMap = new Map<string, {
+    // Step 1: 收集所有高板股的峰值信息
+    const stockPeakMap = new Map<string, {
+      stockCode: string;
+      stockName: string;
       sectorName: string;
-      dailyData: Array<{
-        date: string;
-        highestStock: {
-          code: string;
-          name: string;
-          boardNum: number;
-          td_type: string;
-        } | null;
-        maxBoardNum: number;
-      }>;
       peakBoardNum: number;
-      peakStockCode: string;
-      peakStockName: string;
       peakDate: string;
     }>();
 
-    // Step 2: 遍历每一天，找出每个板块的最高板个股
     dates.forEach(date => {
       const dayData = sevenDaysData[date];
       if (!dayData) return;
@@ -948,113 +951,240 @@ export default function Home() {
         // 排除"其他"和"ST板块"
         if (sectorName === '其他' || sectorName === 'ST板块') return;
 
-        // 找出该板块当天的最高板个股
-        let maxBoardNum = 0;
-        let highestStock: any = null;
-
         stocks.forEach(stock => {
           const boardNum = getBoardWeight(stock.td_type);
-          if (boardNum > maxBoardNum) {
-            maxBoardNum = boardNum;
-            highestStock = {
-              code: stock.code,
-              name: stock.name,
-              boardNum: boardNum,
-              td_type: stock.td_type
-            };
+
+          // 只追踪≥4板的股票
+          if (boardNum < 4) return;
+
+          const key = stock.code;
+          const existing = stockPeakMap.get(key);
+
+          // 更新峰值记录（如果当前板位更高）
+          if (!existing || boardNum > existing.peakBoardNum) {
+            stockPeakMap.set(key, {
+              stockCode: stock.code,
+              stockName: stock.name,
+              sectorName: sectorName,
+              peakBoardNum: boardNum,
+              peakDate: date
+            });
           }
         });
+      });
+    });
 
-        // 初始化板块数据
-        if (!sectorMap.has(sectorName)) {
-          sectorMap.set(sectorName, {
-            sectorName,
-            dailyData: [],
-            peakBoardNum: 0,
-            peakStockCode: '',
-            peakStockName: '',
-            peakDate: ''
+    // Step 2: 为每只股票构建生命周期追踪数据
+    const trackers: HighBoardStockTracker[] = [];
+
+    stockPeakMap.forEach((peakInfo) => {
+      const { stockCode, stockName, sectorName, peakBoardNum, peakDate } = peakInfo;
+
+      const lifecycle: LifecyclePoint[] = [];
+
+      // 找到峰值日在dates数组中的索引
+      const peakDateIndex = dates.indexOf(peakDate);
+      if (peakDateIndex === -1) return; // 峰值日不在范围内，跳过
+
+      // 从峰值日开始往后追踪
+      let lastBoardNum = peakBoardNum;
+      let brokenCount = 0; // 断板后追踪的天数
+      const MAX_BROKEN_DAYS = 5; // 断板后最多追踪5天
+
+      for (let i = peakDateIndex; i < dates.length; i++) {
+        const currentDate = dates[i];
+        const dayData = sevenDaysData[currentDate];
+        if (!dayData) break;
+
+        // 检查股票是否在当天的涨停列表中
+        const sectorStocks = dayData.categories[sectorName] || [];
+        const stockInList = sectorStocks.find(s => s.code === stockCode);
+
+        if (stockInList) {
+          // 股票在涨停列表中 → 连续涨停
+          const currentBoardNum = getBoardWeight(stockInList.td_type);
+
+          lifecycle.push({
+            date: currentDate,
+            type: 'continuous',
+            boardNum: currentBoardNum,
+            isLatest: true // 临时标记，稍后会清理旧的
           });
-        }
 
-        const sectorData = sectorMap.get(sectorName)!;
+          lastBoardNum = currentBoardNum;
+          brokenCount = 0; // 重置断板计数
 
-        // 更新峰值板数
-        if (maxBoardNum > sectorData.peakBoardNum) {
-          sectorData.peakBoardNum = maxBoardNum;
-          sectorData.peakStockCode = highestStock?.code || '';
-          sectorData.peakStockName = highestStock?.name || '';
-          sectorData.peakDate = date;
-        }
-
-        // 添加当天数据
-        sectorData.dailyData.push({
-          date,
-          highestStock,
-          maxBoardNum
-        });
-      });
-    });
-
-    // Step 3: 筛选峰值≥4的板块
-    const filteredSectors = Array.from(sectorMap.values())
-      .filter(sector => sector.peakBoardNum >= 4)
-      .sort((a, b) => b.peakBoardNum - a.peakBoardNum);
-
-    // Step 4: 为每个板块补充追踪股票的完整数据
-    filteredSectors.forEach(sector => {
-      // 从峰值日开始追踪那只股票
-      const trackedStockCode = sector.peakStockCode;
-      const trackedStockName = sector.peakStockName;
-
-      sector.dailyData.forEach((dayData) => {
-        const date = dayData.date;
-        const dayDataObj = sevenDaysData[date];
-        if (!dayDataObj) return;
-
-        // 检查追踪的股票是否在当天涨停
-        const sectorStocks = dayDataObj.categories[sector.sectorName] || [];
-        const trackedStockInList = sectorStocks.find(s => s.code === trackedStockCode);
-
-        if (trackedStockInList) {
-          // 股票在涨停列表中，说明连续涨停
-          const boardNum = getBoardWeight(trackedStockInList.td_type);
-
-          // 只显示板位≥4的数据点，<4的显示为断点
-          if (boardNum >= 4) {
-            (dayData as any).isLimitUp = true;
-            (dayData as any).trackedStockCode = trackedStockCode;
-            (dayData as any).trackedStockName = trackedStockName;
-            (dayData as any).boardNum = boardNum;
-            (dayData as any).changePercent = null;
-          } else {
-            // 板位<4，设为null（产生断点）
-            (dayData as any).isLimitUp = false;
-            (dayData as any).trackedStockCode = trackedStockCode;
-            (dayData as any).trackedStockName = trackedStockName;
-            (dayData as any).boardNum = null;
-            (dayData as any).changePercent = null;
-          }
         } else {
-          // 股票不在涨停列表中，说明断板
-          (dayData as any).isLimitUp = false;
-          (dayData as any).trackedStockCode = trackedStockCode;
-          (dayData as any).trackedStockName = trackedStockName;
-          (dayData as any).boardNum = null;
+          // 股票不在涨停列表中 → 断板
 
-          // 从峰值日的followUpData中获取涨跌幅
-          const peakDayData = sevenDaysData[sector.peakDate];
-          const sectorFollowUpData = peakDayData?.followUpData[sector.sectorName];
-          const stockFollowUpData = sectorFollowUpData?.[trackedStockCode];
-          const changePercent = stockFollowUpData?.[date];
+          // 检查是否超过最大追踪天数
+          if (brokenCount >= MAX_BROKEN_DAYS) {
+            lifecycle.push({
+              date: currentDate,
+              type: 'terminated',
+              terminationReason: 'max_duration'
+            });
+            break; // 停止追踪
+          }
 
-          (dayData as any).changePercent = changePercent !== undefined ? changePercent : null;
+          // 从峰值日的followUpData获取涨跌幅
+          const peakDayData = sevenDaysData[peakDate];
+          const sectorFollowUpData = peakDayData?.followUpData[sectorName];
+          const stockFollowUpData = sectorFollowUpData?.[stockCode];
+          const changePercent = stockFollowUpData?.[currentDate];
+
+          if (changePercent !== undefined) {
+            // 计算相对板位：断板板位 + (涨跌幅% / 10)
+            const relativeBoardPosition = lastBoardNum + (changePercent / 10);
+
+            lifecycle.push({
+              date: currentDate,
+              type: 'broken',
+              changePercent: changePercent,
+              relativeBoardPosition: relativeBoardPosition
+            });
+
+            brokenCount++;
+          } else {
+            // 数据缺失，终止追踪
+            lifecycle.push({
+              date: currentDate,
+              type: 'terminated',
+              terminationReason: 'data_unavailable'
+            });
+            break;
+          }
         }
+      }
+
+      // 清理isLatest标记：只保留最后一个连续涨停点的标记
+      let lastContinuousIndex = -1;
+      for (let i = lifecycle.length - 1; i >= 0; i--) {
+        if (lifecycle[i].type === 'continuous') {
+          lastContinuousIndex = i;
+          break;
+        }
+      }
+      lifecycle.forEach((point, idx) => {
+        if (point.type === 'continuous') {
+          point.isLatest = (idx === lastContinuousIndex);
+        }
+      });
+
+      trackers.push({
+        stockCode,
+        stockName,
+        sectorName,
+        peakBoardNum,
+        peakDate,
+        lifecycle
       });
     });
 
-    return filteredSectors;
+    // Step 3: 应用过滤器
+    let filteredTrackers = trackers;
+
+    // 板位过滤
+    if (sectorHeightFilters.minBoardNum !== null) {
+      filteredTrackers = filteredTrackers.filter(
+        t => t.peakBoardNum >= sectorHeightFilters.minBoardNum!
+      );
+    }
+
+    // 板块过滤
+    if (sectorHeightFilters.selectedSector !== null) {
+      filteredTrackers = filteredTrackers.filter(
+        t => t.sectorName === sectorHeightFilters.selectedSector
+      );
+    }
+
+    // Step 4: 排序（峰值板位降序 → 峰值日期升序 → 股票名称）
+    filteredTrackers.sort((a, b) => {
+      if (b.peakBoardNum !== a.peakBoardNum) {
+        return b.peakBoardNum - a.peakBoardNum;
+      }
+      if (a.peakDate !== b.peakDate) {
+        return a.peakDate.localeCompare(b.peakDate);
+      }
+      return a.stockName.localeCompare(b.stockName);
+    });
+
+    return filteredTrackers;
+  }, [sevenDaysData, dates, sectorHeightFilters]);
+
+  // v4.8.30新增：获取所有板块名称（用于板块过滤器选项）
+  const getAllSectorNames = useMemo(() => {
+    if (!sevenDaysData || !dates) return [];
+
+    const sectorSet = new Set<string>();
+
+    dates.forEach(date => {
+      const dayData = sevenDaysData[date];
+      if (dayData && dayData.categories) {
+        Object.keys(dayData.categories).forEach(sectorName => {
+          // 排除"其他"和"ST板块"
+          if (sectorName !== '其他' && sectorName !== 'ST板块') {
+            sectorSet.add(sectorName);
+          }
+        });
+      }
+    });
+
+    return Array.from(sectorSet).sort();
   }, [sevenDaysData, dates]);
+
+  // v4.8.30新增：性能优化 - 限制最大显示数量
+  const MAX_DISPLAY_STOCKS = 30;
+  const displayTrackers = useMemo(() => {
+    if (getHighBoardStockTrackers.length <= MAX_DISPLAY_STOCKS) {
+      return getHighBoardStockTrackers;
+    }
+    // 显示前30只，提示用户使用过滤器
+    return getHighBoardStockTrackers.slice(0, MAX_DISPLAY_STOCKS);
+  }, [getHighBoardStockTrackers]);
+
+  // v4.8.30新增：准备Recharts图表数据（个股维度）
+  const prepareChartData = useMemo(() => {
+    const chartData: any[] = [];
+
+    dates.forEach((date) => {
+      const dataPoint: any = {
+        date: formatDate(date).slice(5), // MM-DD格式
+        fullDate: date
+      };
+
+      displayTrackers.forEach(tracker => {
+        // 为每只股票生成唯一key
+        const key = `${tracker.sectorName}_${tracker.stockName}`;
+
+        // 找到该日期的生命周期点
+        const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === date);
+
+        if (!lifecyclePoint) {
+          // 该股票在这个日期还未开始追踪
+          dataPoint[`${key}_solid`] = null;
+          dataPoint[`${key}_dashed`] = null;
+        } else if (lifecyclePoint.type === 'continuous') {
+          // 连续涨停 → 实线
+          dataPoint[`${key}_solid`] = lifecyclePoint.boardNum;
+          dataPoint[`${key}_dashed`] = null;
+        } else if (lifecyclePoint.type === 'broken') {
+          // 断板 → 虚线
+          dataPoint[`${key}_solid`] = null;
+          dataPoint[`${key}_dashed`] = lifecyclePoint.relativeBoardPosition;
+        } else {
+          // 终止 → null
+          dataPoint[`${key}_solid`] = null;
+          dataPoint[`${key}_dashed`] = null;
+        }
+      });
+
+      chartData.push(dataPoint);
+    });
+
+    return chartData;
+  }, [displayTrackers, dates]);
+
 
   // v4.8.24新增：准备板块曲线图数据
   const prepareSectorChartData = useMemo(() => {
@@ -1166,57 +1296,70 @@ export default function Home() {
 
             <div className="mb-2 bg-blue-50 rounded-lg p-2">
               <div className="text-blue-700 text-xs space-y-0.5">
-                <span className="inline-block mr-3">• <strong>实线</strong>：连续涨停（左Y轴=板位）</span>
-                <span className="inline-block mr-3">• <strong>虚线</strong>：断板后（右Y轴=涨跌幅%）</span>
-                <span className="inline-block">• <strong>峰值标记</strong>：最高板个股名称</span>
+                <span className="inline-block mr-3">• <strong>实线</strong>：连续涨停（Y轴=板位高度）</span>
+                <span className="inline-block mr-3">• <strong>虚线</strong>：断板后（Y轴=相对坐标，±10%=±1板位）</span>
+                <span className="inline-block">• <strong>峰值标记</strong>：板块名 个股名 板位（只显示最新涨停日）</span>
               </div>
             </div>
 
+            {/* v4.8.30新增：过滤器区域 */}
+            <div className="mb-2 flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-700">板位过滤：</label>
+                <select
+                  value={sectorHeightFilters.minBoardNum ?? 'all'}
+                  onChange={(e) => {
+                    const value = e.target.value === 'all' ? null : parseInt(e.target.value);
+                    setSectorHeightFilters(prev => ({ ...prev, minBoardNum: value }));
+                  }}
+                  className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">全部</option>
+                  <option value="4">≥4板</option>
+                  <option value="5">≥5板</option>
+                  <option value="6">≥6板</option>
+                  <option value="7">≥7板</option>
+                  <option value="8">≥8板</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-700">板块过滤：</label>
+                <select
+                  value={sectorHeightFilters.selectedSector ?? 'all'}
+                  onChange={(e) => {
+                    const value = e.target.value === 'all' ? null : e.target.value;
+                    setSectorHeightFilters(prev => ({ ...prev, selectedSector: value }));
+                  }}
+                  className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[150px]"
+                >
+                  <option value="all">全部</option>
+                  {getAllSectorNames.map(sector => (
+                    <option key={sector} value={sector}>{sector}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="ml-auto text-xs text-gray-600">
+                共追踪 <span className="font-bold text-blue-600">{getHighBoardStockTrackers.length}</span> 只高板股
+              </div>
+            </div>
+
+            {/* v4.8.30新增：超量提示 */}
+            {getHighBoardStockTrackers.length > MAX_DISPLAY_STOCKS && (
+              <div className="mb-2 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-xs text-yellow-800">
+                <strong>💡 提示：</strong>共有 <strong>{getHighBoardStockTrackers.length}</strong> 只股票，当前显示前 <strong>{MAX_DISPLAY_STOCKS}</strong> 只。请使用板位或板块过滤器缩小范围。
+              </div>
+            )}
+
             {/* 图表区域 */}
             <div className="flex-1 overflow-auto">
-              {getSectorHeightData.length > 0 ? (
+              {displayTrackers.length > 0 ? (
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3">
-                  <ResponsiveContainer width="100%" height={380}>
+                  <ResponsiveContainer width="100%" height={420}>
                     <LineChart
-                      data={(() => {
-                        // 转换数据为Recharts格式
-                        const chartData: any[] = [];
-
-                        dates.forEach((date, dateIndex) => {
-                          const dataPoint: any = {
-                            date: formatDate(date).slice(5), // MM-DD格式
-                            fullDate: date
-                          };
-
-                          getSectorHeightData.forEach(sector => {
-                            const dayData = sector.dailyData.find(d => d.date === date);
-                            if (!dayData) return;
-
-                            const isLimitUp = (dayData as any).isLimitUp;
-                            const boardNum = (dayData as any).boardNum;
-                            const changePercent = (dayData as any).changePercent;
-
-                            if (isLimitUp && boardNum !== null) {
-                              // 实线：连续涨停，显示板位高度
-                              dataPoint[`${sector.sectorName}_solid`] = boardNum;
-                              dataPoint[`${sector.sectorName}_dashed`] = null;
-                            } else if (!isLimitUp && changePercent !== null) {
-                              // 虚线：断板后，显示涨跌幅%
-                              dataPoint[`${sector.sectorName}_solid`] = null;
-                              dataPoint[`${sector.sectorName}_dashed`] = changePercent;
-                            } else {
-                              // 数据缺失，两者都为null（产生断点）
-                              dataPoint[`${sector.sectorName}_solid`] = null;
-                              dataPoint[`${sector.sectorName}_dashed`] = null;
-                            }
-                          });
-
-                          chartData.push(dataPoint);
-                        });
-
-                        return chartData;
-                      })()}
-                      margin={{ top: 30, right: 90, bottom: 20, left: 70 }}
+                      data={prepareChartData}
+                      margin={{ top: 40, right: 100, bottom: 30, left: 80 }}
                     >
                       <CartesianGrid
                         strokeDasharray="3 3"
@@ -1228,60 +1371,96 @@ export default function Home() {
                       <XAxis
                         dataKey="date"
                         tick={{ fontSize: 11 }}
-                        label={{ value: '日期', position: 'insideBottom', offset: -8, fontSize: 12 }}
+                        label={{ value: '日期', position: 'insideBottom', offset: -10, fontSize: 12 }}
                       />
+                      {/* 左Y轴：板位高度 */}
                       <YAxis
                         yAxisId="board"
                         tick={{ fontSize: 11 }}
                         domain={[0, 'dataMax + 1']}
-                        label={{ value: '板位高度', angle: -90, position: 'insideLeft', style: { fontSize: 12, fontWeight: 'bold' } }}
+                        label={{
+                          value: '板位高度',
+                          angle: -90,
+                          position: 'insideLeft',
+                          style: { fontSize: 12, fontWeight: 'bold' }
+                        }}
                       />
+                      {/* 右Y轴：相对坐标（也是板位刻度） */}
                       <YAxis
-                        yAxisId="percent"
+                        yAxisId="relative"
                         orientation="right"
                         tick={{ fontSize: 11 }}
-                        domain={['dataMin - 2', 'dataMax + 2']}
-                        label={{ value: '涨跌幅(%)', angle: 90, position: 'insideRight', style: { fontSize: 12, fontWeight: 'bold' } }}
+                        domain={[0, 'dataMax + 1']}
+                        label={{
+                          value: '相对坐标（板位+涨跌幅/10）',
+                          angle: 90,
+                          position: 'insideRight',
+                          style: { fontSize: 12, fontWeight: 'bold' }
+                        }}
                       />
                       <Legend
-                        wrapperStyle={{ paddingTop: '10px', fontSize: '11px' }}
+                        wrapperStyle={{
+                          paddingTop: '15px',
+                          fontSize: '10px',
+                          maxHeight: '120px',
+                          overflowY: 'auto',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '6px',
+                          padding: '8px'
+                        }}
                         iconType="line"
                       />
+                      <Tooltip
+                        contentStyle={{ fontSize: '11px' }}
+                        formatter={(value: any, name: string) => {
+                          const isDashed = name.includes('虚线');
+                          if (isDashed && value !== null) {
+                            return [`相对位置: ${value.toFixed(2)}`, name];
+                          }
+                          return [value !== null ? `${value}板` : '无数据', name];
+                        }}
+                      />
 
-                      {/* 为每个板块渲染两条线 */}
-                      {getSectorHeightData.map((sector, index) => {
-                        const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+                      {/* 为每只股票渲染两条线（实线+虚线） */}
+                      {displayTrackers.map((tracker, index) => {
+                        const key = `${tracker.sectorName}_${tracker.stockName}`;
+                        const colors = [
+                          '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
+                          '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
+                        ];
                         const color = colors[index % colors.length];
 
                         return (
-                          <Fragment key={sector.sectorName}>
-                            {/* 实线：连续涨停期间的板位高度 */}
+                          <Fragment key={tracker.stockCode}>
+                            {/* 实线：连续涨停期间 */}
                             <Line
                               yAxisId="board"
                               type="monotone"
-                              dataKey={`${sector.sectorName}_solid`}
+                              dataKey={`${key}_solid`}
                               stroke={color}
                               strokeWidth={2.5}
                               dot={{ fill: color, r: 4 }}
-                              name={`${sector.sectorName}${sector.peakBoardNum}`}
+                              name={`${tracker.sectorName} ${tracker.stockName} 峰值${tracker.peakBoardNum}板`}
                               connectNulls={false}
                               label={(props: any) => {
                                 const { x, y, value, index: dataIndex } = props;
                                 if (value === null || value === undefined) return null;
 
-                                // 只在峰值日显示个股名称
+                                // 只在最新涨停日显示标记
                                 const currentDate = dates[dataIndex];
-                                if (currentDate === sector.peakDate) {
+                                const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
+
+                                if (lifecyclePoint?.type === 'continuous' && lifecyclePoint.isLatest) {
                                   return (
                                     <text
                                       x={x}
-                                      y={y - 12}
+                                      y={y - 15}
                                       textAnchor="middle"
                                       fill={color}
                                       fontSize="10"
                                       fontWeight="700"
                                     >
-                                      {sector.peakStockName}
+                                      {`${tracker.sectorName} ${tracker.stockName}${value}`}
                                     </text>
                                   );
                                 }
@@ -1289,33 +1468,40 @@ export default function Home() {
                               }}
                             />
 
-                            {/* 虚线：断板后的涨跌幅% */}
+                            {/* 虚线：断板后 */}
                             <Line
-                              yAxisId="percent"
+                              yAxisId="relative"
                               type="monotone"
-                              dataKey={`${sector.sectorName}_dashed`}
+                              dataKey={`${key}_dashed`}
                               stroke={color}
                               strokeWidth={2}
                               strokeDasharray="5 5"
                               dot={{ fill: color, r: 3 }}
-                              name={`${sector.sectorName} 断板`}
+                              name={`${tracker.sectorName} ${tracker.stockName} 虚线`}
                               connectNulls={false}
                               label={(props: any) => {
-                                const { x, y, value } = props;
+                                const { x, y, value, index: dataIndex } = props;
                                 if (value === null || value === undefined) return null;
 
-                                return (
-                                  <text
-                                    x={x}
-                                    y={y - 8}
-                                    textAnchor="middle"
-                                    fill="#6b7280"
-                                    fontSize="9"
-                                    fontWeight="600"
-                                  >
-                                    {value > 0 ? '+' : ''}{value.toFixed(1)}%
-                                  </text>
-                                );
+                                const currentDate = dates[dataIndex];
+                                const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
+
+                                if (lifecyclePoint?.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
+                                  const changePercent = lifecyclePoint.changePercent;
+                                  return (
+                                    <text
+                                      x={x}
+                                      y={y - 8}
+                                      textAnchor="middle"
+                                      fill="#6b7280"
+                                      fontSize="9"
+                                      fontWeight="600"
+                                    >
+                                      {changePercent > 0 ? '+' : ''}{changePercent.toFixed(1)}%
+                                    </text>
+                                  );
+                                }
+                                return null;
                               }}
                             />
                           </Fragment>
@@ -1328,7 +1514,7 @@ export default function Home() {
                 <div className="text-center py-8 text-gray-500">
                   <div className="text-4xl mb-3">📊</div>
                   <p className="text-base font-semibold">暂无数据</p>
-                  <p className="text-xs mt-1">15天内没有板块最高板≥4的股票</p>
+                  <p className="text-xs mt-1">15天内没有符合过滤条件的高板股</p>
                 </div>
               )}
             </div>
