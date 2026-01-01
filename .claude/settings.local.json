@@ -90,7 +90,13 @@
       "Bash(do echo \"推送尝试 $i/10...\")",
       "Bash(do echo \"推送尝试 $i/15...\")",
       "Bash(sshpass -p \"gJ75hNHdy90TA4qGo9\" ssh -o StrictHostKeyChecking=no root@107.173.154.147 \"pm2 logs stock-tracker --lines 100 --nostream\")",
-      "Bash(sshpass -p \"gJ75hNHdy90TA4qGo9\" ssh -o StrictHostKeyChecking=no root@107.173.154.147 \"curl -s ''http://localhost:3000/api/stocks?date=2025-12-02&mode=7days'' --max-time 30 | head -c 5000\")"
+      "Bash(sshpass -p \"gJ75hNHdy90TA4qGo9\" ssh -o StrictHostKeyChecking=no root@107.173.154.147 \"curl -s ''http://localhost:3000/api/stocks?date=2025-12-02&mode=7days'' --max-time 30 | head -c 5000\")",
+      "Bash(ls:*)",
+      "Bash(do echo \"推送尝试 $i/3...\")",
+      "Bash(if git push origin main)",
+      "Bash(then break)",
+      "Bash(else sleep 3)",
+      "Bash(do echo \"检查进度 $i/20...\")"
     ],
     "deny": [],
     "ask": []

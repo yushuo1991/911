@@ -934,11 +934,12 @@ export default function Home() {
   const getHighBoardStockTrackers = useMemo(() => {
     if (!sevenDaysData || !dates || dates.length === 0) return [];
 
-    // Step 1: 收集所有高板股的峰值信息
-    const stockPeakMap = new Map<string, {
+    // Step 1: 收集所有高板股的首次4板日期和峰值信息
+    const stockInfoMap = new Map<string, {
       stockCode: string;
       stockName: string;
       sectorName: string;
+      firstHighBoardDate: string;  // 首次达到≥4板的日期
       peakBoardNum: number;
       peakDate: string;
     }>();
@@ -958,40 +959,46 @@ export default function Home() {
           if (boardNum < 4) return;
 
           const key = stock.code;
-          const existing = stockPeakMap.get(key);
+          const existing = stockInfoMap.get(key);
 
-          // 更新峰值记录（如果当前板位更高）
-          if (!existing || boardNum > existing.peakBoardNum) {
-            stockPeakMap.set(key, {
+          if (!existing) {
+            // 首次出现，记录首次4板日期
+            stockInfoMap.set(key, {
               stockCode: stock.code,
               stockName: stock.name,
               sectorName: sectorName,
+              firstHighBoardDate: date,  // 首次≥4板的日期
               peakBoardNum: boardNum,
               peakDate: date
             });
+          } else {
+            // 更新峰值记录（如果当前板位更高）
+            if (boardNum > existing.peakBoardNum) {
+              existing.peakBoardNum = boardNum;
+              existing.peakDate = date;
+            }
           }
         });
       });
     });
 
-    // Step 2: 为每只股票构建生命周期追踪数据
+    // Step 2: 为每只股票构建生命周期追踪数据（从首次4板开始）
     const trackers: HighBoardStockTracker[] = [];
 
-    stockPeakMap.forEach((peakInfo) => {
-      const { stockCode, stockName, sectorName, peakBoardNum, peakDate } = peakInfo;
+    stockInfoMap.forEach((stockInfo) => {
+      const { stockCode, stockName, sectorName, firstHighBoardDate, peakBoardNum, peakDate } = stockInfo;
 
       const lifecycle: LifecyclePoint[] = [];
 
-      // 找到峰值日在dates数组中的索引
-      const peakDateIndex = dates.indexOf(peakDate);
-      if (peakDateIndex === -1) return; // 峰值日不在范围内，跳过
+      // 从首次4板日期开始追踪（而不是峰值日）
+      const startDateIndex = dates.indexOf(firstHighBoardDate);
+      if (startDateIndex === -1) return;
 
-      // 从峰值日开始往后追踪
-      let lastBoardNum = peakBoardNum;
-      let brokenCount = 0; // 断板后追踪的天数
-      const MAX_BROKEN_DAYS = 5; // 断板后最多追踪5天
+      let lastBoardNum = 0;
+      let brokenCount = 0;
+      const MAX_BROKEN_DAYS = 5;
 
-      for (let i = peakDateIndex; i < dates.length; i++) {
+      for (let i = startDateIndex; i < dates.length; i++) {
         const currentDate = dates[i];
         const dayData = sevenDaysData[currentDate];
         if (!dayData) break;
@@ -1008,33 +1015,31 @@ export default function Home() {
             date: currentDate,
             type: 'continuous',
             boardNum: currentBoardNum,
-            isLatest: true // 临时标记，稍后会清理旧的
+            isLatest: true
           });
 
           lastBoardNum = currentBoardNum;
-          brokenCount = 0; // 重置断板计数
+          brokenCount = 0;
 
         } else {
           // 股票不在涨停列表中 → 断板
 
-          // 检查是否超过最大追踪天数
           if (brokenCount >= MAX_BROKEN_DAYS) {
             lifecycle.push({
               date: currentDate,
               type: 'terminated',
               terminationReason: 'max_duration'
             });
-            break; // 停止追踪
+            break;
           }
 
-          // 从峰值日的followUpData获取涨跌幅
-          const peakDayData = sevenDaysData[peakDate];
-          const sectorFollowUpData = peakDayData?.followUpData[sectorName];
+          // 从峰值日（或首次4板日）的followUpData获取涨跌幅
+          const baseDayData = sevenDaysData[peakDate] || sevenDaysData[firstHighBoardDate];
+          const sectorFollowUpData = baseDayData?.followUpData[sectorName];
           const stockFollowUpData = sectorFollowUpData?.[stockCode];
           const changePercent = stockFollowUpData?.[currentDate];
 
           if (changePercent !== undefined) {
-            // 计算相对板位：断板板位 + (涨跌幅% / 10)
             const relativeBoardPosition = lastBoardNum + (changePercent / 10);
 
             lifecycle.push({
@@ -1046,7 +1051,6 @@ export default function Home() {
 
             brokenCount++;
           } else {
-            // 数据缺失，终止追踪
             lifecycle.push({
               date: currentDate,
               type: 'terminated',
@@ -1057,7 +1061,7 @@ export default function Home() {
         }
       }
 
-      // 清理isLatest标记：只保留最后一个连续涨停点的标记
+      // 清理isLatest标记
       let lastContinuousIndex = -1;
       for (let i = lifecycle.length - 1; i >= 0; i--) {
         if (lifecycle[i].type === 'continuous') {
@@ -1147,17 +1151,14 @@ export default function Home() {
   const prepareChartData = useMemo(() => {
     const chartData: any[] = [];
 
-    dates.forEach((date) => {
+    dates.forEach((date, dateIndex) => {
       const dataPoint: any = {
         date: formatDate(date).slice(5), // MM-DD格式
         fullDate: date
       };
 
       displayTrackers.forEach(tracker => {
-        // 为每只股票生成唯一key
         const key = `${tracker.sectorName}_${tracker.stockName}`;
-
-        // 找到该日期的生命周期点
         const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === date);
 
         if (!lifecyclePoint) {
@@ -1167,7 +1168,25 @@ export default function Home() {
         } else if (lifecyclePoint.type === 'continuous') {
           // 连续涨停 → 实线
           dataPoint[`${key}_solid`] = lifecyclePoint.boardNum;
-          dataPoint[`${key}_dashed`] = null;
+
+          // 关键：如果这是最后一个涨停日，同时为虚线设置起点（连接点）
+          if (lifecyclePoint.isLatest) {
+            // 检查下一天是否是断板
+            const nextDate = dates[dateIndex + 1];
+            if (nextDate) {
+              const nextPoint = tracker.lifecycle.find(lc => lc.date === nextDate);
+              if (nextPoint && nextPoint.type === 'broken') {
+                // 下一天断板了，当前点作为虚线起点
+                dataPoint[`${key}_dashed`] = lifecyclePoint.boardNum;
+              } else {
+                dataPoint[`${key}_dashed`] = null;
+              }
+            } else {
+              dataPoint[`${key}_dashed`] = null;
+            }
+          } else {
+            dataPoint[`${key}_dashed`] = null;
+          }
         } else if (lifecyclePoint.type === 'broken') {
           // 断板 → 虚线
           dataPoint[`${key}_solid`] = null;
@@ -1435,7 +1454,7 @@ export default function Home() {
                             {/* 实线：连续涨停期间 */}
                             <Line
                               yAxisId="board"
-                              type="monotone"
+                              type="linear"
                               dataKey={`${key}_solid`}
                               stroke={color}
                               strokeWidth={2.5}
@@ -1471,7 +1490,7 @@ export default function Home() {
                             {/* 虚线：断板后 */}
                             <Line
                               yAxisId="relative"
-                              type="monotone"
+                              type="linear"
                               dataKey={`${key}_dashed`}
                               stroke={color}
                               strokeWidth={2}
