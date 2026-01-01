@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import {
   SevenDaysData,
   DayData,
@@ -111,6 +111,9 @@ export default function Home() {
 
   // 新增：7天板块高度弹窗状态
   const [showSectorHeightModal, setShowSectorHeightModal] = useState(false);
+
+  // v4.8.31新增：15天数据加载标志（避免重复加载）
+  const has15DaysDataLoaded = useRef(false);
 
   // v4.8.30新增：板块高度走势过滤器状态
   const [sectorHeightFilters, setSectorHeightFilters] = useState<SectorHeightFilters>({
@@ -693,12 +696,14 @@ export default function Home() {
     // 直接打开弹窗，使用当前已有数据
     setShowSectorHeightModal(true);
 
-    // 如果数据不足15天，在后台异步加载更多数据
-    if (dates.length < 15) {
-      console.log(`[15天板块高度] 当前有${dates.length}天数据，后台加载至15天`);
+    // v4.8.31优化：只在首次打开且数据不足15天时加载，避免重复刷新
+    if (dates.length < 15 && !has15DaysDataLoaded.current) {
+      console.log(`[15天板块高度] 当前有${dates.length}天数据，首次加载至15天`);
+      has15DaysDataLoaded.current = true; // 标记为已加载
       // 不等待加载完成，让用户先看到现有数据
       fetch7DaysData(15).catch(err => {
         console.error('[15天板块高度] 后台加载失败:', err);
+        has15DaysDataLoaded.current = false; // 加载失败，重置标志
       });
     }
   };
