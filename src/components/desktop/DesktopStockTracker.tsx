@@ -996,7 +996,7 @@ export default function Home() {
 
       let lastBoardNum = 0;
       let brokenCount = 0;
-      const MAX_BROKEN_DAYS = 5;
+      const MAX_BROKEN_DAYS = 15; // v4.8.31修改：延长断板后追踪时间从5天到15天
 
       for (let i = startDateIndex; i < dates.length; i++) {
         const currentDate = dates[i];
@@ -1441,91 +1441,103 @@ export default function Home() {
                       />
 
                       {/* 为每只股票渲染两条线（实线+虚线） */}
-                      {displayTrackers.map((tracker, index) => {
-                        const key = `${tracker.sectorName}_${tracker.stockName}`;
+                      {(() => {
+                        // v4.8.31新增：按板块名称分配颜色，相同板块使用同一种颜色
                         const colors = [
                           '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
                           '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
                         ];
-                        const color = colors[index % colors.length];
 
-                        return (
-                          <Fragment key={tracker.stockCode}>
-                            {/* 实线：连续涨停期间 */}
-                            <Line
-                              yAxisId="board"
-                              type="linear"
-                              dataKey={`${key}_solid`}
-                              stroke={color}
-                              strokeWidth={2.5}
-                              dot={{ fill: color, r: 4 }}
-                              name={`${tracker.sectorName} ${tracker.stockName} 峰值${tracker.peakBoardNum}板`}
-                              connectNulls={false}
-                              label={(props: any) => {
-                                const { x, y, value, index: dataIndex } = props;
-                                if (value === null || value === undefined) return null;
+                        // 创建板块名称到颜色的映射
+                        const sectorColorMap = new Map<string, string>();
+                        const uniqueSectors = Array.from(new Set(displayTrackers.map(t => t.sectorName)));
+                        uniqueSectors.forEach((sector, index) => {
+                          sectorColorMap.set(sector, colors[index % colors.length]);
+                        });
 
-                                // 只在最新涨停日显示标记
-                                const currentDate = dates[dataIndex];
-                                const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
+                        return displayTrackers.map((tracker, index) => {
+                          const key = `${tracker.sectorName}_${tracker.stockName}`;
+                          const color = sectorColorMap.get(tracker.sectorName) || colors[0];
 
-                                if (lifecyclePoint?.type === 'continuous' && lifecyclePoint.isLatest) {
-                                  return (
-                                    <text
-                                      x={x}
-                                      y={y - 15}
-                                      textAnchor="middle"
-                                      fill={color}
-                                      fontSize="10"
-                                      fontWeight="700"
-                                    >
-                                      {`${tracker.sectorName} ${tracker.stockName}${value}`}
-                                    </text>
-                                  );
-                                }
-                                return null;
-                              }}
-                            />
+                          return (
+                            <Fragment key={tracker.stockCode}>
+                              {/* 实线：连续涨停期间 */}
+                              <Line
+                                yAxisId="board"
+                                type="linear"
+                                dataKey={`${key}_solid`}
+                                stroke={color}
+                                strokeWidth={2.5}
+                                dot={{ fill: color, r: 4 }}
+                                name={`${tracker.sectorName} ${tracker.stockName} 峰值${tracker.peakBoardNum}板`}
+                                connectNulls={false}
+                                label={(props: any) => {
+                                  const { x, y, value, index: dataIndex } = props;
+                                  if (value === null || value === undefined) return null;
 
-                            {/* 虚线：断板后 */}
-                            <Line
-                              yAxisId="relative"
-                              type="linear"
-                              dataKey={`${key}_dashed`}
-                              stroke={color}
-                              strokeWidth={2}
-                              strokeDasharray="5 5"
-                              dot={{ fill: color, r: 3 }}
-                              name={`${tracker.sectorName} ${tracker.stockName} 虚线`}
-                              connectNulls={false}
-                              label={(props: any) => {
-                                const { x, y, value, index: dataIndex } = props;
-                                if (value === null || value === undefined) return null;
+                                  // 只在最新涨停日显示标记
+                                  const currentDate = dates[dataIndex];
+                                  const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
 
-                                const currentDate = dates[dataIndex];
-                                const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
+                                  if (lifecyclePoint?.type === 'continuous' && lifecyclePoint.isLatest) {
+                                    return (
+                                      <text
+                                        x={x}
+                                        y={y - 15}
+                                        textAnchor="middle"
+                                        fill={color}
+                                        fontSize="10"
+                                        fontWeight="700"
+                                      >
+                                        {`${tracker.sectorName} ${tracker.stockName}${value}`}
+                                      </text>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
 
-                                if (lifecyclePoint?.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
-                                  const changePercent = lifecyclePoint.changePercent;
-                                  return (
-                                    <text
-                                      x={x}
-                                      y={y - 8}
-                                      textAnchor="middle"
-                                      fill="#6b7280"
-                                      fontSize="9"
-                                      fontWeight="600"
-                                    >
-                                      {changePercent > 0 ? '+' : ''}{changePercent.toFixed(1)}%
-                                    </text>
-                                  );
-                                }
-                                return null;
-                              }}
-                            />
-                          </Fragment>
-                        );
-                      })}
+                              {/* 虚线：断板后 */}
+                              <Line
+                                yAxisId="relative"
+                                type="linear"
+                                dataKey={`${key}_dashed`}
+                                stroke={color}
+                                strokeWidth={2}
+                                strokeDasharray="5 5"
+                                strokeOpacity={0.5}
+                                dot={{ fill: color, r: 3, fillOpacity: 0.5 }}
+                                name={`${tracker.sectorName} ${tracker.stockName} 虚线`}
+                                connectNulls={false}
+                                label={(props: any) => {
+                                  const { x, y, value, index: dataIndex } = props;
+                                  if (value === null || value === undefined) return null;
+
+                                  const currentDate = dates[dataIndex];
+                                  const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
+
+                                  if (lifecyclePoint?.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
+                                    const changePercent = lifecyclePoint.changePercent;
+                                    return (
+                                      <text
+                                        x={x}
+                                        y={y - 8}
+                                        textAnchor="middle"
+                                        fill="#6b7280"
+                                        fontSize="9"
+                                        fontWeight="600"
+                                      >
+                                        {changePercent > 0 ? '+' : ''}{changePercent.toFixed(1)}%
+                                      </text>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                            </Fragment>
+                          );
+                        });
+                      })()}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
