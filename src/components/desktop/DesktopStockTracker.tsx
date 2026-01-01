@@ -1420,7 +1420,7 @@ export default function Home() {
                       <Legend
                         wrapperStyle={{
                           paddingTop: '15px',
-                          fontSize: '10px',
+                          fontSize: '11px',
                           maxHeight: '120px',
                           overflowY: 'auto',
                           border: '1px solid #e5e7eb',
@@ -1428,6 +1428,78 @@ export default function Home() {
                           padding: '8px'
                         }}
                         iconType="line"
+                        content={(props: any) => {
+                          // v4.8.31新增：自定义图例，只显示板块名称，支持点击筛选
+                          const colors = [
+                            '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
+                            '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
+                          ];
+
+                          const sectorColorMap = new Map<string, string>();
+                          const uniqueSectors = Array.from(new Set(displayTrackers.map((t: any) => t.sectorName)));
+                          uniqueSectors.forEach((sector: string, index: number) => {
+                            sectorColorMap.set(sector, colors[index % colors.length]);
+                          });
+
+                          return (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                              {uniqueSectors.map((sector: string) => {
+                                const color = sectorColorMap.get(sector) || colors[0];
+                                const isSelected = sectorHeightFilters.selectedSector === sector;
+
+                                return (
+                                  <div
+                                    key={sector}
+                                    onClick={() => {
+                                      // 点击板块名称，切换筛选
+                                      if (isSelected) {
+                                        // 如果已选中，则取消选择（显示全部）
+                                        setSectorHeightFilters(prev => ({ ...prev, selectedSector: null }));
+                                      } else {
+                                        // 选中该板块
+                                        setSectorHeightFilters(prev => ({ ...prev, selectedSector: sector }));
+                                      }
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      cursor: 'pointer',
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      backgroundColor: isSelected ? color : 'transparent',
+                                      color: isSelected ? '#fff' : '#374151',
+                                      border: `1px solid ${color}`,
+                                      fontWeight: isSelected ? 'bold' : 'normal',
+                                      transition: 'all 0.2s',
+                                      fontSize: '11px'
+                                    }}
+                                    onMouseEnter={(e: any) => {
+                                      if (!isSelected) {
+                                        e.currentTarget.style.backgroundColor = color + '20';
+                                      }
+                                    }}
+                                    onMouseLeave={(e: any) => {
+                                      if (!isSelected) {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                      }
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        width: '16px',
+                                        height: '2px',
+                                        backgroundColor: color,
+                                        display: 'inline-block'
+                                      }}
+                                    />
+                                    <span>{sector}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        }}
                       />
                       <Tooltip
                         contentStyle={{ fontSize: '11px' }}
