@@ -962,6 +962,7 @@ export default function Home() {
       let lastBoardNum = 0;
       let brokenCount = 0;
       const MAX_BROKEN_DAYS = 15; // v4.8.31修改：延长断板后追踪时间从5天到15天
+      let lastRelativePosition = 0; // v4.8.31新增：追踪前一天的相对位置，用于虚线累积计算
 
       for (let i = startDateIndex; i < dates.length; i++) {
         const currentDate = dates[i];
@@ -984,6 +985,7 @@ export default function Home() {
           });
 
           lastBoardNum = currentBoardNum;
+          lastRelativePosition = currentBoardNum; // v4.8.31新增：更新相对位置为当前板位
           brokenCount = 0;
 
         } else {
@@ -1031,7 +1033,12 @@ export default function Home() {
           }
 
           if (changePercent !== undefined) {
-            const relativeBoardPosition = lastBoardNum + (changePercent / 10);
+            // v4.8.31修复：虚线累积计算 - 基于前一天的相对位置累加（而非一直用lastBoardNum）
+            // 断板第1天：lastRelativePosition = lastBoardNum（连板终点）
+            // 断板第2天：lastRelativePosition = 断板第1天位置
+            // 断板第3天：lastRelativePosition = 断板第2天位置
+            // 这样正溢价会越来越高，负溢价会越来越低
+            const relativeBoardPosition = lastRelativePosition + (changePercent / 10);
 
             lifecycle.push({
               date: currentDate,
@@ -1040,6 +1047,7 @@ export default function Home() {
               relativeBoardPosition: relativeBoardPosition
             });
 
+            lastRelativePosition = relativeBoardPosition; // v4.8.31新增：更新相对位置为当前位置
             brokenCount++;
           } else {
             lifecycle.push({
@@ -1159,9 +1167,15 @@ export default function Home() {
         } else if (lifecyclePoint.type === 'continuous') {
           // 连续涨停 → 实线
           dataPoint[`${key}_solid`] = lifecyclePoint.boardNum;
-          dataPoint[`${key}_dashed`] = null;
+
+          // v4.8.31修复：如果是最后一个涨停日，同时设置虚线起点，确保平滑连接
+          if (lifecyclePoint.isLatest) {
+            dataPoint[`${key}_dashed`] = lifecyclePoint.boardNum;
+          } else {
+            dataPoint[`${key}_dashed`] = null;
+          }
         } else if (lifecyclePoint.type === 'broken') {
-          // 断板 → 虚线（使用相对位置）
+          // 断板 → 虚线（使用累积计算后的相对位置）
           dataPoint[`${key}_solid`] = null;
           dataPoint[`${key}_dashed`] = lifecyclePoint.relativeBoardPosition;
         } else {
@@ -1323,7 +1337,8 @@ export default function Home() {
             <div className="flex-1 overflow-auto">
               {displayTrackers.length > 0 ? (
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3">
-                  <ResponsiveContainer width="100%" height={420}>
+                  {/* v4.8.31优化：增加图表高度 420→650 */}
+                  <ResponsiveContainer width="100%" height={650}>
                     <LineChart
                       data={prepareChartData}
                       margin={{ top: 40, right: 100, bottom: 30, left: 80 }}
@@ -3237,6 +3252,7 @@ export default function Home() {
 
             {/* 7天板块高度按钮 - 新增 */}
             <button
+              type="button"
               onClick={handleOpenSectorHeightModal}
               disabled={loading || !sevenDaysData}
               className="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition-colors disabled:opacity-50"
