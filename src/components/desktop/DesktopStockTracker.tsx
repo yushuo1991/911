@@ -295,7 +295,8 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetch7DaysData(7);
+    // v4.8.31修改：默认加载15天数据，而不是7天
+    fetch7DaysData(15);
   }, []);
 
   // 处理板块点击显示弹窗 - 显示该板块个股梯队（新：分屏布局，左侧图表，右侧表格）
@@ -1158,27 +1159,9 @@ export default function Home() {
         } else if (lifecyclePoint.type === 'continuous') {
           // 连续涨停 → 实线
           dataPoint[`${key}_solid`] = lifecyclePoint.boardNum;
-
-          // 关键：如果这是最后一个涨停日，同时为虚线设置起点（连接点）
-          if (lifecyclePoint.isLatest) {
-            // 检查下一天是否是断板
-            const nextDate = dates[dateIndex + 1];
-            if (nextDate) {
-              const nextPoint = tracker.lifecycle.find(lc => lc.date === nextDate);
-              if (nextPoint && nextPoint.type === 'broken') {
-                // 下一天断板了，当前点作为虚线起点
-                dataPoint[`${key}_dashed`] = lifecyclePoint.boardNum;
-              } else {
-                dataPoint[`${key}_dashed`] = null;
-              }
-            } else {
-              dataPoint[`${key}_dashed`] = null;
-            }
-          } else {
-            dataPoint[`${key}_dashed`] = null;
-          }
+          dataPoint[`${key}_dashed`] = null;
         } else if (lifecyclePoint.type === 'broken') {
-          // 断板 → 虚线
+          // 断板 → 虚线（使用相对位置）
           dataPoint[`${key}_solid`] = null;
           dataPoint[`${key}_dashed`] = lifecyclePoint.relativeBoardPosition;
         } else {
@@ -1345,10 +1328,10 @@ export default function Home() {
                       data={prepareChartData}
                       margin={{ top: 40, right: 100, bottom: 30, left: 80 }}
                     >
-                      {/* v4.8.31优化：网格背景设置成更清晰的实线网格 */}
+                      {/* v4.8.31优化：网格背景增强为清晰的方格网格 */}
                       <CartesianGrid
-                        stroke="#d1d5db"
-                        strokeWidth={0.8}
+                        stroke="#9ca3af"
+                        strokeWidth={1}
                         horizontal={true}
                         vertical={true}
                       />
@@ -1357,28 +1340,15 @@ export default function Home() {
                         tick={{ fontSize: 11 }}
                         label={{ value: '日期', position: 'insideBottom', offset: -10, fontSize: 12 }}
                       />
-                      {/* 左Y轴：板位高度 */}
+                      {/* v4.8.31修复：统一使用左Y轴，确保实线虚线连接 */}
                       <YAxis
-                        yAxisId="board"
+                        yAxisId="left"
                         tick={{ fontSize: 11 }}
                         domain={[0, 'dataMax + 1']}
                         label={{
-                          value: '板位高度',
+                          value: '板位高度 / 相对坐标',
                           angle: -90,
                           position: 'insideLeft',
-                          style: { fontSize: 12, fontWeight: 'bold' }
-                        }}
-                      />
-                      {/* 右Y轴：相对坐标（也是板位刻度） */}
-                      <YAxis
-                        yAxisId="relative"
-                        orientation="right"
-                        tick={{ fontSize: 11 }}
-                        domain={[0, 'dataMax + 1']}
-                        label={{
-                          value: '相对坐标（板位+涨跌幅/10）',
-                          angle: 90,
-                          position: 'insideRight',
                           style: { fontSize: 12, fontWeight: 'bold' }
                         }}
                       />
@@ -1498,9 +1468,10 @@ export default function Home() {
 
                           return (
                             <Fragment key={tracker.stockCode}>
+                              {/* v4.8.31修复：实线和虚线统一使用 left Y轴，确保连接 */}
                               {/* 实线：连续涨停期间 */}
                               <Line
-                                yAxisId="board"
+                                yAxisId="left"
                                 type="linear"
                                 dataKey={`${key}_solid`}
                                 stroke={color}
@@ -1536,7 +1507,7 @@ export default function Home() {
 
                               {/* 虚线：断板后 */}
                               <Line
-                                yAxisId="relative"
+                                yAxisId="left"
                                 type="linear"
                                 dataKey={`${key}_dashed`}
                                 stroke={color}
@@ -1581,8 +1552,8 @@ export default function Home() {
                   {/* v4.8.31新增：说明文字移到图表下方 */}
                   <div className="mt-3 bg-blue-50 rounded-lg p-2 border border-blue-200">
                     <div className="text-blue-700 text-xs space-y-0.5">
-                      <span className="inline-block mr-3">• <strong>实线</strong>：连续涨停（Y轴=板位高度）</span>
-                      <span className="inline-block mr-3">• <strong>虚线</strong>：断板后（Y轴=相对坐标，±10%=±1板位）</span>
+                      <span className="inline-block mr-3">• <strong>实线</strong>：连续涨停期间（Y轴=板位高度）</span>
+                      <span className="inline-block mr-3">• <strong>虚线</strong>：断板后（Y轴=相对位置，从最后板位开始，±10%涨跌幅=±1单位）</span>
                       <span className="inline-block">• <strong>峰值标记</strong>：板块名 个股名 板位（只显示最新涨停日）</span>
                     </div>
                   </div>
