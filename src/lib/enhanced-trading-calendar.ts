@@ -3,6 +3,34 @@
 
 import { tushareClient } from './tushare-client';
 
+// v4.8.31新增：中国法定节假日判断（用于Tushare API降级时的兜底逻辑）
+const CHINA_HOLIDAYS = new Set([
+  // 元旦 (1月1日)
+  '01-01',
+  // 春节 (农历正月初一至初三，这里列出常见的公历日期范围)
+  // 注：春节日期每年不同，这里只列出部分常见日期作为示例
+  '01-21', '01-22', '01-23', '01-24', '01-25', '01-26', '01-27', '01-28', '01-29', '01-30',
+  '02-01', '02-02', '02-03', '02-04', '02-05', '02-06', '02-07', '02-08', '02-09', '02-10',
+  '02-11', '02-12', '02-13', '02-14', '02-15', '02-16', '02-17', '02-18', '02-19', '02-20',
+  // 清明节 (4月4-6日左右)
+  '04-04', '04-05', '04-06',
+  // 劳动节 (5月1-3日)
+  '05-01', '05-02', '05-03',
+  // 端午节 (农历五月初五，这里列出常见的公历日期)
+  '06-10', '06-11', '06-12', '06-13', '06-14', '06-15', '06-16', '06-17', '06-18', '06-19', '06-20',
+  // 中秋节 (农历八月十五，这里列出常见的公历日期)
+  '09-10', '09-11', '09-12', '09-13', '09-14', '09-15', '09-16', '09-17', '09-18', '09-19', '09-20',
+  // 国庆节 (10月1-7日)
+  '10-01', '10-02', '10-03', '10-04', '10-05', '10-06', '10-07'
+]);
+
+// 判断日期是否可能是节假日（用于降级逻辑）
+function isLikelyHoliday(dateStr: string): boolean {
+  const date = new Date(dateStr);
+  const monthDay = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return CHINA_HOLIDAYS.has(monthDay);
+}
+
 // 交易日历缓存结构
 interface TradingCalendarCache {
   data: Map<string, boolean>;
@@ -131,15 +159,16 @@ export async function getValidTradingDays(startDate: string, count: number = 5):
         }
       }
     } else {
-      // 降级到周末过滤逻辑
-      console.log(`[真实交易日] 降级到周末过滤逻辑`);
+      // 降级到周末过滤逻辑（v4.8.31增强：同时排除节假日）
+      console.log(`[真实交易日] 降级到周末+节假日过滤逻辑`);
       let currentDate = new Date(startDate);
       currentDate.setDate(currentDate.getDate() + 1);
 
       while (tradingDays.length < count) {
-        if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-          // 转换为YYYY-MM-DD格式
-          const formattedDate = currentDate.toISOString().split('T')[0];
+        const formattedDate = currentDate.toISOString().split('T')[0];
+
+        // v4.8.31增强：排除周末和节假日
+        if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6 && !isLikelyHoliday(formattedDate)) {
           tradingDays.push(formattedDate);
         }
 
@@ -153,17 +182,18 @@ export async function getValidTradingDays(startDate: string, count: number = 5):
     return tradingDays;
 
   } catch (error) {
-    console.error(`[真实交易日] 获取失败，使用周末过滤:`, error);
+    console.error(`[真实交易日] 获取失败，使用周末+节假日过滤:`, error);
 
-    // 兜底：使用周末过滤
+    // 兜底：使用周末+节假日过滤（v4.8.31增强）
     const fallbackDays: string[] = [];
     let currentDate = new Date(startDate);
     currentDate.setDate(currentDate.getDate() + 1);
 
     while (fallbackDays.length < count) {
-      if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-        // 转换为YYYY-MM-DD格式
-        const formattedDate = currentDate.toISOString().split('T')[0];
+      const formattedDate = currentDate.toISOString().split('T')[0];
+
+      // v4.8.31增强：排除周末和节假日
+      if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6 && !isLikelyHoliday(formattedDate)) {
         fallbackDays.push(formattedDate);
       }
 
@@ -258,8 +288,8 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
         }
       }
     } else {
-      // 降级到周末过滤逻辑
-      console.log(`[7天交易日] 降级到周末过滤逻辑`);
+      // 降级到周末过滤逻辑（v4.8.31增强：同时排除节假日）
+      console.log(`[7天交易日] 降级到周末+节假日过滤逻辑`);
       let currentDate = new Date(endDate);
 
       // v4.8.9修改：根据时间决定起始位置
@@ -268,9 +298,10 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
       }
 
       while (tradingDays.length < 7) {
-        if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-          // 转换为YYYY-MM-DD格式
-          const formattedDate = currentDate.toISOString().split('T')[0];
+        const formattedDate = currentDate.toISOString().split('T')[0];
+
+        // v4.8.31增强：排除周末和节假日
+        if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6 && !isLikelyHoliday(formattedDate)) {
           tradingDays.unshift(formattedDate);
         }
 
@@ -284,9 +315,9 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
     return tradingDays;
 
   } catch (error) {
-    console.error(`[7天交易日] 获取失败，使用周末过滤:`, error);
+    console.error(`[7天交易日] 获取失败，使用周末+节假日过滤:`, error);
 
-    // 兜底：使用周末过滤
+    // 兜底：使用周末+节假日过滤（v4.8.31增强）
     const fallbackDays: string[] = [];
     let currentDate = new Date(endDate);
 
@@ -296,9 +327,10 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
     }
 
     while (fallbackDays.length < 7) {
-      if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-        // 转换为YYYY-MM-DD格式
-        const formattedDate = currentDate.toISOString().split('T')[0];
+      const formattedDate = currentDate.toISOString().split('T')[0];
+
+      // v4.8.31增强：排除周末和节假日
+      if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6 && !isLikelyHoliday(formattedDate)) {
         fallbackDays.unshift(formattedDate);
       }
 
