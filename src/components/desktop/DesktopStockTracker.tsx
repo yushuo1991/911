@@ -902,7 +902,8 @@ export default function Home() {
   }, [sevenDaysData, dates]);
 
   // v4.8.30重构：从板块维度改为个股维度追踪
-  const getHighBoardStockTrackers = useMemo(() => {
+  // v4.8.31修复：拆分为未筛选版本（用于Legend）和筛选版本（用于图表）
+  const getAllHighBoardStockTrackers = useMemo(() => {
     if (!sevenDaysData || !dates || dates.length === 0) return [];
 
     // Step 1: 收集所有高板股的首次4板日期和峰值信息
@@ -1091,8 +1092,23 @@ export default function Home() {
       });
     });
 
-    // Step 3: 应用过滤器
-    let filteredTrackers = trackers;
+    // Step 3: 排序（峰值板位降序 → 峰值日期升序 → 股票名称）
+    trackers.sort((a, b) => {
+      if (b.peakBoardNum !== a.peakBoardNum) {
+        return b.peakBoardNum - a.peakBoardNum;
+      }
+      if (a.peakDate !== b.peakDate) {
+        return a.peakDate.localeCompare(b.peakDate);
+      }
+      return a.stockName.localeCompare(b.stockName);
+    });
+
+    return trackers;
+  }, [sevenDaysData, dates]);
+
+  // v4.8.31新增：筛选后的高板股trackers（用于图表显示）
+  const getHighBoardStockTrackers = useMemo(() => {
+    let filteredTrackers = getAllHighBoardStockTrackers;
 
     // 板位过滤
     if (sectorHeightFilters.minBoardNum !== null) {
@@ -1108,19 +1124,8 @@ export default function Home() {
       );
     }
 
-    // Step 4: 排序（峰值板位降序 → 峰值日期升序 → 股票名称）
-    filteredTrackers.sort((a, b) => {
-      if (b.peakBoardNum !== a.peakBoardNum) {
-        return b.peakBoardNum - a.peakBoardNum;
-      }
-      if (a.peakDate !== b.peakDate) {
-        return a.peakDate.localeCompare(b.peakDate);
-      }
-      return a.stockName.localeCompare(b.stockName);
-    });
-
     return filteredTrackers;
-  }, [sevenDaysData, dates, sectorHeightFilters]);
+  }, [getAllHighBoardStockTrackers, sectorHeightFilters]);
 
   // v4.8.30新增：获取所有板块名称（用于板块过滤器选项）
   const getAllSectorNames = useMemo(() => {
@@ -1151,15 +1156,15 @@ export default function Home() {
     ];
 
     const colorMap = new Map<string, string>();
-    // 基于所有追踪器（未筛选）创建颜色映射，确保颜色固定
-    const allUniqueSectors = Array.from(new Set(getHighBoardStockTrackers.map(t => t.sectorName)));
+    // v4.8.31修复：基于未筛选的getAllHighBoardStockTrackers创建颜色映射，确保颜色固定
+    const allUniqueSectors = Array.from(new Set(getAllHighBoardStockTrackers.map(t => t.sectorName)));
     allUniqueSectors.sort(); // 排序确保一致性
     allUniqueSectors.forEach((sector, index) => {
       colorMap.set(sector, colors[index % colors.length]);
     });
 
     return colorMap;
-  }, [getHighBoardStockTrackers]);
+  }, [getAllHighBoardStockTrackers]);
 
   // v4.8.30新增：性能优化 - 限制最大显示数量
   const MAX_DISPLAY_STOCKS = 30;
@@ -1470,8 +1475,8 @@ export default function Home() {
                         }}
                         iconType="line"
                         content={(props: any) => {
-                          // v4.8.31修复：Legend应该显示所有可选板块（未筛选前的），而不是筛选后的
-                          const allUniqueSectors = Array.from(new Set(getHighBoardStockTrackers.map((t: any) => t.sectorName)));
+                          // v4.8.31修复：Legend显示所有可选板块（未筛选），确保叠加模式可以选择多个板块
+                          const allUniqueSectors = Array.from(new Set(getAllHighBoardStockTrackers.map((t: any) => t.sectorName)));
                           allUniqueSectors.sort(); // 排序保持一致性
 
                           return (
