@@ -1464,16 +1464,18 @@ export default function Home() {
                           overflowY: 'auto',
                           border: '1px solid #e5e7eb',
                           borderRadius: '6px',
-                          padding: '8px'
+                          padding: '8px',
+                          textAlign: 'center'  // v4.8.31新增：确保容器内容居中
                         }}
                         iconType="line"
                         content={(props: any) => {
-                          // v4.8.31优化：使用全局颜色映射，确保筛选前后颜色一致
-                          const uniqueSectors = Array.from(new Set(displayTrackers.map((t: any) => t.sectorName)));
+                          // v4.8.31修复：Legend应该显示所有可选板块（未筛选前的），而不是筛选后的
+                          const allUniqueSectors = Array.from(new Set(getHighBoardStockTrackers.map((t: any) => t.sectorName)));
+                          allUniqueSectors.sort(); // 排序保持一致性
 
                           return (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
-                              {uniqueSectors.map((sector: string) => {
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', width: '100%' }}>
+                              {allUniqueSectors.map((sector: string) => {
                                 const color = sectorColorMap.get(sector) || '#ef4444';
                                 // v4.8.31修改：支持多板块选择
                                 const isSelected = sectorHeightFilters.selectedSectors?.includes(sector) || false;
