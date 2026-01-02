@@ -1525,6 +1525,72 @@ export default function Home() {
 
                           const currentDate = props.label; // 当前鼠标悬停的日期
 
+                          // 收集所有有效的显示项
+                          const items: any[] = [];
+
+                          props.payload.forEach((entry: any) => {
+                            if (entry.value === null || entry.value === undefined) return;
+
+                            // 从dataKey中提取股票信息
+                            const dataKey = entry.dataKey as string;
+                            const isDashed = dataKey.endsWith('_dashed');
+                            const isSolid = dataKey.endsWith('_solid');
+
+                            if (!isDashed && !isSolid) return;
+
+                            // 提取板块和股票名
+                            const keyParts = dataKey.replace('_solid', '').replace('_dashed', '');
+                            const tracker = displayTrackers.find(t =>
+                              `${t.sectorName}_${t.stockName}` === keyParts
+                            );
+
+                            if (!tracker) {
+                              console.log('[Tooltip] 未找到tracker:', keyParts);
+                              return;
+                            }
+
+                            // 查找该日期的lifecycle点
+                            const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
+                            if (!lifecyclePoint) {
+                              console.log('[Tooltip] 未找到lifecycle点:', tracker.stockName, currentDate);
+                              return;
+                            }
+
+                            let displayText = '';
+
+                            if (lifecyclePoint.type === 'continuous' && lifecyclePoint.td_type) {
+                              // 连板：解析td_type
+                              const td_type = lifecyclePoint.td_type;
+                              const continuousMatch = td_type.match(/^(\d+)连板$/);
+                              const multiDayMatch = td_type.match(/^(\d+)天(\d+)板$/);
+
+                              if (continuousMatch) {
+                                // X连板
+                                displayText = `${tracker.sectorName} ${tracker.stockName}${continuousMatch[1]}`;
+                              } else if (multiDayMatch) {
+                                // X天Y板
+                                displayText = `${tracker.sectorName} ${tracker.stockName}${multiDayMatch[1]}-${multiDayMatch[2]}`;
+                              } else {
+                                displayText = `${tracker.sectorName} ${tracker.stockName}${entry.value}板`;
+                              }
+                            } else if (lifecyclePoint.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
+                              // 断板：显示溢价
+                              const percent = lifecyclePoint.changePercent;
+                              const sign = percent > 0 ? '+' : '';
+                              displayText = `${tracker.sectorName} ${tracker.stockName} ${sign}${percent.toFixed(1)}%`;
+                            } else if (lifecyclePoint.type === 'continuous') {
+                              // 连板但没有td_type，使用板位
+                              displayText = `${tracker.sectorName} ${tracker.stockName} ${entry.value}板`;
+                            }
+
+                            if (displayText) {
+                              items.push({
+                                color: entry.color,
+                                text: displayText
+                              });
+                            }
+                          });
+
                           return (
                             <div style={{
                               backgroundColor: 'white',
@@ -1534,57 +1600,14 @@ export default function Home() {
                               fontSize: '11px'
                             }}>
                               <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>{currentDate}</div>
-                              {props.payload.map((entry: any, index: number) => {
-                                if (entry.value === null || entry.value === undefined) return null;
-
-                                // 从dataKey中提取股票信息
-                                const dataKey = entry.dataKey as string;
-                                const isDashed = dataKey.endsWith('_dashed');
-                                const isSolid = dataKey.endsWith('_solid');
-
-                                if (!isDashed && !isSolid) return null;
-
-                                // 提取板块和股票名
-                                const keyParts = dataKey.replace('_solid', '').replace('_dashed', '');
-                                const tracker = displayTrackers.find(t =>
-                                  `${t.sectorName}_${t.stockName}` === keyParts
-                                );
-
-                                if (!tracker) return null;
-
-                                // 查找该日期的lifecycle点
-                                const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
-                                if (!lifecyclePoint) return null;
-
-                                let displayText = '';
-
-                                if (lifecyclePoint.type === 'continuous' && lifecyclePoint.td_type) {
-                                  // 连板：解析td_type
-                                  const td_type = lifecyclePoint.td_type;
-                                  const continuousMatch = td_type.match(/^(\d+)连板$/);
-                                  const multiDayMatch = td_type.match(/^(\d+)天(\d+)板$/);
-
-                                  if (continuousMatch) {
-                                    // X连板
-                                    displayText = `${tracker.sectorName} ${tracker.stockName}${continuousMatch[1]}`;
-                                  } else if (multiDayMatch) {
-                                    // X天Y板
-                                    displayText = `${tracker.sectorName} ${tracker.stockName}${multiDayMatch[1]}-${multiDayMatch[2]}`;
-                                  } else {
-                                    displayText = `${tracker.sectorName} ${tracker.stockName}${entry.value}板`;
-                                  }
-                                } else if (lifecyclePoint.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
-                                  // 断板：显示溢价
-                                  const percent = lifecyclePoint.changePercent;
-                                  const sign = percent > 0 ? '+' : '';
-                                  displayText = `${tracker.sectorName} ${tracker.stockName} ${sign}${percent.toFixed(1)}%`;
-                                }
-
-                                return (
+                              {items.length === 0 ? (
+                                <div style={{ color: '#999' }}>无数据</div>
+                              ) : (
+                                items.map((item, index) => (
                                   <div
                                     key={index}
                                     style={{
-                                      color: entry.color,
+                                      color: item.color,
                                       marginBottom: '4px',
                                       display: 'flex',
                                       alignItems: 'center'
@@ -1593,15 +1616,15 @@ export default function Home() {
                                     <span style={{
                                       width: '10px',
                                       height: '10px',
-                                      backgroundColor: entry.color,
+                                      backgroundColor: item.color,
                                       display: 'inline-block',
                                       marginRight: '6px',
                                       borderRadius: '2px'
                                     }} />
-                                    {displayText}
+                                    {item.text}
                                   </div>
-                                );
-                              })}
+                                ))
+                              )}
                             </div>
                           );
                         }}
