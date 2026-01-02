@@ -121,6 +121,9 @@ export default function Home() {
     selectedSector: null  // 默认显示全部板块
   });
 
+  // v4.8.31新增：控制是否显示虚线（断板部分）及溢价标签
+  const [showDashedLines, setShowDashedLines] = useState(true);
+
 
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
@@ -1378,6 +1381,17 @@ export default function Home() {
                 </select>
               </div>
 
+              <button
+                onClick={() => setShowDashedLines(!showDashedLines)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  showDashedLines
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                }`}
+              >
+                {showDashedLines ? '隐藏断板数据' : '显示断板数据'}
+              </button>
+
               <div className="ml-auto text-xs text-gray-600">
                 共追踪 <span className="font-bold text-blue-600">{getHighBoardStockTrackers.length}</span> 只高板股
               </div>
@@ -1558,43 +1572,45 @@ export default function Home() {
                                 }}
                               />
 
-                              {/* 虚线：断板后 */}
-                              <Line
-                                yAxisId="left"
-                                type="linear"
-                                dataKey={`${key}_dashed`}
-                                stroke={color}
-                                strokeWidth={2}
-                                strokeDasharray="5 5"
-                                strokeOpacity={0.5}
-                                dot={{ fill: color, r: 3, fillOpacity: 0.5 }}
-                                name={`${tracker.sectorName} ${tracker.stockName} 虚线`}
-                                connectNulls={false}
-                                label={(props: any) => {
-                                  const { x, y, value, index: dataIndex } = props;
-                                  if (value === null || value === undefined) return null;
+                              {/* 虚线：断板后 - 根据showDashedLines状态控制显示 */}
+                              {showDashedLines && (
+                                <Line
+                                  yAxisId="left"
+                                  type="linear"
+                                  dataKey={`${key}_dashed`}
+                                  stroke={color}
+                                  strokeWidth={2}
+                                  strokeDasharray="5 5"
+                                  strokeOpacity={0.5}
+                                  dot={{ fill: color, r: 3, fillOpacity: 0.5 }}
+                                  name={`${tracker.sectorName} ${tracker.stockName} 虚线`}
+                                  connectNulls={false}
+                                  label={(props: any) => {
+                                    const { x, y, value, index: dataIndex } = props;
+                                    if (value === null || value === undefined) return null;
 
-                                  const currentDate = dates[dataIndex];
-                                  const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
+                                    const currentDate = dates[dataIndex];
+                                    const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
 
-                                  if (lifecyclePoint?.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
-                                    const changePercent = lifecyclePoint.changePercent;
-                                    return (
-                                      <text
-                                        x={x}
-                                        y={y - 8}
-                                        textAnchor="middle"
-                                        fill="#6b7280"
-                                        fontSize="9"
-                                        fontWeight="600"
-                                      >
-                                        {changePercent > 0 ? '+' : ''}{changePercent.toFixed(1)}%
-                                      </text>
-                                    );
-                                  }
-                                  return null;
-                                }}
-                              />
+                                    if (lifecyclePoint?.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
+                                      const changePercent = lifecyclePoint.changePercent;
+                                      return (
+                                        <text
+                                          x={x}
+                                          y={y - 8}
+                                          textAnchor="middle"
+                                          fill="#6b7280"
+                                          fontSize="9"
+                                          fontWeight="600"
+                                        >
+                                          {changePercent > 0 ? '+' : ''}{changePercent.toFixed(1)}%
+                                        </text>
+                                      );
+                                    }
+                                    return null;
+                                  }}
+                                />
+                              )}
                             </Fragment>
                           );
                         });
