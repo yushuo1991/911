@@ -118,11 +118,14 @@ export default function Home() {
   // v4.8.30新增：板块高度走势过滤器状态
   const [sectorHeightFilters, setSectorHeightFilters] = useState<SectorHeightFilters>({
     minBoardNum: 4,  // 默认显示≥4板
-    selectedSector: null  // 默认显示全部板块
+    selectedSectors: null  // v4.8.31修改：支持多板块（默认显示全部板块）
   });
 
   // v4.8.31新增：控制是否显示虚线（断板部分）及溢价标签
   const [showDashedLines, setShowDashedLines] = useState(true);
+
+  // v4.8.31新增：控制叠加模式（可以选择多个板块）
+  const [overlayMode, setOverlayMode] = useState(false);
 
 
   // generate7TradingDays 函数已移除
@@ -1098,10 +1101,10 @@ export default function Home() {
       );
     }
 
-    // 板块过滤
-    if (sectorHeightFilters.selectedSector !== null) {
+    // 板块过滤 - v4.8.31修改：支持多板块选择
+    if (sectorHeightFilters.selectedSectors !== null && sectorHeightFilters.selectedSectors.length > 0) {
       filteredTrackers = filteredTrackers.filter(
-        t => t.sectorName === sectorHeightFilters.selectedSector
+        t => sectorHeightFilters.selectedSectors!.includes(t.sectorName)
       );
     }
 
@@ -1393,6 +1396,18 @@ export default function Home() {
                 {showDashedLines ? '隐藏断板数据' : '显示断板数据'}
               </button>
 
+              <button
+                onClick={() => setOverlayMode(!overlayMode)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  overlayMode
+                    ? 'bg-purple-600 text-white hover:bg-purple-700'
+                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                }`}
+                title="开启后可以同时选择多个板块进行对比"
+              >
+                {overlayMode ? '叠加模式' : '单选模式'}
+              </button>
+
               <div className="ml-auto text-xs text-gray-600">
                 共追踪 <span className="font-bold text-blue-600">{getHighBoardStockTrackers.length}</span> 只高板股
               </div>
@@ -1460,19 +1475,40 @@ export default function Home() {
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
                               {uniqueSectors.map((sector: string) => {
                                 const color = sectorColorMap.get(sector) || '#ef4444';
-                                const isSelected = sectorHeightFilters.selectedSector === sector;
+                                // v4.8.31修改：支持多板块选择
+                                const isSelected = sectorHeightFilters.selectedSectors?.includes(sector) || false;
 
                                 return (
                                   <div
                                     key={sector}
                                     onClick={() => {
-                                      // 点击板块名称，切换筛选
-                                      if (isSelected) {
-                                        // 如果已选中，则取消选择（显示全部）
-                                        setSectorHeightFilters(prev => ({ ...prev, selectedSector: null }));
+                                      // v4.8.31新增：叠加模式支持多选
+                                      if (overlayMode) {
+                                        // 叠加模式：可以选择多个板块
+                                        const currentSectors = sectorHeightFilters.selectedSectors || [];
+                                        if (isSelected) {
+                                          // 已选中，移除该板块
+                                          const newSectors = currentSectors.filter(s => s !== sector);
+                                          setSectorHeightFilters(prev => ({
+                                            ...prev,
+                                            selectedSectors: newSectors.length > 0 ? newSectors : null
+                                          }));
+                                        } else {
+                                          // 未选中，添加该板块
+                                          setSectorHeightFilters(prev => ({
+                                            ...prev,
+                                            selectedSectors: [...currentSectors, sector]
+                                          }));
+                                        }
                                       } else {
-                                        // 选中该板块
-                                        setSectorHeightFilters(prev => ({ ...prev, selectedSector: sector }));
+                                        // 单选模式：只显示一个板块
+                                        if (isSelected) {
+                                          // 如果已选中，则取消选择（显示全部）
+                                          setSectorHeightFilters(prev => ({ ...prev, selectedSectors: null }));
+                                        } else {
+                                          // 选中该板块
+                                          setSectorHeightFilters(prev => ({ ...prev, selectedSectors: [sector] }));
+                                        }
                                       }
                                     }}
                                     style={{
@@ -1523,7 +1559,10 @@ export default function Home() {
                             return null;
                           }
 
-                          const currentDate = props.label; // 当前鼠标悬停的日期
+                          // v4.8.31修复：使用 payload 中的 fullDate 而不是 label（短日期）
+                          const currentDateShort = props.label; // MM-DD 格式
+                          const fullDateEntry = props.payload.find((p: any) => p.payload?.fullDate);
+                          const currentDate = fullDateEntry?.payload?.fullDate || currentDateShort; // 完整日期格式
 
                           // 收集所有有效的显示项
                           const items: any[] = [];
@@ -1545,14 +1584,12 @@ export default function Home() {
                             );
 
                             if (!tracker) {
-                              console.log('[Tooltip] 未找到tracker:', keyParts);
                               return;
                             }
 
-                            // 查找该日期的lifecycle点
+                            // v4.8.31修复：使用完整日期进行匹配
                             const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
                             if (!lifecyclePoint) {
-                              console.log('[Tooltip] 未找到lifecycle点:', tracker.stockName, currentDate);
                               return;
                             }
 
@@ -1599,7 +1636,7 @@ export default function Home() {
                               borderRadius: '4px',
                               fontSize: '11px'
                             }}>
-                              <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>{currentDate}</div>
+                              <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>{currentDateShort}</div>
                               {items.length === 0 ? (
                                 <div style={{ color: '#999' }}>无数据</div>
                               ) : (
