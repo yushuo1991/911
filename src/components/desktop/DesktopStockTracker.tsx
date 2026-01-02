@@ -1555,24 +1555,34 @@ export default function Home() {
                                   const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
 
                                   if (lifecyclePoint?.type === 'continuous' && lifecyclePoint.isLatest) {
-                                    // 检查是否有断板经历
-                                    const hasBroken = tracker.lifecycle.some(lc => lc.type === 'broken');
+                                    // 从 sevenDaysData 获取该股票的 td_type
+                                    const dayData = sevenDaysData?.[currentDate];
+                                    const stocks = dayData?.categories[tracker.sectorName] || [];
+                                    const stock = stocks.find(s => s.code === tracker.stockCode);
 
                                     let labelText = '';
-                                    if (hasBroken) {
-                                      // 有断板经历：显示"X天Y板"
-                                      // 计算从首次4板到当前最新涨停日的天数
-                                      const firstDate = tracker.lifecycle[0]?.date;
-                                      if (firstDate) {
-                                        const firstDateObj = new Date(firstDate);
-                                        const currentDateObj = new Date(currentDate);
-                                        const daysDiff = Math.floor((currentDateObj.getTime() - firstDateObj.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                                        labelText = `${tracker.sectorName} ${tracker.stockName} ${daysDiff}天${value}板`;
+                                    if (stock && stock.td_type) {
+                                      // 解析 td_type 字段
+                                      // 匹配 "X连板" 格式
+                                      const continuousMatch = stock.td_type.match(/^(\d+)连板$/);
+                                      // 匹配 "X天Y板" 格式
+                                      const multiDayMatch = stock.td_type.match(/^(\d+)天(\d+)板$/);
+
+                                      if (continuousMatch) {
+                                        // X连板 → 显示"股票名X"
+                                        const boardNum = continuousMatch[1];
+                                        labelText = `${tracker.sectorName} ${tracker.stockName}${boardNum}`;
+                                      } else if (multiDayMatch) {
+                                        // X天Y板 → 显示"股票名X-Y"
+                                        const days = multiDayMatch[1];
+                                        const boards = multiDayMatch[2];
+                                        labelText = `${tracker.sectorName} ${tracker.stockName}${days}-${boards}`;
                                       } else {
+                                        // 兜底：使用当前板位
                                         labelText = `${tracker.sectorName} ${tracker.stockName}${value}`;
                                       }
                                     } else {
-                                      // 没有断板经历：显示"股票名Y"
+                                      // 兜底：使用当前板位
                                       labelText = `${tracker.sectorName} ${tracker.stockName}${value}`;
                                     }
 
