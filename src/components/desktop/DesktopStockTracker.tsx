@@ -1555,6 +1555,27 @@ export default function Home() {
                                   const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
 
                                   if (lifecyclePoint?.type === 'continuous' && lifecyclePoint.isLatest) {
+                                    // 检查是否有断板经历
+                                    const hasBroken = tracker.lifecycle.some(lc => lc.type === 'broken');
+
+                                    let labelText = '';
+                                    if (hasBroken) {
+                                      // 有断板经历：显示"X天Y板"
+                                      // 计算从首次4板到当前最新涨停日的天数
+                                      const firstDate = tracker.lifecycle[0]?.date;
+                                      if (firstDate) {
+                                        const firstDateObj = new Date(firstDate);
+                                        const currentDateObj = new Date(currentDate);
+                                        const daysDiff = Math.floor((currentDateObj.getTime() - firstDateObj.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                                        labelText = `${tracker.sectorName} ${tracker.stockName} ${daysDiff}天${value}板`;
+                                      } else {
+                                        labelText = `${tracker.sectorName} ${tracker.stockName}${value}`;
+                                      }
+                                    } else {
+                                      // 没有断板经历：显示"股票名Y"
+                                      labelText = `${tracker.sectorName} ${tracker.stockName}${value}`;
+                                    }
+
                                     return (
                                       <text
                                         x={x}
@@ -1564,7 +1585,7 @@ export default function Home() {
                                         fontSize="10"
                                         fontWeight="700"
                                       >
-                                        {`${tracker.sectorName} ${tracker.stockName}${tracker.peakBoardNum}-${value}`}
+                                        {labelText}
                                       </text>
                                     );
                                   }
