@@ -1465,7 +1465,8 @@ export default function Home() {
                           border: '1px solid #e5e7eb',
                           borderRadius: '6px',
                           padding: '8px',
-                          textAlign: 'center'  // v4.8.31新增：确保容器内容居中
+                          display: 'flex',
+                          justifyContent: 'center'  // v4.8.31修复：使用flex布局居中
                         }}
                         iconType="line"
                         content={(props: any) => {
@@ -1474,7 +1475,14 @@ export default function Home() {
                           allUniqueSectors.sort(); // 排序保持一致性
 
                           return (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', width: '100%' }}>
+                            <div style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '8px',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              width: '100%'
+                            }}>
                               {allUniqueSectors.map((sector: string) => {
                                 const color = sectorColorMap.get(sector) || '#ef4444';
                                 // v4.8.31修改：支持多板块选择
@@ -1514,7 +1522,7 @@ export default function Home() {
                                       }
                                     }}
                                     style={{
-                                      display: 'flex',
+                                      display: 'inline-flex',  // v4.8.31修复：使用inline-flex避免占满整行
                                       alignItems: 'center',
                                       gap: '4px',
                                       cursor: 'pointer',
@@ -1525,7 +1533,8 @@ export default function Home() {
                                       border: `1px solid ${color}`,
                                       fontWeight: isSelected ? 'bold' : 'normal',
                                       transition: 'all 0.2s',
-                                      fontSize: '11px'
+                                      fontSize: '11px',
+                                      whiteSpace: 'nowrap'  // 防止换行
                                     }}
                                     onMouseEnter={(e: any) => {
                                       if (!isSelected) {
@@ -1566,8 +1575,8 @@ export default function Home() {
                           const fullDateEntry = props.payload.find((p: any) => p.payload?.fullDate);
                           const currentDate = fullDateEntry?.payload?.fullDate || currentDateShort; // 完整日期格式
 
-                          // 收集所有有效的显示项
-                          const items: any[] = [];
+                          // v4.8.31修复：使用Map去重，同一股票只显示一次（优先显示连板状态）
+                          const itemsMap = new Map<string, any>();
 
                           props.payload.forEach((entry: any) => {
                             if (entry.value === null || entry.value === undefined) return;
@@ -1623,12 +1632,18 @@ export default function Home() {
                             }
 
                             if (displayText) {
-                              items.push({
-                                color: entry.color,
-                                text: displayText
-                              });
+                              // 使用股票唯一key，优先保留solid（连板状态）
+                              const stockKey = `${tracker.sectorName}_${tracker.stockName}`;
+                              if (!itemsMap.has(stockKey) || isSolid) {
+                                itemsMap.set(stockKey, {
+                                  color: entry.color,
+                                  text: displayText
+                                });
+                              }
                             }
                           });
+
+                          const items = Array.from(itemsMap.values());
 
                           return (
                             <div style={{
