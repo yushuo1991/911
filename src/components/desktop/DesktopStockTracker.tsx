@@ -124,9 +124,6 @@ export default function Home() {
   // v4.8.31新增：控制是否显示虚线（断板部分）及溢价标签
   const [showDashedLines, setShowDashedLines] = useState(true);
 
-  // v4.8.31新增：叠加模式控制（是否允许多选板块）
-  const [overlayMode, setOverlayMode] = useState(false);
-
 
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
@@ -987,7 +984,8 @@ export default function Home() {
             date: currentDate,
             type: 'continuous',
             boardNum: currentBoardNum,
-            isLatest: true
+            isLatest: true,
+            td_type: stockInList.td_type  // v4.8.31新增：保存td_type字段
           });
 
           lastBoardNum = currentBoardNum;
@@ -1101,9 +1099,9 @@ export default function Home() {
     }
 
     // 板块过滤
-    if (sectorHeightFilters.selectedSector !== null && sectorHeightFilters.selectedSector.length > 0) {
+    if (sectorHeightFilters.selectedSector !== null) {
       filteredTrackers = filteredTrackers.filter(
-        t => sectorHeightFilters.selectedSector!.includes(t.sectorName)
+        t => t.sectorName === sectorHeightFilters.selectedSector
       );
     }
 
@@ -1395,23 +1393,6 @@ export default function Home() {
                 {showDashedLines ? '隐藏断板数据' : '显示断板数据'}
               </button>
 
-              <button
-                onClick={() => {
-                  setOverlayMode(!overlayMode);
-                  // 切换到叠加模式时，清空选择
-                  if (!overlayMode) {
-                    setSectorHeightFilters(prev => ({ ...prev, selectedSector: null }));
-                  }
-                }}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  overlayMode
-                    ? 'bg-purple-600 text-white hover:bg-purple-700'
-                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-                }`}
-              >
-                {overlayMode ? '叠加模式' : '单选模式'}
-              </button>
-
               <div className="ml-auto text-xs text-gray-600">
                 共追踪 <span className="font-bold text-blue-600">{getHighBoardStockTrackers.length}</span> 只高板股
               </div>
@@ -1479,35 +1460,19 @@ export default function Home() {
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
                               {uniqueSectors.map((sector: string) => {
                                 const color = sectorColorMap.get(sector) || '#ef4444';
-                                const isSelected = sectorHeightFilters.selectedSector?.includes(sector) || false;
+                                const isSelected = sectorHeightFilters.selectedSector === sector;
 
                                 return (
                                   <div
                                     key={sector}
                                     onClick={() => {
-                                      // 点击板块名称，根据模式切换筛选
-                                      if (overlayMode) {
-                                        // 叠加模式：多选
-                                        setSectorHeightFilters(prev => {
-                                          const currentSelected = prev.selectedSector || [];
-                                          if (currentSelected.includes(sector)) {
-                                            // 如果已选中，则移除
-                                            const newSelected = currentSelected.filter(s => s !== sector);
-                                            return { ...prev, selectedSector: newSelected.length > 0 ? newSelected : null };
-                                          } else {
-                                            // 如果未选中，则添加
-                                            return { ...prev, selectedSector: [...currentSelected, sector] };
-                                          }
-                                        });
+                                      // 点击板块名称，切换筛选
+                                      if (isSelected) {
+                                        // 如果已选中，则取消选择（显示全部）
+                                        setSectorHeightFilters(prev => ({ ...prev, selectedSector: null }));
                                       } else {
-                                        // 单选模式
-                                        if (isSelected && sectorHeightFilters.selectedSector?.length === 1) {
-                                          // 如果已选中且只有一个，则取消选择（显示全部）
-                                          setSectorHeightFilters(prev => ({ ...prev, selectedSector: null }));
-                                        } else {
-                                          // 选中该板块（单选）
-                                          setSectorHeightFilters(prev => ({ ...prev, selectedSector: [sector] }));
-                                        }
+                                        // 选中该板块
+                                        setSectorHeightFilters(prev => ({ ...prev, selectedSector: sector }));
                                       }
                                     }}
                                     style={{
@@ -1552,71 +1517,88 @@ export default function Home() {
                         }}
                       />
                       <Tooltip
-                        contentStyle={{ fontSize: '11px' }}
+                        contentStyle={{ fontSize: '11px', maxHeight: '400px', overflowY: 'auto' }}
                         content={(props: any) => {
-                          const { active, payload, label } = props;
-                          if (!active || !payload || payload.length === 0) return null;
+                          if (!props.active || !props.payload || props.payload.length === 0) {
+                            return null;
+                          }
+
+                          const currentDate = props.label; // 当前鼠标悬停的日期
 
                           return (
-                            <div className="bg-white border border-gray-300 rounded-lg p-2 shadow-lg">
-                              <p className="text-xs font-bold text-gray-800 mb-1">{label}</p>
-                              {payload.map((entry: any, index: number) => {
-                                const { value, dataKey, stroke } = entry;
-                                if (value === null || value === undefined) return null;
+                            <div style={{
+                              backgroundColor: 'white',
+                              border: '1px solid #ccc',
+                              padding: '10px',
+                              borderRadius: '4px',
+                              fontSize: '11px'
+                            }}>
+                              <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>{currentDate}</div>
+                              {props.payload.map((entry: any, index: number) => {
+                                if (entry.value === null || entry.value === undefined) return null;
 
-                                // 解析 dataKey: "板块_股票_solid" 或 "板块_股票_dashed"
-                                const parts = dataKey.split('_');
-                                const lineType = parts[parts.length - 1]; // 'solid' 或 'dashed'
-                                const stockName = parts[parts.length - 2]; // 股票名称
-                                const sectorName = parts.slice(0, parts.length - 2).join('_'); // 板块名称
+                                // 从dataKey中提取股票信息
+                                const dataKey = entry.dataKey as string;
+                                const isDashed = dataKey.endsWith('_dashed');
+                                const isSolid = dataKey.endsWith('_solid');
 
-                                // 找到对应的 tracker
-                                const tracker = displayTrackers.find(
-                                  t => t.sectorName === sectorName && t.stockName === stockName
+                                if (!isDashed && !isSolid) return null;
+
+                                // 提取板块和股票名
+                                const keyParts = dataKey.replace('_solid', '').replace('_dashed', '');
+                                const tracker = displayTrackers.find(t =>
+                                  `${t.sectorName}_${t.stockName}` === keyParts
                                 );
+
                                 if (!tracker) return null;
 
-                                // 获取当前日期的数据
-                                const currentDate = label;
-                                const dayData = sevenDaysData?.[currentDate];
-                                const stocks = dayData?.categories[tracker.sectorName] || [];
-                                const stock = stocks.find(s => s.code === tracker.stockCode);
+                                // 查找该日期的lifecycle点
+                                const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
+                                if (!lifecyclePoint) return null;
 
                                 let displayText = '';
-                                if (lineType === 'solid') {
-                                  // 涨停：显示板块名称 个股名称+板位
-                                  if (stock && stock.td_type) {
-                                    const continuousMatch = stock.td_type.match(/^(\d+)连板$/);
-                                    const multiDayMatch = stock.td_type.match(/^(\d+)天(\d+)板$/);
 
-                                    if (continuousMatch) {
-                                      displayText = `${sectorName} ${stockName}${continuousMatch[1]}`;
-                                    } else if (multiDayMatch) {
-                                      displayText = `${sectorName} ${stockName}${tracker.peakBoardNum}-${multiDayMatch[2]}`;
-                                    } else {
-                                      displayText = `${sectorName} ${stockName}${value}`;
-                                    }
+                                if (lifecyclePoint.type === 'continuous' && lifecyclePoint.td_type) {
+                                  // 连板：解析td_type
+                                  const td_type = lifecyclePoint.td_type;
+                                  const continuousMatch = td_type.match(/^(\d+)连板$/);
+                                  const multiDayMatch = td_type.match(/^(\d+)天(\d+)板$/);
+
+                                  if (continuousMatch) {
+                                    // X连板
+                                    displayText = `${tracker.sectorName} ${tracker.stockName}${continuousMatch[1]}`;
+                                  } else if (multiDayMatch) {
+                                    // X天Y板
+                                    displayText = `${tracker.sectorName} ${tracker.stockName}${multiDayMatch[1]}-${multiDayMatch[2]}`;
                                   } else {
-                                    displayText = `${sectorName} ${stockName}${value}`;
+                                    displayText = `${tracker.sectorName} ${tracker.stockName}${entry.value}板`;
                                   }
-                                } else if (lineType === 'dashed') {
-                                  // 断板：显示板块名称 个股名称+溢价
-                                  const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
-                                  if (lifecyclePoint && lifecyclePoint.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
-                                    const changePercent = lifecyclePoint.changePercent;
-                                    displayText = `${sectorName} ${stockName} ${changePercent > 0 ? '+' : ''}${changePercent.toFixed(1)}%`;
-                                  } else {
-                                    displayText = `${sectorName} ${stockName} 相对位置${value.toFixed(2)}`;
-                                  }
+                                } else if (lifecyclePoint.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
+                                  // 断板：显示溢价
+                                  const percent = lifecyclePoint.changePercent;
+                                  const sign = percent > 0 ? '+' : '';
+                                  displayText = `${tracker.sectorName} ${tracker.stockName} ${sign}${percent.toFixed(1)}%`;
                                 }
 
                                 return (
-                                  <div key={index} className="flex items-center gap-2 text-xs">
-                                    <div
-                                      className="w-2 h-2 rounded-full"
-                                      style={{ backgroundColor: stroke }}
-                                    />
-                                    <span className="text-gray-700">{displayText}</span>
+                                  <div
+                                    key={index}
+                                    style={{
+                                      color: entry.color,
+                                      marginBottom: '4px',
+                                      display: 'flex',
+                                      alignItems: 'center'
+                                    }}
+                                  >
+                                    <span style={{
+                                      width: '10px',
+                                      height: '10px',
+                                      backgroundColor: entry.color,
+                                      display: 'inline-block',
+                                      marginRight: '6px',
+                                      borderRadius: '2px'
+                                    }} />
+                                    {displayText}
                                   </div>
                                 );
                               })}
@@ -1653,32 +1635,26 @@ export default function Home() {
                                   const currentDate = dates[dataIndex];
                                   const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
 
-                                  if (lifecyclePoint?.type === 'continuous' && lifecyclePoint.isLatest) {
-                                    // 从 sevenDaysData 获取该股票的 td_type
-                                    const dayData = sevenDaysData?.[currentDate];
-                                    const stocks = dayData?.categories[tracker.sectorName] || [];
-                                    const stock = stocks.find(s => s.code === tracker.stockCode);
+                                  if (lifecyclePoint?.type === 'continuous' && lifecyclePoint.isLatest && lifecyclePoint.td_type) {
+                                    // v4.8.31修复：直接从lifecyclePoint.td_type读取
+                                    const td_type = lifecyclePoint.td_type;
+
+                                    // 解析 td_type 字段
+                                    // 匹配 "X连板" 格式
+                                    const continuousMatch = td_type.match(/^(\d+)连板$/);
+                                    // 匹配 "X天Y板" 格式
+                                    const multiDayMatch = td_type.match(/^(\d+)天(\d+)板$/);
 
                                     let labelText = '';
-                                    if (stock && stock.td_type) {
-                                      // 解析 td_type 字段
-                                      // 匹配 "X连板" 格式
-                                      const continuousMatch = stock.td_type.match(/^(\d+)连板$/);
-                                      // 匹配 "X天Y板" 格式
-                                      const multiDayMatch = stock.td_type.match(/^(\d+)天(\d+)板$/);
-
-                                      if (continuousMatch) {
-                                        // X连板 → 显示"股票名X"
-                                        const boardNum = continuousMatch[1];
-                                        labelText = `${tracker.sectorName} ${tracker.stockName}${boardNum}`;
-                                      } else if (multiDayMatch) {
-                                        // X天Y板 → 显示"股票名 峰值-当前板位"
-                                        const boards = multiDayMatch[2];
-                                        labelText = `${tracker.sectorName} ${tracker.stockName}${tracker.peakBoardNum}-${boards}`;
-                                      } else {
-                                        // 兜底：使用当前板位
-                                        labelText = `${tracker.sectorName} ${tracker.stockName}${value}`;
-                                      }
+                                    if (continuousMatch) {
+                                      // X连板 → 显示"股票名X"
+                                      const boardNum = continuousMatch[1];
+                                      labelText = `${tracker.sectorName} ${tracker.stockName}${boardNum}`;
+                                    } else if (multiDayMatch) {
+                                      // X天Y板 → 显示"股票名X-Y"
+                                      const days = multiDayMatch[1];
+                                      const boards = multiDayMatch[2];
+                                      labelText = `${tracker.sectorName} ${tracker.stockName}${days}-${boards}`;
                                     } else {
                                       // 兜底：使用当前板位
                                       labelText = `${tracker.sectorName} ${tracker.stockName}${value}`;

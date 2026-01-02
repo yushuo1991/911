@@ -165,6 +165,7 @@ export interface LifecyclePoint {
   // 连续涨停期间的数据（type='continuous'时有效）
   boardNum?: number;           // 当前板位（例如：5板 -> 6板 -> 7板）
   isLatest?: boolean;          // 是否是连续涨停的最新一天（用于标记显示）
+  td_type?: string;            // v4.8.31新增：td_type字段（例如："6连板"、"10天9板"）
 
   // 断板后的数据（type='broken'时有效）
   changePercent?: number;      // 涨跌幅%（例如：+8.5, -12.3）
@@ -177,5 +178,5 @@ export interface LifecyclePoint {
 // 板块高度走势过滤器状态
 export interface SectorHeightFilters {
   minBoardNum: number | null;  // 最低板位过滤（null表示全部，4表示≥4板）
-  selectedSector: string[] | null; // 选中的板块数组（null表示全部）
+  selectedSector: string | null; // 选中的板块（null表示全部）
 }
