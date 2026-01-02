@@ -96,7 +96,8 @@
       "Bash(if git push origin main)",
       "Bash(then break)",
       "Bash(else sleep 3)",
-      "Bash(do echo \"检查进度 $i/20...\")"
+      "Bash(do echo \"检查进度 $i/20...\")",
+      "Bash(pkill -f \"git push\")"
     ],
     "deny": [],
     "ask": []

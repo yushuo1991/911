@@ -1206,6 +1206,16 @@ export default function Home() {
           // 连续涨停 → 实线
           dataPoint[`${key}_solid`] = lifecyclePoint.boardNum;
 
+          // v4.8.31修复：检查前一天是否断板，如果是则设置虚线终点连接到当前板位
+          const prevDate = dates[dateIndex - 1];
+          if (prevDate) {
+            const prevPoint = tracker.lifecycle.find(lc => lc.date === prevDate);
+            if (prevPoint && prevPoint.type === 'broken') {
+              // 前一天断板，当前天涨停，设置虚线终点连接到当前板位
+              dataPoint[`${key}_dashed`] = lifecyclePoint.boardNum;
+            }
+          }
+
           // v4.8.31修复：检查下一天是否断板，如果是则设置虚线起点
           const nextDate = dates[dateIndex + 1];
           if (nextDate) {
@@ -1213,10 +1223,11 @@ export default function Home() {
             if (nextPoint && nextPoint.type === 'broken') {
               // 下一天断板，设置虚线起点为当前板位
               dataPoint[`${key}_dashed`] = lifecyclePoint.boardNum;
-            } else {
+            } else if (!dataPoint[`${key}_dashed`]) {
+              // 如果没有设置虚线值（前一天不是断板），则设为null
               dataPoint[`${key}_dashed`] = null;
             }
-          } else {
+          } else if (!dataPoint[`${key}_dashed`]) {
             dataPoint[`${key}_dashed`] = null;
           }
         } else if (lifecyclePoint.type === 'broken') {
@@ -1539,7 +1550,7 @@ export default function Home() {
                                         fontSize="10"
                                         fontWeight="700"
                                       >
-                                        {`${tracker.sectorName} ${tracker.stockName}${value}`}
+                                        {`${tracker.sectorName} ${tracker.stockName}${tracker.peakBoardNum}-${value}`}
                                       </text>
                                     );
                                   }
