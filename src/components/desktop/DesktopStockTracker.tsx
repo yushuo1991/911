@@ -124,6 +124,9 @@ export default function Home() {
   // v4.8.31新增：控制是否显示虚线（断板部分）及溢价标签
   const [showDashedLines, setShowDashedLines] = useState(true);
 
+  // v4.8.31新增：叠加模式控制（是否允许多选板块）
+  const [overlayMode, setOverlayMode] = useState(false);
+
 
   // generate7TradingDays 函数已移除
   // 现在从API获取真实交易日列表（API内部使用Tushare交易日历，已排除节假日）
@@ -1098,9 +1101,9 @@ export default function Home() {
     }
 
     // 板块过滤
-    if (sectorHeightFilters.selectedSector !== null) {
+    if (sectorHeightFilters.selectedSector !== null && sectorHeightFilters.selectedSector.length > 0) {
       filteredTrackers = filteredTrackers.filter(
-        t => t.sectorName === sectorHeightFilters.selectedSector
+        t => sectorHeightFilters.selectedSector!.includes(t.sectorName)
       );
     }
 
@@ -1392,6 +1395,23 @@ export default function Home() {
                 {showDashedLines ? '隐藏断板数据' : '显示断板数据'}
               </button>
 
+              <button
+                onClick={() => {
+                  setOverlayMode(!overlayMode);
+                  // 切换到叠加模式时，清空选择
+                  if (!overlayMode) {
+                    setSectorHeightFilters(prev => ({ ...prev, selectedSector: null }));
+                  }
+                }}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  overlayMode
+                    ? 'bg-purple-600 text-white hover:bg-purple-700'
+                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                }`}
+              >
+                {overlayMode ? '叠加模式' : '单选模式'}
+              </button>
+
               <div className="ml-auto text-xs text-gray-600">
                 共追踪 <span className="font-bold text-blue-600">{getHighBoardStockTrackers.length}</span> 只高板股
               </div>
@@ -1459,19 +1479,35 @@ export default function Home() {
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
                               {uniqueSectors.map((sector: string) => {
                                 const color = sectorColorMap.get(sector) || '#ef4444';
-                                const isSelected = sectorHeightFilters.selectedSector === sector;
+                                const isSelected = sectorHeightFilters.selectedSector?.includes(sector) || false;
 
                                 return (
                                   <div
                                     key={sector}
                                     onClick={() => {
-                                      // 点击板块名称，切换筛选
-                                      if (isSelected) {
-                                        // 如果已选中，则取消选择（显示全部）
-                                        setSectorHeightFilters(prev => ({ ...prev, selectedSector: null }));
+                                      // 点击板块名称，根据模式切换筛选
+                                      if (overlayMode) {
+                                        // 叠加模式：多选
+                                        setSectorHeightFilters(prev => {
+                                          const currentSelected = prev.selectedSector || [];
+                                          if (currentSelected.includes(sector)) {
+                                            // 如果已选中，则移除
+                                            const newSelected = currentSelected.filter(s => s !== sector);
+                                            return { ...prev, selectedSector: newSelected.length > 0 ? newSelected : null };
+                                          } else {
+                                            // 如果未选中，则添加
+                                            return { ...prev, selectedSector: [...currentSelected, sector] };
+                                          }
+                                        });
                                       } else {
-                                        // 选中该板块
-                                        setSectorHeightFilters(prev => ({ ...prev, selectedSector: sector }));
+                                        // 单选模式
+                                        if (isSelected && sectorHeightFilters.selectedSector?.length === 1) {
+                                          // 如果已选中且只有一个，则取消选择（显示全部）
+                                          setSectorHeightFilters(prev => ({ ...prev, selectedSector: null }));
+                                        } else {
+                                          // 选中该板块（单选）
+                                          setSectorHeightFilters(prev => ({ ...prev, selectedSector: [sector] }));
+                                        }
                                       }
                                     }}
                                     style={{

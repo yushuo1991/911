@@ -177,5 +177,5 @@ export interface LifecyclePoint {
 // 板块高度走势过滤器状态
 export interface SectorHeightFilters {
   minBoardNum: number | null;  // 最低板位过滤（null表示全部，4表示≥4板）
-  selectedSector: string | null; // 选中的板块（null表示全部）
+  selectedSector: string[] | null; // 选中的板块数组（null表示全部）
 }
