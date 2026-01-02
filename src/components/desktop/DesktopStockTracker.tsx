@@ -1517,12 +1517,75 @@ export default function Home() {
                       />
                       <Tooltip
                         contentStyle={{ fontSize: '11px' }}
-                        formatter={(value: any, name: string) => {
-                          const isDashed = name.includes('虚线');
-                          if (isDashed && value !== null) {
-                            return [`相对位置: ${value.toFixed(2)}`, name];
-                          }
-                          return [value !== null ? `${value}板` : '无数据', name];
+                        content={(props: any) => {
+                          const { active, payload, label } = props;
+                          if (!active || !payload || payload.length === 0) return null;
+
+                          return (
+                            <div className="bg-white border border-gray-300 rounded-lg p-2 shadow-lg">
+                              <p className="text-xs font-bold text-gray-800 mb-1">{label}</p>
+                              {payload.map((entry: any, index: number) => {
+                                const { value, dataKey, stroke } = entry;
+                                if (value === null || value === undefined) return null;
+
+                                // 解析 dataKey: "板块_股票_solid" 或 "板块_股票_dashed"
+                                const parts = dataKey.split('_');
+                                const lineType = parts[parts.length - 1]; // 'solid' 或 'dashed'
+                                const stockName = parts[parts.length - 2]; // 股票名称
+                                const sectorName = parts.slice(0, parts.length - 2).join('_'); // 板块名称
+
+                                // 找到对应的 tracker
+                                const tracker = displayTrackers.find(
+                                  t => t.sectorName === sectorName && t.stockName === stockName
+                                );
+                                if (!tracker) return null;
+
+                                // 获取当前日期的数据
+                                const currentDate = label;
+                                const dayData = sevenDaysData?.[currentDate];
+                                const stocks = dayData?.categories[tracker.sectorName] || [];
+                                const stock = stocks.find(s => s.code === tracker.stockCode);
+
+                                let displayText = '';
+                                if (lineType === 'solid') {
+                                  // 涨停：显示板块名称 个股名称+板位
+                                  if (stock && stock.td_type) {
+                                    const continuousMatch = stock.td_type.match(/^(\d+)连板$/);
+                                    const multiDayMatch = stock.td_type.match(/^(\d+)天(\d+)板$/);
+
+                                    if (continuousMatch) {
+                                      displayText = `${sectorName} ${stockName}${continuousMatch[1]}`;
+                                    } else if (multiDayMatch) {
+                                      displayText = `${sectorName} ${stockName}${tracker.peakBoardNum}-${multiDayMatch[2]}`;
+                                    } else {
+                                      displayText = `${sectorName} ${stockName}${value}`;
+                                    }
+                                  } else {
+                                    displayText = `${sectorName} ${stockName}${value}`;
+                                  }
+                                } else if (lineType === 'dashed') {
+                                  // 断板：显示板块名称 个股名称+溢价
+                                  const lifecyclePoint = tracker.lifecycle.find(lc => lc.date === currentDate);
+                                  if (lifecyclePoint && lifecyclePoint.type === 'broken' && lifecyclePoint.changePercent !== undefined) {
+                                    const changePercent = lifecyclePoint.changePercent;
+                                    displayText = `${sectorName} ${stockName} ${changePercent > 0 ? '+' : ''}${changePercent.toFixed(1)}%`;
+                                  } else {
+                                    displayText = `${sectorName} ${stockName} 相对位置${value.toFixed(2)}`;
+                                  }
+                                }
+
+                                return (
+                                  <div key={index} className="flex items-center gap-2 text-xs">
+                                    <div
+                                      className="w-2 h-2 rounded-full"
+                                      style={{ backgroundColor: stroke }}
+                                    />
+                                    <span className="text-gray-700">{displayText}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
                         }}
                       />
 
@@ -1573,10 +1636,9 @@ export default function Home() {
                                         const boardNum = continuousMatch[1];
                                         labelText = `${tracker.sectorName} ${tracker.stockName}${boardNum}`;
                                       } else if (multiDayMatch) {
-                                        // X天Y板 → 显示"股票名X-Y"
-                                        const days = multiDayMatch[1];
+                                        // X天Y板 → 显示"股票名 峰值-当前板位"
                                         const boards = multiDayMatch[2];
-                                        labelText = `${tracker.sectorName} ${tracker.stockName}${days}-${boards}`;
+                                        labelText = `${tracker.sectorName} ${tracker.stockName}${tracker.peakBoardNum}-${boards}`;
                                       } else {
                                         // 兜底：使用当前板位
                                         labelText = `${tracker.sectorName} ${tracker.stockName}${value}`;
