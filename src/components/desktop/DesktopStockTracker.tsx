@@ -125,7 +125,8 @@ export default function Home() {
   const [showDashedLines, setShowDashedLines] = useState(true);
 
   // v4.8.31新增：控制叠加模式（可以选择多个板块）
-  const [overlayMode, setOverlayMode] = useState(false);
+  // v4.8.31修改：默认开启叠加模式，方便用户直接进行多板块对比
+  const [overlayMode, setOverlayMode] = useState(true);
 
 
   // generate7TradingDays 函数已移除
@@ -1437,11 +1438,13 @@ export default function Home() {
                       margin={{ top: 40, right: 100, bottom: 30, left: 80 }}
                     >
                       {/* v4.8.31优化：网格背景增强为清晰的方格网格 */}
+                      {/* v4.8.31修改：增强横线可见性，方便查看板块高度 */}
                       <CartesianGrid
-                        stroke="#9ca3af"
+                        stroke="#6b7280"
                         strokeWidth={1}
                         horizontal={true}
                         vertical={true}
+                        strokeDasharray="3 3"
                       />
                       <XAxis
                         dataKey="date"
