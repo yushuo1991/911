@@ -11,7 +11,7 @@ import {
   SectorHeightFilters
 } from '@/types/stock';
 import { getPerformanceClass, getPerformanceColorClass, getTodayString, formatDate, getBoardWeight } from '@/lib/utils';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label, ReferenceLine, ReferenceArea } from 'recharts';
 import StockPremiumChart, { StockPremiumData } from '@/components/StockPremiumChart';
 import { transformSectorStocksToChartData } from '@/lib/chartHelpers';
 
@@ -1464,18 +1464,59 @@ export default function Home() {
                           style: { fontSize: 12, fontWeight: 'bold' }
                         }}
                       />
-                      {/* v4.8.31新增：板位高度5的参考线，方便观察板块是否达到5板以上 */}
+                      {/* v4.8.31新增：区域背景色，直观区分不同板位高度区间 */}
+                      {/* 0-5板区域：淡黄色背景 */}
+                      <ReferenceArea
+                        y1={0}
+                        y2={5}
+                        yAxisId="left"
+                        fill="#fef3c7"
+                        fillOpacity={0.3}
+                      />
+                      {/* 5-10板区域：淡红色背景 */}
+                      <ReferenceArea
+                        y1={5}
+                        y2={10}
+                        yAxisId="left"
+                        fill="#fee2e2"
+                        fillOpacity={0.3}
+                      />
+                      {/* 10板以上区域：淡蓝色背景 */}
+                      <ReferenceArea
+                        y1={10}
+                        y2={yAxisMaxValue}
+                        yAxisId="left"
+                        fill="#dbeafe"
+                        fillOpacity={0.3}
+                      />
+                      {/* v4.8.31新增：板位高度参考线，方便观察板块高度分布 */}
+                      {/* 5板参考线：灰色虚线 */}
                       <ReferenceLine
                         y={5}
                         yAxisId="left"
-                        stroke="#f59e0b"
+                        stroke="#9ca3af"
                         strokeWidth={1.5}
                         strokeDasharray="5 5"
                         label={{
-                          value: '5板参考线',
+                          value: '5板',
                           position: 'right',
-                          fill: '#f59e0b',
-                          fontSize: 11,
+                          fill: '#6b7280',
+                          fontSize: 10,
+                          fontWeight: 'bold'
+                        }}
+                      />
+                      {/* 10板参考线：灰色虚线 */}
+                      <ReferenceLine
+                        y={10}
+                        yAxisId="left"
+                        stroke="#9ca3af"
+                        strokeWidth={1.5}
+                        strokeDasharray="5 5"
+                        label={{
+                          value: '10板',
+                          position: 'right',
+                          fill: '#6b7280',
+                          fontSize: 10,
                           fontWeight: 'bold'
                         }}
                       />
