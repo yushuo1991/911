@@ -11,7 +11,7 @@ import {
   SectorHeightFilters
 } from '@/types/stock';
 import { getPerformanceClass, getPerformanceColorClass, getTodayString, formatDate, getBoardWeight } from '@/lib/utils';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label, ReferenceLine } from 'recharts';
 import StockPremiumChart, { StockPremiumData } from '@/components/StockPremiumChart';
 import { transformSectorStocksToChartData } from '@/lib/chartHelpers';
 
@@ -1462,6 +1462,21 @@ export default function Home() {
                           angle: -90,
                           position: 'insideLeft',
                           style: { fontSize: 12, fontWeight: 'bold' }
+                        }}
+                      />
+                      {/* v4.8.31新增：板位高度5的参考线，方便观察板块是否达到5板以上 */}
+                      <ReferenceLine
+                        y={5}
+                        yAxisId="left"
+                        stroke="#f59e0b"
+                        strokeWidth={1.5}
+                        strokeDasharray="5 5"
+                        label={{
+                          value: '5板参考线',
+                          position: 'right',
+                          fill: '#f59e0b',
+                          fontSize: 11,
+                          fontWeight: 'bold'
                         }}
                       />
                       <Legend
