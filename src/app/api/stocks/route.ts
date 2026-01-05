@@ -862,14 +862,14 @@ function convertStockCodeForTushare(stockCode: string): string {
         const batchData = await getBatchStockDaily(uncachedStocks, followUpDays);
 
         // 将批量获取的数据存储到result和数据库缓存
-        for (const [stockCode, performance] of batchData.entries()) {
+        batchData.forEach((performance, stockCode) => {
           result.set(stockCode, performance);
 
           // 异步缓存到数据库（不阻塞主流程）
           stockDatabase.cacheStockPerformance(stockCode, baseDate, performance).catch(err => {
             console.log(`[批量获取] 缓存${stockCode}失败:`, err);
           });
-        }
+        });
       } catch (error) {
         console.error(`[批量获取] API批量获取失败:`, error);
 
