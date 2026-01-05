@@ -828,7 +828,66 @@ function convertStockCodeForTushare(stockCode: string): string {
     });
   }
 
-  // 新增：7天数据获取逻辑
+  // v4.8.32优化：批量获取股票后续表现数据，大幅降低API请求次数和处理时间
+  async function getBatchStockPerformances(
+    stockCodes: string[],
+    followUpDays: string[],
+    baseDate: string
+  ): Promise<Map<string, Record<string, number>>> {
+    const result = new Map<string, Record<string, number>>();
+
+    // 首先尝试从数据库批量获取缓存数据
+    const uncachedStocks: string[] = [];
+
+    for (const stockCode of stockCodes) {
+      try {
+        const cachedData = await stockDatabase.getCachedStockPerformance(stockCode, baseDate, followUpDays);
+        if (cachedData) {
+          result.set(stockCode, cachedData);
+        } else {
+          uncachedStocks.push(stockCode);
+        }
+      } catch (error) {
+        uncachedStocks.push(stockCode);
+      }
+    }
+
+    console.log(`[批量获取] 数据库缓存命中: ${stockCodes.length - uncachedStocks.length}/${stockCodes.length}`);
+
+    // 如果有未缓存的股票，批量从API获取
+    if (uncachedStocks.length > 0) {
+      console.log(`[批量获取] 从API批量获取${uncachedStocks.length}只股票的后续表现`);
+
+      try {
+        const batchData = await getBatchStockDaily(uncachedStocks, followUpDays);
+
+        // 将批量获取的数据存储到result和数据库缓存
+        for (const [stockCode, performance] of batchData.entries()) {
+          result.set(stockCode, performance);
+
+          // 异步缓存到数据库（不阻塞主流程）
+          stockDatabase.cacheStockPerformance(stockCode, baseDate, performance).catch(err => {
+            console.log(`[批量获取] 缓存${stockCode}失败:`, err);
+          });
+        }
+      } catch (error) {
+        console.error(`[批量获取] API批量获取失败:`, error);
+
+        // 降级：为失败的股票填充0值
+        for (const stockCode of uncachedStocks) {
+          if (!result.has(stockCode)) {
+            const zeroData: Record<string, number> = {};
+            followUpDays.forEach(day => { zeroData[day] = 0; });
+            result.set(stockCode, zeroData);
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  // 新增：7天数据获取逻辑（v4.8.32优化：使用批量API减少请求次数，解决524超时）
   async function get7DaysData(endDate: string) {
     console.log(`[API] 开始处理7天数据，结束日期: ${endDate}`);
 
@@ -910,6 +969,10 @@ function convertStockCodeForTushare(stockCode: string): string {
         // 获取该天后5个交易日（用于溢价计算）- v4.8.10修复：使用真实交易日历排除节假日
         const followUpDays = await getValidTradingDays(day, 5);
 
+        // v4.8.32优化：批量获取所有股票的后续表现（大幅减少API调用）
+        const batchPerformances = await getBatchStockPerformances(stockCodes, followUpDays, day);
+        console.log(`[API] 批量获取${batchPerformances.size}只股票的后续表现`);
+
         // 按分类整理数据
         const categories: Record<string, StockPerformance[]> = {};
         const followUpData: Record<string, Record<string, Record<string, number>>> = {};
@@ -918,8 +981,8 @@ function convertStockCodeForTushare(stockCode: string): string {
         for (const stock of limitUpStocks) {
           const category = stock.ZSName || '其他';
 
-          // 获取后续5日表现（传入baseDate用于数据库缓存）
-          const followUpPerformance = await getStockPerformance(stock.StockCode, followUpDays, day);
+          // v4.8.32修改：从批量结果中获取后续表现数据
+          const followUpPerformance = batchPerformances.get(stock.StockCode) || {};
           const totalReturn = Object.values(followUpPerformance).reduce((sum, val) => sum + val, 0);
 
           // v4.8.18修改：使用Tushare真实成交额替代API假数据
@@ -1015,7 +1078,7 @@ function convertStockCodeForTushare(stockCode: string): string {
   // generate7TradingDays 函数已移除
   // 现在使用 get7TradingDaysFromCalendar 从 Tushare 获取真实交易日历（包含节假日信息）
 
-  // v4.8.31新增：多天数据获取逻辑（支持7天以上的范围）
+  // v4.8.31新增：多天数据获取逻辑（支持7天以上的范围）（v4.8.32优化：使用批量API）
   async function getMultiDaysData(endDate: string, range: number) {
     console.log(`[API] 开始处理${range}天数据，结束日期: ${endDate}`);
 
@@ -1179,6 +1242,10 @@ function convertStockCodeForTushare(stockCode: string): string {
         // 获取该天后5个交易日（用于溢价计算）
         const followUpDays = await getValidTradingDays(day, 5);
 
+        // v4.8.32优化：批量获取所有股票的后续表现（大幅减少API调用）
+        const batchPerformances = await getBatchStockPerformances(stockCodes, followUpDays, day);
+        console.log(`[API] 批量获取${batchPerformances.size}只股票的后续表现`);
+
         // 按分类整理数据
         const categories: Record<string, StockPerformance[]> = {};
         const followUpData: Record<string, Record<string, Record<string, number>>> = {};
@@ -1187,8 +1254,8 @@ function convertStockCodeForTushare(stockCode: string): string {
         for (const stock of limitUpStocks) {
           const category = stock.ZSName || '其他';
 
-          // 获取后续5日表现（传入baseDate用于数据库缓存）
-          const followUpPerformance = await getStockPerformance(stock.StockCode, followUpDays, day);
+          // v4.8.32修改：从批量结果中获取后续表现数据
+          const followUpPerformance = batchPerformances.get(stock.StockCode) || {};
           const totalReturn = Object.values(followUpPerformance).reduce((sum, val) => sum + val, 0);
 
           // 使用Tushare真实成交额替代API假数据
