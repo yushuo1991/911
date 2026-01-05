@@ -1,0 +1,63 @@
+name: Clean Server Disk Space
+
+on:
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Cleanup server disk
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            echo "======================================"
+            echo "步骤1: 检查当前磁盘使用"
+            echo "======================================"
+            df -h
+
+            echo ""
+            echo "======================================"
+            echo "步骤2: 清理项目构建文件"
+            echo "======================================"
+            cd /www/wwwroot/stock-tracker || cd ~/stock-tracker || cd /home/stock-tracker
+            rm -rf .next node_modules backup log
+            echo "已删除: .next, node_modules, backup, log"
+
+            echo ""
+            echo "======================================"
+            echo "步骤3: 清理npm缓存"
+            echo "======================================"
+            npm cache clean --force
+            echo "npm缓存已清理"
+
+            echo ""
+            echo "======================================"
+            echo "步骤4: 清理PM2日志"
+            echo "======================================"
+            pm2 flush
+            echo "PM2日志已清理"
+
+            echo ""
+            echo "======================================"
+            echo "步骤5: Git垃圾回收"
+            echo "======================================"
+            cd /www/wwwroot/stock-tracker || cd ~/stock-tracker || cd /home/stock-tracker
+            git gc --aggressive --prune=now
+            echo "Git垃圾回收完成"
+
+            echo ""
+            echo "======================================"
+            echo "清理后磁盘使用情况"
+            echo "======================================"
+            df -h
+
+            echo ""
+            echo "======================================"
+            echo "清理完成！"
+            echo "======================================"
