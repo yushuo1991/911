@@ -172,6 +172,36 @@ export const useStockData = () => {
     }
   }, [fetch7DaysData]);
 
+  // v4.8.33新增：17:30自动刷新数据（交易日数据和溢价数据完整后）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkAndRefresh = () => {
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('zh-CN', {
+        timeZone: 'Asia/Shanghai',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
+      const parts = formatter.formatToParts(now);
+      const beijingHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+      const beijingMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+
+      // 在17:30时自动刷新
+      if (beijingHour === 17 && beijingMinute === 30) {
+        console.log('[自动刷新] 北京时间17:30，刷新数据');
+        refreshData();
+      }
+    };
+
+    // 每分钟检查一次
+    const interval = setInterval(checkAndRefresh, 60000);
+
+    return () => clearInterval(interval);
+  }, [refreshData]);
+
   return {
     // State
     sevenDaysData,

@@ -222,6 +222,7 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
+    minute: '2-digit',
     hour12: false
   });
 
@@ -235,11 +236,12 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
   // 检查endDate是否是北京时间的今天
   const isToday = beijingDateStr === endDate;
 
-  // v4.8.27修复：改为16:00判断，确保数据完整可用后才包含当天
-  // 股市15:00收盘，数据处理约需1小时，16:00后数据已基本完整
-  const shouldIncludeToday = isToday && beijingHour >= 16;
+  // v4.8.33修复：改为17:30判断，确保数据完整可用后才包含当天
+  // 股市15:00收盘，数据处理和溢价计算约需2.5小时，17:30后数据已完整
+  const beijingMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+  const shouldIncludeToday = isToday && (beijingHour > 17 || (beijingHour === 17 && beijingMinute >= 30));
 
-  console.log(`[7天交易日] 北京时间: ${now.toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})}, 小时: ${beijingHour}, 北京日期: ${beijingDateStr}, 是否包含当天: ${shouldIncludeToday}`);
+  console.log(`[7天交易日] 北京时间: ${now.toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})}, 小时: ${beijingHour}:${beijingMinute.toString().padStart(2, '0')}, 北京日期: ${beijingDateStr}, 是否包含当天: ${shouldIncludeToday}`);
 
   // 计算查询范围（向前追溯50天确保包含7个交易日，考虑节假日）
   // 7个交易日 * 5倍缓冲 = 35天，但考虑长假期（春节、国庆），使用50天更安全
@@ -262,9 +264,9 @@ export async function get7TradingDaysFromCalendar(endDate: string): Promise<stri
       // v4.8.9修改：根据时间决定起始位置
       if (!shouldIncludeToday) {
         currentDate.setDate(currentDate.getDate() - 1); // 从前一天开始
-        console.log(`[7天交易日] 当前时间<16:00，从前一天开始查找`);
+        console.log(`[7天交易日] 当前时间<17:30，从前一天开始查找`);
       } else {
-        console.log(`[7天交易日] 当前时间>=16:00，包含当天`);
+        console.log(`[7天交易日] 当前时间>=17:30，包含当天`);
       }
 
       while (tradingDays.length < 7) {
