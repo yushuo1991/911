@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Cleanup server disk
+      - name: Cleanup server disk (深度清理)
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -31,21 +31,39 @@ jobs:
 
             echo ""
             echo "======================================"
-            echo "步骤3: 清理npm缓存"
+            echo "步骤3: 清理Docker（释放大量空间）"
+            echo "======================================"
+            docker system prune -af --volumes 2>/dev/null && echo "Docker清理完成" || echo "Docker未安装或清理失败"
+
+            echo ""
+            echo "======================================"
+            echo "步骤4: 清理npm缓存"
             echo "======================================"
             npm cache clean --force
             echo "npm缓存已清理"
 
             echo ""
             echo "======================================"
-            echo "步骤4: 清理PM2日志"
+            echo "步骤5: 清理PM2日志"
             echo "======================================"
             pm2 flush
             echo "PM2日志已清理"
 
             echo ""
             echo "======================================"
-            echo "步骤5: Git垃圾回收"
+            echo "步骤6: 清理系统临时文件"
+            echo "======================================"
+            rm -rf /tmp/* /var/tmp/* 2>/dev/null && echo "临时文件已清理" || echo "临时文件清理完成（部分文件可能需要权限）"
+
+            echo ""
+            echo "======================================"
+            echo "步骤7: 清理APT缓存"
+            echo "======================================"
+            apt-get clean 2>/dev/null && echo "APT缓存已清理" || echo "APT缓存清理跳过"
+
+            echo ""
+            echo "======================================"
+            echo "步骤8: Git垃圾回收"
             echo "======================================"
             cd /www/wwwroot/stock-tracker || cd ~/stock-tracker || cd /home/stock-tracker
             git gc --aggressive --prune=now
@@ -56,6 +74,12 @@ jobs:
             echo "清理后磁盘使用情况"
             echo "======================================"
             df -h
+
+            echo ""
+            echo "======================================"
+            echo "详细目录占用情况（前10大）"
+            echo "======================================"
+            du -sh /* 2>/dev/null | sort -hr | head -10 || echo "无法获取详细占用情况"
 
             echo ""
             echo "======================================"
