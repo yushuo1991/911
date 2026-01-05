@@ -1,9 +1,9 @@
 name: Data Preload Cron
 
-# 每个工作日北京时间16:10执行（UTC 08:10）
+# 每个工作日北京时间17:30执行（UTC 09:30）
 on:
   schedule:
-    - cron: '10 8 * * 1-5'  # 周一到周五 UTC 08:10 = 北京时间 16:10
+    - cron: '30 9 * * 1-5'  # 周一到周五 UTC 09:30 = 北京时间 17:30
   workflow_dispatch:  # 支持手动触发
 
 jobs:

@@ -222,17 +222,23 @@ export default function Home() {
 
       if (result.success) {
         setSevenDaysData(result.data);
-        setDates(result.dates || []);
+        // v4.8.31新增：过滤掉非交易日（没有数据的日期）
+        const validDates = (result.dates || []).filter((date: string) => {
+          const dayData = result.data[date];
+          // 检查该日期是否有数据：categories不为空
+          return dayData && dayData.categories && Object.keys(dayData.categories).length > 0;
+        });
+        setDates(validDates);
         setDateRange(range);
 
         // 存储到localStorage
         try {
           localStorage.setItem(cacheKey, JSON.stringify({
             data: result.data,
-            dates: result.dates || [],
+            dates: validDates,  // 存储过滤后的日期
             timestamp: Date.now()
           }));
-          console.log(`[前端缓存] ${range}天数据已缓存${result.cached ? '（来自后端缓存）' : ''}`);
+          console.log(`[前端缓存] ${range}天数据已缓存（${validDates.length}个交易日）${result.cached ? '（来自后端缓存）' : ''}`);
         } catch (cacheError) {
           console.warn('[前端缓存] 存储缓存失败:', cacheError);
         }
@@ -272,8 +278,13 @@ export default function Home() {
         if (result.success) {
           // 合并数据
           setSevenDaysData(prev => ({...result.data, ...prev}));
+          // v4.8.31新增：过滤掉非交易日（没有数据的日期）
+          const validNewDates = result.dates.filter((d: string) => {
+            const dayData = result.data[d];
+            return dayData && dayData.categories && Object.keys(dayData.categories).length > 0;
+          });
           // 合并日期（新日期在前）
-          const newDates = [...result.dates.filter((d: string) => !dates.includes(d)), ...dates];
+          const newDates = [...validNewDates.filter((d: string) => !dates.includes(d)), ...dates];
           // 保留最多30天
           setDates(newDates.slice(-30));
           // 切换到下一页
