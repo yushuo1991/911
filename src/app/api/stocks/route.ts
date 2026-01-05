@@ -828,7 +828,7 @@ function convertStockCodeForTushare(stockCode: string): string {
     });
   }
 
-  // v4.8.32优化：批量获取股票后续表现数据，大幅降低API请求次数和处理时间
+  // v4.8.32优化：批量获取股票后续表现数据，分批处理避免超时
   async function getBatchStockPerformances(
     stockCodes: string[],
     followUpDays: string[],
@@ -854,32 +854,52 @@ function convertStockCodeForTushare(stockCode: string): string {
 
     console.log(`[批量获取] 数据库缓存命中: ${stockCodes.length - uncachedStocks.length}/${stockCodes.length}`);
 
-    // 如果有未缓存的股票，批量从API获取
+    // 如果有未缓存的股票，分批从API获取（每批30只，避免超时）
     if (uncachedStocks.length > 0) {
-      console.log(`[批量获取] 从API批量获取${uncachedStocks.length}只股票的后续表现`);
+      const BATCH_SIZE = 30; // 每批处理30只股票
+      const batches = [];
 
-      try {
-        const batchData = await getBatchStockDaily(uncachedStocks, followUpDays);
+      for (let i = 0; i < uncachedStocks.length; i += BATCH_SIZE) {
+        batches.push(uncachedStocks.slice(i, i + BATCH_SIZE));
+      }
 
-        // 将批量获取的数据存储到result和数据库缓存
-        batchData.forEach((performance, stockCode) => {
-          result.set(stockCode, performance);
+      console.log(`[批量获取] 分${batches.length}批处理${uncachedStocks.length}只股票（每批${BATCH_SIZE}只）`);
 
-          // 异步缓存到数据库（不阻塞主流程）
-          stockDatabase.cacheStockPerformance(stockCode, baseDate, performance).catch(err => {
-            console.log(`[批量获取] 缓存${stockCode}失败:`, err);
+      // 逐批处理
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`[批量获取] 处理第${batchIndex + 1}/${batches.length}批，${batch.length}只股票`);
+
+        try {
+          const batchData = await getBatchStockDaily(batch, followUpDays);
+
+          // 将批量获取的数据存储到result和数据库缓存
+          batchData.forEach((performance, stockCode) => {
+            result.set(stockCode, performance);
+
+            // 异步缓存到数据库（不阻塞主流程）
+            stockDatabase.cacheStockPerformance(stockCode, baseDate, performance).catch(err => {
+              console.log(`[批量获取] 缓存${stockCode}失败:`, err);
+            });
           });
-        });
-      } catch (error) {
-        console.error(`[批量获取] API批量获取失败:`, error);
 
-        // 降级：为失败的股票填充0值
-        for (const stockCode of uncachedStocks) {
-          if (!result.has(stockCode)) {
-            const zeroData: Record<string, number> = {};
-            followUpDays.forEach(day => { zeroData[day] = 0; });
-            result.set(stockCode, zeroData);
+          console.log(`[批量获取] 第${batchIndex + 1}批完成`);
+        } catch (error) {
+          console.error(`[批量获取] 第${batchIndex + 1}批失败:`, error);
+
+          // 降级：为失败的股票填充0值
+          for (const stockCode of batch) {
+            if (!result.has(stockCode)) {
+              const zeroData: Record<string, number> = {};
+              followUpDays.forEach(day => { zeroData[day] = 0; });
+              result.set(stockCode, zeroData);
+            }
           }
+        }
+
+        // 批次间稍作延迟，避免API限流
+        if (batchIndex < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms延迟
         }
       }
     }
