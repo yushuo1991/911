@@ -409,7 +409,7 @@ function convertStockCodeForTushare(stockCode: string): string {
     return result;
   }
 
-  // 批量获取多只股票多个日期的数据
+  // v4.8.35修复：批量获取多只股票多个日期的数据（修复Tushare API调用方式）
   async function getBatchStockDaily(stockCodes: string[], tradeDates: string[]): Promise<Map<string, Record<string,
   number>>> {
     const result = new Map<string, Record<string, number>>();
@@ -425,86 +425,108 @@ function convertStockCodeForTushare(stockCode: string): string {
     try {
       console.log(`[批量API] 请求数据: ${stockCodes.length}只股票 × ${tradeDates.length}个交易日`);
 
-      // 频率控制
-      await rateController.checkAndWait();
-
-      // 构建批量查询参数 - 查询所有股票的所有日期
+      // v4.8.35修复：按日期循环查询，因为Tushare daily接口不支持ts_code传入逗号分隔的多个代码
+      // 每个日期查询一次，获取该日所有股票数据，然后过滤我们需要的
       const tsCodes = stockCodes.map(code => convertStockCodeForTushare(code));
+      const tsCodeSet = new Set(tsCodes); // 用于快速查找
 
-      // 修复：转换日期格式 YYYY-MM-DD -> YYYYMMDD
-      const tradeDatesFormatted = tradeDates.map(d => d.replace(/-/g, ''));
+      for (const tradeDate of tradeDates) {
+        // 频率控制
+        await rateController.checkAndWait();
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+        const tradeDateFormatted = tradeDate.replace(/-/g, '');
 
-      const response = await fetch('https://api.tushare.pro', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          api_name: 'daily',
-          token: TUSHARE_TOKEN,
-          params: {
-            ts_code: tsCodes.join(','),
-            start_date: Math.min(...tradeDatesFormatted.map(d => parseInt(d))).toString(),
-            end_date: Math.max(...tradeDatesFormatted.map(d => parseInt(d))).toString()
-          },
-          fields: 'ts_code,trade_date,pct_chg'
-        }),
-        signal: controller.signal
-      });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-      clearTimeout(timeoutId);
+        console.log(`[批量API] 查询日期: ${tradeDate} (${tradeDateFormatted})`);
 
-      if (!response.ok) {
-        throw new Error(`Tushare API HTTP error: ${response.status}`);
-      }
+        try {
+          const response = await fetch('https://api.tushare.pro', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              api_name: 'daily',
+              token: TUSHARE_TOKEN,
+              params: {
+                // v4.8.35修复：不传ts_code，只传trade_date，获取该日所有股票数据
+                trade_date: tradeDateFormatted
+              },
+              fields: 'ts_code,trade_date,pct_chg'
+            }),
+            signal: controller.signal
+          });
 
-      const data = await response.json();
+          clearTimeout(timeoutId);
 
-      // 检查频率限制
-      if (data.msg && data.msg.includes('每分钟最多访问该接口')) {
-        console.log(`[批量API] Tushare频率限制: ${data.msg}`);
-        throw new Error('RATE_LIMIT');
-      }
-
-      if (data.code === 0 && data.data && data.data.items) {
-        console.log(`[批量API] 获取到${data.data.items.length}条数据记录`);
-
-        // 解析数据
-        data.data.items.forEach((item: any[]) => {
-          const tsCode = item[0];
-          const tradeDateTushare = item[1]; // YYYYMMDD格式
-          const pctChg = parseFloat(item[2]) || 0;
-
-          // 转换回YYYY-MM-DD格式以匹配tradeDates
-          const tradeDateISO = `${tradeDateTushare.slice(0,4)}-${tradeDateTushare.slice(4,6)}-${tradeDateTushare.slice(6,8)}`;
-
-          // 转换回原始股票代码
-          const originalCode = stockCodes.find(code =>
-            convertStockCodeForTushare(code) === tsCode
-          );
-
-          if (originalCode && tradeDates.includes(tradeDateISO)) {
-            result.get(originalCode)![tradeDateISO] = pctChg;
+          if (!response.ok) {
+            console.log(`[批量API] ${tradeDate} HTTP错误: ${response.status}`);
+            continue;
           }
-        });
 
-        console.log(`[批量API] 成功解析数据，覆盖${stockCodes.length}只股票`);
-      } else {
-        console.log(`[批量API] API返回无效数据:`, data);
+          const data = await response.json();
+
+          // 检查频率限制
+          if (data.msg && data.msg.includes('每分钟最多访问该接口')) {
+            console.log(`[批量API] Tushare频率限制: ${data.msg}`);
+            throw new Error('RATE_LIMIT');
+          }
+
+          if (data.code === 0 && data.data && data.data.items) {
+            console.log(`[批量API] ${tradeDate} 获取到${data.data.items.length}条数据`);
+
+            // 解析数据，只保留我们需要的股票
+            let matchedCount = 0;
+            data.data.items.forEach((item: any[]) => {
+              const tsCode = item[0];
+              const pctChg = parseFloat(item[2]) || 0;
+
+              // 检查是否是我们需要的股票
+              if (tsCodeSet.has(tsCode)) {
+                // 转换回原始股票代码
+                const originalCode = stockCodes.find(code =>
+                  convertStockCodeForTushare(code) === tsCode
+                );
+
+                if (originalCode) {
+                  result.get(originalCode)![tradeDate] = pctChg;
+                  matchedCount++;
+                }
+              }
+            });
+
+            console.log(`[批量API] ${tradeDate} 匹配到${matchedCount}/${stockCodes.length}只目标股票`);
+          } else {
+            console.log(`[批量API] ${tradeDate} API返回无效数据:`, data);
+          }
+        } catch (dateError) {
+          const err = dateError as any;
+          if (err.name === 'AbortError') {
+            console.log(`[批量API] ${tradeDate} 请求超时`);
+          } else if (err.message === 'RATE_LIMIT') {
+            throw dateError;
+          } else {
+            console.log(`[批量API] ${tradeDate} 请求失败: ${dateError}`);
+          }
+        }
+
+        // 每个日期之间稍作延迟
+        if (tradeDates.indexOf(tradeDate) < tradeDates.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300)); // 300ms延迟
+        }
       }
+
+      console.log(`[批量API] 批量查询完成`);
 
     } catch (error) {
       const err = error as any;
-      if (err.name === 'AbortError') {
-        console.log(`[批量API] 请求超时`);
-      } else if (err.message === 'RATE_LIMIT') {
+      if (err.message === 'RATE_LIMIT') {
         console.log(`[批量API] 遇到频率限制`);
         throw error;
       } else {
-        console.log(`[批量API] 请求失败: ${error}`);
+        console.log(`[批量API] 整体请求失败: ${error}`);
       }
     }
 
