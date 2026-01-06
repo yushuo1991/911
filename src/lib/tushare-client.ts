@@ -120,9 +120,11 @@ class TushareClient {
         }
       );
 
+      // v4.8.34修复：正确映射Tushare trade_cal返回的字段
+      // 字段顺序：[0]exchange, [1]cal_date, [2]is_open, [3]pretrade_date
       const data = response.data.items.map((item) => ({
-        cal_date: item[0],
-        is_open: item[1],
+        cal_date: item[1],  // 修复：使用正确的字段索引
+        is_open: parseInt(item[2]) || 0,  // 修复：is_open是字符串'0'或'1'，需转换为数字
       }));
 
       // 存入缓存
