@@ -3572,13 +3572,13 @@ export default function Home() {
               📊 15天板块高度
             </button>
 
-            {/* 板块7天涨停排行按钮 */}
+            {/* 板块15天涨停排行按钮 */}
             <button
               onClick={() => setShowSectorRankingModal(true)}
               disabled={loading || !sevenDaysData}
               className="px-3 py-1.5 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 transition-colors disabled:opacity-50"
             >
-              🏆 7天涨停排行
+              🏆 15天涨停排行
             </button>
 
             {/* 刷新按钮 */}
@@ -3760,7 +3760,7 @@ export default function Home() {
               <li>• <span className="font-semibold">点击涨停数</span>: 按板块分组显示当天所有涨停个股，每个板块标题有📈K按钮可批量查看K线</li>
               <li>• <span className="font-semibold">排序模式</span>: 右上角可切换"连板排序"或"涨幅排序"，影响所有个股列表和K线显示顺序</li>
               <li>• <span className="font-semibold bg-yellow-100 px-1 rounded">分时图说明</span>: "📊今日分时"显示实时数据，"📷当日分时"显示历史快照（需数据库支持，如无快照会显示提示）</li>
-              <li>• 点击"7天涨停排行"查看板块强度排名（Top 5）</li>
+              <li>• 点击"15天涨停排行"查看板块强度排名（Top 5）</li>
               <li>• 点击股票名称可查看单独K线图</li>
               <li>• 可筛选只显示≥5个涨停的活跃板块</li>
             </ul>

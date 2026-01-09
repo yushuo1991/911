@@ -179,7 +179,7 @@ export default function Mobile7DayRankingModal({
     <MobileModal
       isOpen={isOpen}
       onClose={onClose}
-      title="🏆 7天涨停排行"
+      title="🏆 15天涨停排行"
       size="large"
     >
       <div className="p-4">

@@ -1,0 +1,41 @@
+#!/usr/bin/expect -f
+
+set password "gJ75hNHdy90TA4qGo9"
+set server "root@107.173.154.147"
+
+proc run_command {cmd desc} {
+    global password server
+
+    puts "\n======================================"
+    puts "$desc"
+    puts "======================================\n"
+
+    spawn ssh -o StrictHostKeyChecking=no $server "$cmd"
+    expect {
+        "password:" {
+            send "$password\r"
+            exp_continue
+        }
+        eof
+    }
+}
+
+puts "========================================"
+puts "服务器磁盘清理脚本"
+puts "========================================\n"
+
+run_command "df -h" "\[步骤1/5\] 检查磁盘使用情况"
+
+run_command "cd /www/wwwroot/stock-tracker && rm -rf .next node_modules backup log && echo '清理完成：.next, node_modules, backup, log'" "\[步骤2/5\] 清理旧的构建文件"
+
+run_command "npm cache clean --force && echo 'npm缓存已清理'" "\[步骤3/5\] 清理npm缓存"
+
+run_command "pm2 flush && echo 'PM2日志已清理'" "\[步骤4/5\] 清理PM2日志"
+
+run_command "cd /www/wwwroot/stock-tracker && git gc --aggressive --prune=now && echo 'Git垃圾回收完成'" "\[步骤5/5\] Git垃圾回收"
+
+run_command "df -h" "\[完成\] 检查清理后磁盘使用情况"
+
+puts "\n========================================"
+puts "清理完成！现在可以重新部署了"
+puts "========================================\n"
