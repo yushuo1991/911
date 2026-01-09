@@ -4,16 +4,18 @@ import { stockDatabase } from '@/lib/database';
 export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get('date');
-  const type = searchParams.get('type') || 'all'; // all, stocks, performance, 7days
+  const type = searchParams.get('type') || 'all'; // all, stocks, performance, 7days, all-performance
 
   try {
     let cleared = 0;
+    let details: string[] = [];
 
     if (type === 'all' || type === 'stocks') {
       // 清除涨停股票缓存
       if (date) {
         await stockDatabase.clearStockDataCache(date);
         cleared++;
+        details.push(`${date} 涨停股票缓存`);
         console.log(`[清除缓存] 已清除 ${date} 的涨停股票缓存`);
       }
     }
@@ -23,20 +25,31 @@ export async function POST(request: NextRequest) {
       if (date) {
         await stockDatabase.clearPerformanceCache(date);
         cleared++;
+        details.push(`${date} 股票表现缓存`);
         console.log(`[清除缓存] 已清除 ${date} 的股票表现缓存`);
       }
+    }
+
+    // v4.8.36新增：清除所有股票表现缓存（用于修复错误数据）
+    if (type === 'all-performance') {
+      const affectedRows = await stockDatabase.clearAllPerformanceCache();
+      cleared++;
+      details.push(`所有股票表现缓存 (${affectedRows}条)`);
+      console.log(`[清除缓存] 已清除所有股票表现缓存，共 ${affectedRows} 条记录`);
     }
 
     if (type === 'all' || type === '7days') {
       // 清除7天数据缓存
       await stockDatabase.clear7DaysCache();
       cleared++;
+      details.push('7天数据缓存');
       console.log(`[清除缓存] 已清除7天数据缓存`);
     }
 
     return NextResponse.json({
       success: true,
       message: `成功清除 ${cleared} 类缓存`,
+      details: details,
       date: date,
       type: type
     });

@@ -528,6 +528,24 @@ export class StockDatabase {
     }
   }
 
+  // v4.8.36新增：清除所有股票表现缓存（用于修复错误数据）
+  async clearAllPerformanceCache(): Promise<number> {
+    if (isDatabaseDisabled || !this.pool.execute) {
+      console.log('[数据库] 数据库已禁用或连接不可用');
+      return 0;
+    }
+
+    try {
+      const [result] = await this.pool.execute('DELETE FROM stock_performance');
+      const affectedRows = (result as any).affectedRows || 0;
+      console.log(`[数据库] 已清除所有股票表现缓存，共 ${affectedRows} 条记录`);
+      return affectedRows;
+    } catch (error) {
+      console.error(`[数据库] 清除所有股票表现缓存失败:`, error);
+      throw error;
+    }
+  }
+
   // v4.20.2新增：清除所有7天数据缓存
   async clear7DaysCache(): Promise<void> {
     if (isDatabaseDisabled || !this.pool.execute) {
